@@ -257,8 +257,36 @@ Synonym/Family Layer ───────┘     • Fuzzy lexical
 Optional `.env` (example):
 
 ```env
-TZ=Asia/Kolkata
-PYTHONUNBUFFERED=1
+# ========== API Keys ==========
+OPENAI_API_KEY=your_openai_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
+
+# ========== Behavior Toggles ==========
+USE_THREAD_WRAPPER=False
+AGENT_TIMEOUT_SEC=75
+
+# ========== Model Names ==========
+INTERPRETER_MODEL_NAME=gpt-4o-mini
+ORCHESTRATOR_MODEL_NAME=gpt-4o-mini
+WEB_MODEL_NAME=gpt-4o-mini
+LLM_FILTER_MODEL_NAME=gpt-4o-mini
+SEMANTIC_MATCHING_MODEL_NAME=gpt-4.1-nano
+
+# ========== Timeouts (seconds) ==========
+ROUTE_TIMEOUT_SEC=60
+MAX_TIMEOUT=60
+WEB_TIMEOUT_SEC=90
+OPENAI_HTTP_TIMEOUT=45
+WEB_TOOL_TIMEOUT=30
+
+# ========== Matching & Filters ==========
+FUZZY_SCORE_CUT_SCORE=90
+USE_KNEE_CUT_OFF=True
+KNEE_CUT_OFF=0.5
+
+# ========== UI / Logging ==========
+HEAD_VIEW_ROW_COUNT=50
+
 ```
 
 
@@ -302,8 +330,7 @@ Yes—CSV/JSON for Python/R/Excel workflows.
 * **Issues:** [https://github.com/abhi1238/biochirp/issues](https://github.com/abhi1238/biochirp/issues)
 * **Email:** [abhishekh@iiitd.ac.in](mailto:abhishekh@iiitd.ac.in)
 
-> Built for biological researchers who demand clarity. ([biochirp.iiitd.edu.in][1])
-
+> Built for biological researchers who demand clarity.
 ---
 
 ### Repro checklist (TL;DR)
