@@ -25,7 +25,7 @@
 
 * **Docker** (24+) and **Docker Compose v2**
 * **Optional (for embedding ingestion):** Jupyter Notebook / Python 3.10+
-* **Disk space:** ~10–15 GB for databases, embeddings, and Qdrant storage
+* **Disk space:** ~70–80 GB for databases, embeddings, and Qdrant storage
 
 ---
 
@@ -72,11 +72,9 @@ docker run -d \
 
 ---
 
-### 4) (Option A) Prebuilt embeddings → **Skip ingestion**
 
-If you placed `biochirp_embeddings.pkl` as shown above, **you can skip ingestion** and proceed to step 6.
 
-### 4) (Option B) Re-ingest embeddings (optional)
+### 4) Ingest embeddings
 
 Start Jupyter and run the notebook pipeline:
 
@@ -247,6 +245,3 @@ Yes—CSV/JSON for Python/R/Excel workflows.
 
 ---
 
-If you want, I can also split this into **README.md** + **docs/SETUP.md** (with GPU/CPU variants and screenshots).
-
-[1]: https://biochirp.iiitd.edu.in/ "BioChirp Biological Intelligence Hub"
