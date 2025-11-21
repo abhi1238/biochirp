@@ -94,7 +94,7 @@ docker network create --subnet=10.10.0.0/16 semantic_net
 
 ---
 
-### 6) Start Redis (for caching)
+### 6) Start Redis
 
 ```bash
 docker run -d \
@@ -129,17 +129,65 @@ deploy:
 
 ---
 
+Here’s a tighter, more explicit architecture section you can drop in:
+
+---
+
 ## 🧩 Architecture (microservices)
 
-* **Interpreter** → parses the query, expands synonyms, extracts biomedical entities
-* **Planner** → creates join/filter plans against curated tables
-* **Database services** → TTD, CTD, HCDT retrieval (each is its own service)
-* **Synonym & semantic matchers** → fuzzy match + transformer embeddings (separate services)
-* **Web/Literature** → augments with fresh citations when needed
-* **Summarizer** → LLM-only for summarizing validated tables
-* **Orchestrator** → coordinates services; logs provenance and citations end-to-end
+**High-level flow**
 
-All services run on a dedicated `semantic_net` for performance and reproducibility. The UI presents **auditable** answers with citations and stable schemas. ([biochirp.iiitd.edu.in][1])
+```
+User → Orchestrator → Interpreter → Planner
+         ↓                 ↓
+   Web/Literature   Synonym & Family Layer
+   (web, tavily)     (3 microservices)
+         ↓                 ↓
+   Matching Layer ←— Database Services
+ (fuzzy + embed +        (TTD, CTD, HCDT)
+ official APIs)                 ↓
+                     Summarizer (LLM-last) → UI (tables + citations)
+```
+
+**Role of each service**
+
+* **Orchestrator**
+  Coordinates the full toolchain, manages timeouts/retries, aggregates citations, and returns a single, auditable response.
+
+* **Interpreter**
+  Parses natural-language queries, extracts entities (genes/targets/diseases/drugs), and normalizes them for downstream tools.
+
+* **Planner**
+  Builds a join/filter plan against curated schemas (TTD/CTD/HCDT), chooses which tools to call, and in what order.
+
+* **Database services (3)**
+  Independent microservices for **TTD**, **CTD**, and **HCDT**. Each exposes schema-aware endpoints for fast, deterministic retrieval.
+
+* **Synonym & family layer (3 microservices)**
+  Dedicated services for (a) **synonyms**, (b) **gene/protein family members**, and (c) **ortholog/alias expansions** to maximize recall without drift.
+
+* **Matching layer (hybrid)**
+
+  * **Fuzzy search** for robust lexical matching
+  * **Embedding similarity** for semantic proximity (vector DB)
+  * **Official/curated APIs** where available to confirm IDs/names and avoid hallucinations
+    Results are merged with confidence signals and de-duplicated before planning/execution.
+
+* **Web/Literature enrichment (2 microservices)**
+
+  * **web**: general web retrieval & scraping wrapper
+  * **tavily**: focused search API wrapper
+    Used only when the curated databases don’t fully answer the question or to attach fresh citations.
+
+* **Summarizer (LLM-last)**
+  LLM is invoked **only** to summarize **validated** tables and citations into human-readable answers—never as a primary source of facts.
+
+**Runtime characteristics**
+
+* All services are Dockerized and communicate over the isolated `semantic_net` for predictable networking and reproducibility.
+* Each service exposes a small, versioned FastAPI surface (health, query, and schema-aware endpoints).
+* Provenance is captured **tool-by-tool** (inputs, outputs, and citation set) so UI can show **auditable** tables with stable columns and downloadable CSV/JSON.
+
 
 ---
 
@@ -161,7 +209,6 @@ All services run on a dedicated `semantic_net` for performance and reproducibili
 
 * You need **trustworthy, citable** drug–target–disease answers.
 * You want **structured tables** aligned to TTD/CTD/HCDT with reproducible provenance.
-* You need **fresh** supplemental web/literature evidence, ranked and deduplicated. ([biochirp.iiitd.edu.in][1])
 
 **Not ideal for…**
 
@@ -182,12 +229,6 @@ TZ=Asia/Kolkata
 PYTHONUNBUFFERED=1
 ```
 
----
-
-## 🧾 Exports & auditability
-
-* Download results as **CSV/JSON**.
-* Inspect raw tool outputs and citations per step (provenance panel in UI). ([biochirp.iiitd.edu.in][1])
 
 ---
 
