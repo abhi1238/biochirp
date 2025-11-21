@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BioChirp Help & Documentation</title>
+
+  <!-- Tailwind CDN -->
+  <link rel="preconnect" href="https://cdn.tailwindcss.com">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ["Inter","ui-sans-serif","system-ui","Segoe UI","Roboto","Helvetica","Arial","sans-serif"],
+          },
+          colors: {
+            bio: {50:'#EDF8FF',100:'#D7F0FF',200:'#ADE2FF',300:'#7CD0FF',400:'#4EBBFF',500:'#1FA4FF',600:'#147DCC',700:'#0E5EA0',800:'#0A4476',900:'#082F53'},
+            leaf:'#22C55E',
+            plum:'#A78BFA',
+            amber:'#F59E0B'
+          },
+          boxShadow:{
+            glow:'0 0 0 2px rgba(31,164,255,.25), 0 12px 40px rgba(0,0,0,.35)'
+          },
+          animation:{ gradient:'gradient 16s ease infinite' },
+          keyframes:{
+            gradient:{
+              '0%,100%':{backgroundPosition:'0% 50%'},
+              '50%':{backgroundPosition:'100% 50%'}
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Dark + light theme tokens */
+    :root[data-theme="dark"]  {
+      --bg:#070A15;
+      --card:#0B1222;
+      --muted:#9FB0C4;
+      --text:#E6F2FF;
+      --border:rgba(255,255,255,.10);
+      --hover:rgba(255,255,255,.06);
+    }
+    :root[data-theme="light"] {
+      /* Slight lavender background for separation */
+      --bg:#EEF3FF;
+      --card:#FFFFFF;
+      --muted:#4B5563;
+      --text:#0B1624;
+      --border:rgba(15,23,42,.10);
+      --hover:rgba(15,23,42,.04);
+    }
+
+    html,body{height:100%}
+
+    /* Slightly larger global font + bump small sizes */
+    body{
+      font-size:15px;
+      line-height:1.6;
+    }
+    @media (min-width:768px){
+      body{ font-size:16px; }
+    }
+    .text-sm{
+      font-size:0.95rem;
+      line-height:1.6;
+    }
+    .text-xs{
+      font-size:0.8rem;
+      line-height:1.5;
+    }
+
+    .gradient-bg{
+      background:
+        radial-gradient(circle at 10% 20%, rgba(79,70,229,.16) 0%, transparent 50%),
+        radial-gradient(circle at 90% 0%,  rgba(34,197,94,.14) 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(167,139,250,.12) 0%, transparent 55%);
+      background-size:200% 200%;
+      animation:gradient 18s ease infinite;
+    }
+    @media (prefers-reduced-motion: reduce){
+      .gradient-bg{ animation:none !important; }
+    }
+
+    .dna-bg{
+      position:absolute;
+      inset:0;
+      opacity:.08;
+      pointer-events:none;
+      z-index:-1;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      box-shadow:0 18px 45px rgba(15,23,42,.08);
+    }
+
+    .card-hover{
+      transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+    .card-hover:hover{
+      transform: translateY(-3px);
+      box-shadow:0 20px 55px rgba(15,23,42,.18);
+      border-color:rgba(79,70,229,.45);
+    }
+
+    .chip{
+      background:linear-gradient(135deg, rgba(31,164,255,.16), rgba(167,139,250,.16));
+      border:1px solid var(--border);
+    }
+
+    .btn{ transition: transform .15s ease }
+    .btn:active{ transform: translateY(1px) scale(.99) }
+
+    .status-dot{ width:10px; height:10px; border-radius:9999px }
+
+    .link-ghost{
+      border:1px solid var(--border);
+      padding:.5rem .75rem;
+      border-radius:.5rem;
+    }
+    .link-ghost:hover{ background:var(--hover) }
+
+    .cv{
+      content-visibility:auto;
+      contain-intrinsic-size:800px 1200px;
+    }
+    @media (max-width:768px){
+      .cv{ contain-intrinsic-size:1200px 1600px }
+    }
+
+    .prose-block code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+      background: rgba(15,23,42,.07);
+      padding: 0.12rem 0.3rem;
+      border-radius: 0.25rem;
+    }
+    :root[data-theme="dark"] .prose-block code{
+      background: rgba(15,23,42,.7);
+    }
+  </style>
+</head>
+
+<body class="min-h-full font-display text-[--text] bg-[--bg] gradient-bg">
+
+  <!-- Subtle DNA overlay -->
+  <svg class="dna-bg" viewBox="0 0 1200 600" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="helix" x1="0" x2="1">
+        <stop offset="0%" stop-color="#1FA4FF"/>
+        <stop offset="100%" stop-color="#A78BFA"/>
+      </linearGradient>
+    </defs>
+    <g fill="none" stroke="url(#helix)" stroke-width="2">
+      <path d="M100,100 C300,20 500,20 700,100 S1100,180 1200,100"/>
+      <path d="M100,500 C300,580 500,580 700,500 S1100,420 1200,500"/>
+      <path d="M400,60 V 540" opacity=".4"/>
+      <path d="M800,60 V 540" opacity=".4"/>
+    </g>
+  </svg>
+
+  <!-- HEADER (logo + theme toggle only) -->
+  <header class="fixed top-0 inset-x-0 z-40 backdrop-blur bg-[--bg]/80 border-b border-[--border]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+      <a class="flex items-center gap-3" href="/">
+        <div class="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-glow">
+          <img src="/assets/brand/logo.svg" alt="BioChirp logo" class="h-7 w-7 object-contain"/>
+        </div>
+        <div>
+          <div class="text-xl font-semibold tracking-tight">BioChirp</div>
+          <div class="text-xs text-[--muted] -mt-0.5">Biological Intelligence Hub</div>
+        </div>
+      </a>
+      <div class="flex items-center gap-2">
+        <button id="themeToggle" class="p-2 rounded-lg border border-[--border] hover:bg-[--hover]" title="Toggle theme">
+          <svg id="iconDark" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+          <svg id="iconLight" class="w-5 h-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
+      <div class="grid lg:grid-cols-[260px,minmax(0,1fr)] gap-8">
+
+        <!-- LEFT NAV / INDEX -->
+        <aside class="hidden lg:block">
+          <div class="card rounded-2xl p-4 sticky top-24 text-sm">
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="font-semibold text-sm">Help Index</h2>
+              <span class="text-[0.7rem] px-2 py-0.5 rounded-full bg-bio-500/10 border border-bio-500/40 text-bio-700">
+                BioChirp v1
+              </span>
+            </div>
+            <nav class="space-y-1 text-[--muted]">
+              <a href="#overview"        class="block px-2 py-1 rounded hover:bg-[--hover]">1. Overview</a>
+              <a href="#quickstart"      class="block px-2 py-1 rounded hover:bg-[--hover]">2. Quick start</a>
+              <a href="#questions"       class="block px-2 py-1 rounded hover:bg-[--hover]">3. Asking good questions</a>
+              <a href="#data"            class="block px-2 py-1 rounded hover:bg-[--hover]">4. Data & sources</a>
+              <a href="#answers"         class="block px-2 py-1 rounded hover:bg-[--hover]">5. Understanding answers</a>
+              <a href="#limits"          class="block px-2 py-1 rounded hover:bg-[--hover]">6. Scope & limitations</a>
+              <a href="#troubleshooting" class="block px-2 py-1 rounded hover:bg-[--hover]">7. Troubleshooting</a>
+              <a href="#faq"             class="block px-2 py-1 rounded hover:bg-[--hover]">8. FAQ</a>
+              <a href="#contact"         class="block px-2 py-1 rounded hover:bg-[--hover]">9. Contact & support</a>
+            </nav>
+          </div>
+        </aside>
+
+        <!-- RIGHT CONTENT -->
+        <section class="space-y-8">
+
+          <!-- OVERVIEW -->
+          <section id="overview" class="card rounded-2xl p-6 md:p-8">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div class="max-w-2xl">
+                <h1 class="text-2xl md:text-3xl font-bold mb-2">
+                  BioChirp Help & Documentation
+                </h1>
+                <p class="text-[--muted]">
+                  BioChirp is a biological intelligence hub that combines LLM reasoning with curated
+                  drug–target–disease databases and real-time web search. This page explains how to use it safely,
+                  interpret answers, and troubleshoot issues.
+                </p>
+              </div>
+              <div class="flex flex-col items-end gap-2 text-xs text-[--muted]">
+                <div class="flex items-center gap-2">
+                  <span class="h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                  <span>Core services: Online</span>
+                </div>
+                <div>Last updated: <span id="lastUpdated">2025-11-17</span></div>
+              </div>
+            </div>
+
+            <div class="mt-6 grid md:grid-cols-3 gap-4 text-sm">
+              <div class="rounded-xl border border-bio-500/40 bg-bio-500/5 p-4">
+                <h3 class="font-semibold mb-1 text-bio-800">What BioChirp focuses on</h3>
+                <p class="text-[--muted]">
+                  Drug–target–disease relationships, mechanisms of action, biomarkers, pathways, gene associations and
+                  approval status, with structured, auditable outputs.
+                </p>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/50 p-4">
+                <h3 class="font-semibold mb-1">Who it is for</h3>
+                <p class="text-[--muted]">
+                  BioChirp enables researchers, students, and clinicians to access the complete landscape of biomedical associations (drug–target, gene–disease, pathways, and more) across entire datasets. Unlike standard LLMs, which often provide only partial, summarized information due to context limits, BioChirp delivers structured, verifiable results with deeper insights and transparent evidence beyond simple text summaries.
+                </p>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/50 p-4">
+                <h3 class="font-semibold mb-1 text-amber-500">Important safety notice</h3>
+                <p class="text-[--muted]">
+                  BioChirp is a research assistant, not a medical device. It must not be used for
+                  emergency care or as a sole basis for clinical decisions.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- QUICK START -->
+          <section id="quickstart" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-2">1. Quick start</h2>
+            <p class="text-[--muted] mb-4">
+              If you are opening BioChirp for the first time, follow these steps to get a reliable,
+              auditable answer in under a minute.
+            </p>
+
+            <ol class="list-decimal pl-5 space-y-2 text-sm">
+              <li>
+                <span class="font-semibold">Open the chat:</span>
+                Go to <code class="prose-block">Start Chatting</code> from the top navigation.
+              </li>
+              <li>
+                include at least one of: drug, target/gene, disease, pathway, biomarker,
+                mechanism of action or approval status.
+              </li>
+              <li>
+                <span class="font-semibold">Add context if you care about filters:</span>
+                for example: “for multiple myeloma”, “approved in ADHD”, “associated with fever”.
+              </li>
+              <li>
+                <span class="font-semibold">Send the query and wait for the orchestrated answer:</span>
+                BioChirp sequentially uses its interpreter, biomedical databases, and web/literature search—selecting the most relevant tool based on your question’s scope.
+              </li>
+              <li>
+                <span class="font-semibold">Review detailed, structured results:</span>
+                Each tool’s output is clearly labeled so you can trace and audit every step. If your question matches BioChirp’s biomedical scope, you’ll get a comprehensive association table directly from curated databases. For broader topics, web and literature sources are included. All results are transparent, verifiable, and available for download (CSV/JSON), making it easy to review or identify any discrepancies.
+              </li>
+            </ol>
+
+            <div class="mt-5 grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4 prose-block">
+                <h3 class="font-semibold mb-1 text-[0.95rem]">Good starting queries</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li><code>List PARP inhibitors used to treat ovarian cancer</code></li>
+                  <li><code>Targets involved in the NF-kappa-B pathway</code></li>
+                  <li><code>Biomarkers relevant to ADHD</code></li>
+                  <li><code>Approved drugs targeting EGFR in non-small cell lung cancer</code></li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4 prose-block">
+                <h3 class="font-semibold mb-1 text-[0.95rem]">Queries that may fail or be routed to web</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li><code>Is this patient curable?</code> → out of scope, clinical judgement only.</li>
+                  <li><code>Should I stop this drug?</code> → BioChirp will not give treatment decisions.</li>
+                  <li>
+                    <code>Negative / “not” questions</code> (e.g. “drugs that do not cause X”) are usually
+                    routed to web search because databases rarely encode negative evidence.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- ASKING GOOD QUESTIONS -->
+          <section id="questions" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">2. Asking good questions</h2>
+            <p class="text-[--muted] mb-4">
+              BioChirp performs best when you tell it <span class="font-semibold">what kind of entity you care about</span>
+              and <span class="font-semibold">how you want the result organized</span>.
+            </p>
+
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4 prose-block">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Specify intent explicitly</h3>
+                <p class="text-[--muted] mb-2">
+                  Use phrases like “list targets”, “find biomarkers”, “show pathways”.
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li><code>List drug–target pairs for HER2-positive breast cancer</code></li>
+                  <li><code>Show pathways associated with TNF in inflammatory diseases</code></li>
+                  <li><code>Provide biomarkers with evidence for early detection of pancreatic cancer</code></li>
+                </ul>
+                <p class="text-xs text-amber-600 mt-3">
+                  <span class="font-semibold">Note:</span>
+                  BioChirp only returns association relations that exist in its curated databases. Some advanced filters (e.g. “early detection”) may not be supported if corresponding associations are not available in the source data/ biochirp scope.
+                </p>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4 prose-block">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Add filters when needed</h3>
+                <p class="text-[--muted] mb-2">
+                  You can include simple constraints, which the planner will translate into database filters where possible.
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li><code>only approved drugs</code> / <code>experimental</code></li>
+                  <li><code>for multiple myeloma</code> / <code>for fever</code></li>
+                  <li><code>targeting JAK family</code></li>
+                </ul>
+              </div>
+            </div>
+
+
+            <div class="mt-5 rounded-xl border border-bio-500/60 bg-bio-500/5 p-4 text-xs text-[--muted]">
+              <h3 class="font-semibold mb-1 text-bio-800">How the Interpreter uses your query</h3>
+              <p class="mb-1">
+                The Interpreter normalizes acronyms, expands obvious synonyms (e.g. “tb” → “tuberculosis”),
+                and fills a structured dictionary with fields such as <code>drug_name</code>,
+                <code>target_name</code>, <code>disease_name</code>, <code>pathway_name</code>,
+                <code>biomarker_name</code> and <code>approval_status</code>.
+              </p>
+              <p>
+                If your query is too vague or purely clinical, without clear biomedical entities or relations, BioChirp automatically routes it to the web and literature search tools, since database lookup requires explicit, mappable entities.
+              </p>
+            </div>
+          </section>
+
+          <!-- DATA & SOURCES -->
+          <section id="data" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">3. Data & sources</h2>
+            <p class="text-[--muted] mb-4">
+              BioChirp is designed as a <span class="font-semibold">“Database-GPT”</span> for drug–target–disease questions.
+              For biomedical queries, the orchestrator follows a strict order of tools and databases.
+            </p>
+<!-- 
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Curated databases</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li><span class="font-semibold">TTD (Therapeutic Target Database):</span> drug–target–disease relationships and target classes.</li>
+                  <li><span class="font-semibold">CTD (Comparative Toxicogenomics Database):</span> chemical–gene–disease interactions and environmental exposures.</li>
+                  <li><span class="font-semibold">HCDT (Highly Confident Drug–Target Database):</span> validated drug–target pairs with strong evidence.</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Web & literature layer</h3>
+                <p class="text-[--muted] mb-2">
+                  For topics not fully covered by the databases/ scope of BioChirp or for time-sensitive questions,
+                  BioChirp can call:
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>a generic web search micro-service (e.g. for guidelines or news), and</li>
+                  <li>a Tavily-like focused search service for recent biomedical literature.</li>
+                </ul>
+                <p class="text-[--muted] mt-2">
+                  Web-derived content is always marked, summarized and grounded with links when available.
+                </p>
+              </div>
+            </div> -->
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Curated database sources</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>
+                    <span class="font-semibold">TTD (Therapeutic Target Database):</span> drug–target–disease associations and target classes.
+                  </li>
+                  <li>
+                    <span class="font-semibold">CTD (Comparative Toxicogenomics Database):</span> chemical–gene–disease interactions and environmental exposures.
+                  </li>
+                  <li>
+                    <span class="font-semibold">HCDT (Highly Confident Drug–Target Database):</span> validated drug–target pairs with strong supporting evidence.
+                  </li>
+                </ul>
+                <p class="text-xs text-amber-600 mt-3">
+                  <span class="font-semibold">Note:</span>
+                  BioChirp answers biomedical association queries using these databases whenever possible for maximum reliability and traceability.
+                </p>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Web & literature integration</h3>
+                <p class="text-[--muted] mb-2">
+                  If a query falls outside the scope of these databases or needs the latest evidence, BioChirp will automatically supplement with:
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>A general web search micro-service (for guidelines, official sources, or recent updates)</li>
+                  <li>A Tavily-like biomedical literature search for the most up-to-date scientific findings</li>
+                </ul>
+                <p class="text-[--muted] mt-2">
+                  All web- or literature-derived answers are clearly labeled and include references or links when available.
+                </p>
+              </div>
+            </div>
+
+
+            <!-- <div class="mt-5 rounded-xl border border-bio-500/60 bg-bio-500/5 p-4 text-sm prose-block">
+              <h3 class="font-semibold mb-2 text-bio-800">How BioChirp is different from a traditional LLM</h3>
+              <p class="text-[--muted] mb-2">
+                Most chatbots answer directly from the LLM’s internal training data, sometimes with a simple
+                web search or RAG. BioChirp inverts this pattern: the <span class="font-semibold">source of truth is the database layer</span>, and the LLM is used primarily as a controlled interface to interpret queries and organize results from these databases.
+              </p>
+              <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                <li><span class="font-semibold">No “LLM knowledge base” answers:</span> BioChirp does not rely on the model’s
+                  parametric memory for drug–target–disease facts. It first tries to answer from Therapeutic Target Database, Comparative Toxicogenomics Database and Highly Confident Drug–Target Database.</li>
+                <li><span class="font-semibold">LLM for understanding, not guessing:</span> the LLM is used to understand the query,
+                  normalize rare or noisy terms to canonical ones, and map them onto database schema fields
+                  (e.g. <code>drug_name</code>, <code>target_name</code>, <code>disease_name</code>).</li>
+                <li><span class="font-semibold">Synonyms & families via hybrid search:</span> BioChirp combines fuzzy string matching,
+                  deep-learning embeddings with <span class="font-semibold">dynamic similarity cut-offs</span> and official APIs
+                  to expand synonyms and family members.</li>
+                <li><span class="font-semibold">Graph-based planning:</span> once the entities are normalized, a graph traversal
+                  algorithm constructs a join and filtering plan across tables so that only relevant relations
+                  are queried to answer your question.</li>
+                <li><span class="font-semibold">LLM only at the edges:</span> if a structured answer is found, BioChirp returns
+                  database rows and uses the LLM purely as a <span class="italic">summarizer</span> over those rows.</li>
+              </ul>
+              <p class="text-[--muted] mt-2">
+                Only when the curated databases cannot answer your question will BioChirp fall back to web
+                or literature search, and that content is clearly marked as such.
+              </p>
+            </div> -->
+
+
+            <div class="mt-5 rounded-xl border border-bio-500/60 bg-bio-500/5 p-4 text-sm prose-block">
+              <h3 class="font-semibold mb-2 text-bio-800">How BioChirp is different from traditional LLMs</h3>
+              <p class="text-[--muted] mb-2">
+                Most chatbots answer directly from the LLM’s internal training data, sometimes using simple web search or RAG. BioChirp inverts this approach: the <span class="font-semibold">source of truth is the database layer</span>. The LLM acts as a precise interface to interpret queries, expand terms, and organize results from these databases.
+              </p>
+              <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                <li>
+                  <span class="font-semibold">No “LLM knowledge base” answers:</span> BioChirp does not rely on model memory for biomedical facts. Instead, it first queries trusted databases: Therapeutic Target Database (TTD), Comparative Toxicogenomics Database (CTD), and Highly Confident Drug–Target Database (HCDT).
+                </li>
+                <li>
+                  <span class="font-semibold">LLM for understanding, not guessing:</span> The LLM interprets your question, normalizes synonyms and acronyms, and maps terms to database fields like <code>drug_name</code>, <code>target_name</code>, and <code>disease_name</code>.
+                </li>
+                <li>
+                  <span class="font-semibold">Hybrid synonym and family search:</span> BioChirp combines fuzzy matching, deep-learning embeddings, and official APIs for robust synonym and family member expansion.
+                </li>
+                <li>
+                  <span class="font-semibold">Graph-based planning:</span> A graph traversal algorithm builds a join/filter plan so that only relevant associations from the database are retrieved.
+                </li>
+                <li>
+                  <span class="font-semibold">LLM only for summarization:</span> When structured results are available, the LLM is used only to summarize the database output—not to generate new facts.
+                </li>
+              </ul>
+              <p class="text-[--muted] mt-2">
+                <span class="font-semibold">Note:</span> If your query cannot be answered using BioChirp’s in-scope database fields, the system will fall back to web and literature search, similar to general LLM tools. However, BioChirp is designed to prioritize authoritative biomedical sites and primary literature, not generic web results, ensuring higher trust and transparency in every answer.
+              </p>
+            </div>
+
+
+            <div class="mt-5 rounded-xl border border-[--border] bg-[--bg]/60 p-4 text-xs text-[--muted]">
+              <h3 class="font-semibold mb-1 text-[0.95rem]">Execution order (for valid biomedical queries)</h3>
+              <ol class="list-decimal pl-5 space-y-1">
+                <li>Interpreter & synonym/family tools (normalize entities).</li>
+                <li>Planner (graph-based join and filter plan across tables).</li>
+                <li><span class="font-semibold">TTD → CTD → HCDT</span> (always in this order for structured data).</li>
+                <li>Optional web / Tavily calls if more context is needed.</li>
+                <li>Summarizer (produce a friendly, traceable answer from the final tables).</li>
+              </ol>
+            </div>
+          </section>
+
+          <!-- UNDERSTANDING ANSWERS -->
+          <section id="answers" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">4. Understanding BioChirp answers</h2>
+            <p class="text-[--muted] mb-4">
+              Answers are designed to be short, inspectable and reproducible. Most responses have two layers:
+              a human-readable explanation and a machine-readable table.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm prose-block">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Narrative section</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>1–3 short paragraphs describing how the query was interpreted, which databases were used,
+                    and how many rows were found.</li>
+                  <li>Key entities such as drug names, targets, and diseases are often highlighted.</li>
+                  <li>Limitations or missing data are explicitly mentioned instead of being silently guessed.</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Tabular / structured section</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Stable column names (e.g. <code>drug_name</code>, <code>target_name</code>, <code>disease_name</code>, <code>evidence_source</code>, <code>approval_status</code>).</li>
+                  <li>Preview of the first N rows in the chat interface.</li>
+                  <li>Download options (CSV / JSON) when enabled in your deployment.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-xl border border-bio-500/60 bg-bio-500/5 p-4 text-xs text-[--muted]">
+              <h3 class="font-semibold mb-1 text-bio-800">Provenance & reproducibility</h3>
+              <ul class="list-disc pl-4 space-y-1">
+                <li>Each micro-service call (interpreter, planner, TTD, CTD, HCDT, web, Tavily) can be logged
+                  with its exact inputs and outputs for audit trails.</li>
+                <li>If something looks wrong, you can re-run the same query and compare tool-level JSON to debug.</li>
+              </ul>
+            </div>
+          </section>
+
+          <!-- SCOPE & LIMITATIONS -->
+          <section id="limits" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">5. Scope & limitations</h2>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">What BioChirp is designed to do</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Map drug–target–disease relationships, including approval status, pathways, and biomarkers using curated databases.</li>
+                  <li>Provide mechanistic or pathway-level overviews with citations from trusted sources.</li>
+                  <li>Summarize recent literature related to specific biomedical entities.</li>
+                  <li>Export structured data in formats suitable for further analysis in Python, R, or Excel.</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem] text-amber-500">What BioChirp will not do</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Provide personal medical advice, diagnosis, or treatment recommendations.</li>
+                  <li>Replace clinical guidelines, specialist judgment, or regulatory documents.</li>
+                  <li>Guarantee completeness for newly approved drugs, rare diseases, or off-label uses.</li>
+                  <li>Occasionally fail to fully understand the query, leading to incorrect results. However, each tool’s output is clearly explained in layman's terms, and users can audit each step to identify discrepancies.</li>
+                  <li>Reliably handle negation-based queries (e.g., "drugs that do <span class="italic">not</span> cause X"); such queries are better suited for web or literature search.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-xl border border-[--border] bg-[--bg]/60 p-4 text-xs text-[--muted]">
+              <h3 class="font-semibold mb-1 text-[0.95rem]">Bias, Uncertainty & Conflicting Sources</h3>
+              <ul class="list-disc pl-4 space-y-1">
+                <li>BioChirp prioritizes curated database entries, but conflicting information across databases will be highlighted for transparency.</li>
+                <li>If evidence is weak or limited, the summary will explicitly state it, ensuring you are aware of any uncertainty in the data.</li>
+                <li>For critical findings, always cross-check against the original databases or primary literature to verify accuracy.</li>
+              </ul>
+          </div>
+
+          </section>
+
+          <!-- TROUBLESHOOTING -->
+          <section id="troubleshooting" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">6. Troubleshooting & common issues</h2>
+            <p class="text-[--muted] mb-4">
+              If BioChirp behaves unexpectedly, use the hints below to understand which micro-service may be involved.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm prose-block">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">“Your query is invalid or too vague”</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>The Interpreter could not confidently extract any drug, target, disease,
+                    pathway or biomarker.</li>
+                  <li>Try adding at least one explicit entity and desired relation, e.g.
+                    <code>drugs targeting JAK2 in myelofibrosis</code>.</li>
+                  <li>Avoid purely clinical descriptions without drug terms etc.</li>
+                </ul>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">“No rows found in TTD / CTD / HCDT”</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>The databases may genuinely not contain your query combination (e.g. very new indication).</li>
+                  <li>Check spelling and try a more generic formulation (e.g. disease family instead of subtype).</li>
+                  <li>BioChirp may still return web/literature summaries, but these will be clearly marked as such.</li>
+                </ul>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Service unreachable / timeout</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>One of the micro-services (e.g. TTD, CTD, HCDT, web, Tavily) may be temporarily down.</li>
+                  <li>Try again in a few minutes; if the issue persists, send the error message and timestamp to support.</li>
+                  <li>Check the service health status to verify if all services are online and functioning properly.</li>
+                </ul>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Answer looks inconsistent or suspicious</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Cross-check the cited rows against the original database or paper.</li>
+                  <li>Re-run the query with slightly different wording to see if the same pattern appears.</li>
+                  <li>If you can, inspect the underlying JSON for the Interpreter, Planner and database responses.</li>
+                  <li>Report clearly with examples so the team can adjust filters or prompts.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- FAQ -->
+          <section id="faq" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">7. Frequently asked questions</h2>
+
+            <div class="space-y-4 text-sm text-[--muted]">
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  How is BioChirp different from ChatGPT or other general LLMs?
+                </summary>
+                <p class="mt-2">
+                  General LLMs answer directly from their internal training data and, in some cases, from simple web or
+                  RAG search. BioChirp, in contrast, treats curated databases (TTD, CTD, HCDT) as the primary source of truth.
+                  The LLM is used mainly to understand your query, normalize terms, map them onto database schemas, set
+                  dynamic similarity cut-offs, and summarize the resulting tables. This “database-first, LLM-last” design
+                  reduces hallucinations and makes answers easier to audit.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  If BioChirp reduces hallucination, why can its responses still vary like an LLM?
+                </summary>
+                <p class="mt-2">
+                  BioChirp minimizes hallucinations by grounding all core answers in structured database rows. Final summaries are generated from the “head view” (top 50 rows) of the complete results table, so context-length limitations rarely apply.
+                </p>
+                <p class="mt-2">
+                  However, minor variations can still occur, mainly in the synonym and family member expansion step. BioChirp uses three complementary processes:
+                </p>
+                <ul class="list-disc pl-5 space-y-1 mt-2">
+                  <li>
+                    <span class="font-semibold">Fuzzy search:</span> Always returns reproducible results for a given input.
+                  </li>
+                  <li>
+                    <span class="font-semibold">Official APIs (e.g., PubChem, HGNC):</span> Provide consistent results across runs, as long as the external API services are available and unchanged.
+                  </li>
+                  <li>
+                    <span class="font-semibold">Semantic transformer embeddings:</span> This method uses dynamic similarity thresholds and an LLM-based false-positive filter, which can occasionally introduce minor differences in the set of returned synonyms or family members between runs.
+                  </li>
+                </ul>
+                <p class="mt-2">
+                  These factors can sometimes lead to small, non-deterministic changes in the complete association list, but overall, BioChirp remains much more consistent and auditable than standard LLM-based tools.
+                </p>
+              </details>
+
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  What databases does BioChirp have access to?
+                </summary>
+                <p class="mt-2">
+                  BioChirp is directly integrated with several authoritative, curated biomedical databases, including:
+                </p>
+                <ul class="list-disc pl-5 space-y-1 mt-2">
+                  <li>
+                    <span class="font-semibold">TTD (Therapeutic Target Database):</span> Comprehensive resource for drug–target–disease relationships and target classes.
+                  </li>
+                  <li>
+                    <span class="font-semibold">CTD (Comparative Toxicogenomics Database):</span> Chemical–gene–disease interactions and information on environmental exposures.
+                  </li>
+                  <li>
+                    <span class="font-semibold">HCDT (Highly Confident Drug–Target Database):</span> High-confidence drug–target associations with strong supporting evidence.
+                  </li>
+                </ul>
+                <p class="mt-2">
+                  When relevant associations are not found in these databases, BioChirp can supplement answers using trusted web and biomedical literature sources, which are always clearly labeled and kept separate from database results.
+                </p>
+              </details>
+
+
+              <!-- <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Does BioChirp use RAG over PDFs or unstructured notes?
+                </summary>
+                <p class="mt-2">
+                  The core BioChirp pipeline does not rely on classic RAG over PDFs or free-text documents.
+                  Instead, it uses a graph-based query planner over relational biomedical tables, plus hybrid
+                  synonym and family-member search to reconcile vocabulary differences. Web or literature tools
+                  can be invoked when databases are insufficient, but those results are clearly labeled and kept
+                  separate from curated database output.
+                </p>
+              </details> -->
+<!-- 
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  How does BioChirp reduce hallucinations and response variance?
+                </summary>
+                <p class="mt-2">
+                  BioChirp limits where the LLM is allowed to “be creative”. The Interpreter and Planner
+                  must produce structured dictionaries and plans that either match database schema or fail.
+                  Entity expansion uses fuzzy search and embeddings with LLM-based filters and dynamic similarity
+                  thresholds, but the final rows still come from the databases. If no rows are found, BioChirp
+                  prefers to say “no result” rather than invent new associations.
+                </p>
+              </details> -->
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  How does BioChirp reduce hallucinations and response variance?
+                </summary>
+                <p class="mt-2">
+                  BioChirp restricts where the LLM can introduce uncertainty by enforcing a strict structure. The Interpreter and Planner
+                  must generate dictionaries and join-plans that match the underlying database schema; if they fail to map cleanly,
+                  the system does not guess and instead requests clarification or routes the query elsewhere.
+                </p>
+                <p class="mt-2">
+                  For entity expansion, BioChirp combines fuzzy search and deep-learning embeddings similarity, along with LLM based selection, with results from <span class="font-semibold">
+                  official biomedical APIs</span> (e.g., PubChem, HGNC/HUGO, OpenTargets) to retrieve standardized synonyms and family members.
+                  These expansions are then filtered with dynamic similarity thresholds so only well-supported candidates are included.
+                </p>
+                <p class="mt-2">
+                  Even with synonym/family expansion, the final associations always come directly from curated databases. If no rows are found
+                  or if the query falls outside BioChirp’s database scope, the system will not fabricate relations—it clearly returns “no result.”
+                </p>
+                <p class="mt-2">
+                  When database results are unavailable, BioChirp falls back to web and literature search using trusted biomedical sources
+                  through its Tavily-like search layer. This ensures the answer remains grounded in reputable, verifiable resources rather than
+                  random web pages.
+                </p>
+              </details>
+
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Does BioChirp update its backend data when the source databases release new versions?
+                </summary>
+                <p class="mt-2">
+                  BioChirp currently operates on offline, locally downloaded snapshots of curated biomedical databases. We plan to update these datasets periodically—typically once a year or as needed based on major upstream releases or user requirements.
+                </p>
+                <p class="mt-2">
+                  Any significant updates to the underlying data or system will be announced so users remain aware of version changes and improvements.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Can I export results for downstream analysis?
+                </summary>
+                <p class="mt-2">
+                  BioChirp allows you to export results in CSV or JSON formats when the query falls within the scope of the available biomedical data. The columns and entity names are designed to be stable, making it easy to integrate the data into your own analysis pipelines.
+                </p>
+                <p class="mt-2">
+                  If you use BioChirp's services, please be sure to cite us as part of your work to acknowledge the platform and its data.
+                </p>
+              </details>
+
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Is user-identifiable data stored?
+                </summary>
+                <p class="mt-2">
+                  BioChirp is designed to operate without requiring user logins, ensuring that no user-identifiable data is stored. User privacy is prioritized, and we do not collect any personal information during interactions.
+                </p>
+              </details>
+
+            </div>
+          </section>
+
+          <!-- CONTACT & SUPPORT -->
+          <section id="contact" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">8. Contact & support</h2>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">When to contact the BioChirp team</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Persistent errors or timeouts from a specific micro-service.</li>
+                  <li>Clear mismatches between database entries and what BioChirp returns.</li>
+                  <li>Feature requests, UI issues, or questions about the roadmap.</li>
+                  <li>Concerns about safety, bias, or misinterpretation of evidence.</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">How to get help</h3>
+                <div class="mb-3 text-xs text-[--muted] space-y-1">
+                  <p><span class="font-semibold">Primary contact:</span> BioChirp support team</p>
+                  <p><span class="font-semibold">Email:</span> abhishekh@iiitd.ac.in</p>
+                  <p>
+                    <span class="font-semibold">GitHub issues:</span>
+                    <a id="githubIssues" href="https://github.com/abhi1238/biochirp/issues" target="_blank" rel="noopener" class="link-ghost inline-block ml-1">
+                      Open an issue
+                    </a>
+                  </p>
+                </div>
+                <p class="text-[--muted] text-xs">
+                  When you report a problem, include: the full query you used, approximate time, a screenshot if possible,
+                  and whether the issue is reproducible.
+                </p>
+              </div>
+            </div>
+
+            <p class="mt-5 text-[0.75rem] text-[--muted]">
+              <span class="font-semibold">Reminder:</span> BioChirp is for research support only and is not a substitute
+              for professional medical judgement. For medical emergencies, contact local emergency services immediately.
+            </p>
+          </section>
+
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-[--border]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-[--muted] flex flex-col md:flex-row items-center justify-between gap-2">
+      <div>
+        © <span id="year"></span> BioChirp. Built for biological researchers who demand clarity.
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/" class="link-ghost">Home</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- SCRIPT -->
+  <script>
+    // Theme toggle
+    document.getElementById('themeToggle')?.addEventListener('click', () => {
+      const root = document.documentElement;
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      document.getElementById('iconDark')?.classList.toggle('hidden', !isDark);
+      document.getElementById('iconLight')?.classList.toggle('hidden', isDark);
+    });
+
+    // Year stamp
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

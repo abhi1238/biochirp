@@ -1,0 +1,575 @@
+x-defaults: &defaults
+  build:
+    dockerfile: Dockerfile
+  environment:
+    - PYTHONUNBUFFERED=1
+    - TZ=Asia/Kolkata
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "500m"
+      max-file: "5"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  networks:
+    - semantic_net
+  restart: unless-stopped
+  env_file:
+    - .env
+  healthcheck:
+    interval: 15s
+    timeout: 5s
+    retries: 3
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+
+
+
+services:
+
+  biochirp_redis_tool:
+    image: redis:7
+    # container_name: biochirp_redis_tool
+    networks:
+      - semantic_net
+
+  # biochirp_redis_tool:
+  #   # <<: *defaults
+  #   image: biochirp_redis_tool:latest
+  #   container_name: biochirp_redis_tool
+  #   # ports:
+  #   #   - "6379:6379"
+  #   environment:
+  #     - TZ=Asia/Kolkata
+  #     - PYTHONUNBUFFERED=1
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 24g
+  #         cpus: "1.0"
+  #       reservations:
+  #         memory: 16g
+  #   networks:
+  #     - semantic_net
+
+
+  biochirp_llm_filter_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/llm_member_filter
+    image: biochirp_llm_filter_tool:latest
+    container_name: biochirp_llm_filter_tool
+    ports:
+      - "8017:8017"
+    volumes:
+    - ./config/guardrail.py:/app/config/guardrail.py:ro
+    - ./resources/prompts/:/app/resources/prompts/:ro
+    - ./config/schema.py:/app/config/schema.py:ro
+    - ./config/settings.py:/app/config/settings.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8017/health || exit 1"]
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 400m
+
+
+
+
+  biochirp_synonyms_expander:
+    <<: *defaults
+    build:
+      context: ./app/tools/expand_synonyms
+      # dockerfile: Dockerfile
+    image: biochirp_synonyms_expander:latest
+    # mem_limit: 2g
+    container_name: biochirp_synonyms_expander
+    ports:
+      - "8014:8014"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8014/health || exit 1"]
+      start_period: 30s
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./app/services/synonyms/:/app/synonyms/:ro
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          memory: 4g
+
+
+  biochirp_interpreter_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/interpreter_agent
+      dockerfile: Dockerfile
+    image: biochirp_interpreter_tool:latest
+    container_name: biochirp_interpreter_tool
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      # - ./resources/prompts/query_interpreter.md:/app/resources/prompts/query_interpreter.md:ro
+      - ./resources/prompts/:/app/resources/prompts/:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8005/health || exit 1"]
+      start_period: 15s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 256m
+
+
+  
+
+  biochirp_fuzzy_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/fuzzy
+    image: biochirp_fuzzy_tool:latest
+    container_name: biochirp_fuzzy_tool
+    ports:
+      - "8013:8013"
+    environment:
+      - LLM_FILTER_PORT=8017
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl:ro
+      - ./config/schema.py:/app/config/schema.py:ro
+      - ./config/settings.py:/app/config/settings.py:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8013/health || exit 1"]
+      start_period: 15s
+    depends_on:
+      - biochirp_llm_filter_tool
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+        reservations:
+          memory: 2g
+
+
+
+
+  biochirp_tavily_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/tavily
+    image: biochirp_tavily_tool:latest
+    container_name: biochirp_tavily_tool
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8008/health || exit 1"]
+      start_period: 15s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+        reservations:
+          memory: 512m
+
+
+  biochirp_readme_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/readme
+    image: biochirp_readme_tool:latest
+    container_name: biochirp_readme_tool
+    ports:
+      - "8007:8007"
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      # - ./resources/prompts/:/app/resources/prompts/
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8007/health || exit 1"]
+      start_period: 15s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 256m
+
+  biochirp_web_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/web
+    image: biochirp_web_tool:latest
+    container_name: biochirp_web_tool
+    ports:
+      - "8006:8006"
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./resources/prompts/:/app/resources/prompts/:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8006/health || exit 1"]
+      start_period: 15s    
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+        reservations:
+          memory: 512m
+
+
+  biochirp_semantic_tool:
+    <<: *defaults
+    build: ./app/tools/semantic_filter
+    container_name: biochirp_semantic_tool
+    image: biochirp_semantic_tool:latest
+    ports:
+      - "8015:8015"
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./config/schema.py:/app/config/schema.py:ro
+      - ./resources/prompts/:/app/resources/prompts/
+      - ./config/settings.py:/app/config/settings.py:ro
+      - ./resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl
+      # - ../../services/semantic_matching.py:/app/services/semantic_matching.py:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      start_period: 30s   
+    deploy:
+      resources:
+        limits:
+          memory: 20g
+        reservations:
+          memory: 16g
+          devices:
+            - driver: nvidia
+              count: 1      # Number of GPUs to reserve
+              capabilities: [gpu]
+
+
+  biochirp_expand_and_match_db_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/expand_and_match_db
+    image: biochirp_expand_and_match_db_tool:latest
+    container_name: biochirp_expand_and_match_db_tool
+    ports:
+      - "8009:8009"
+    environment:
+      - EXPAND_HOST=biochirp_synonyms_expander
+      - EXPAND_PORT=8014
+      - FUZZY_PORT=8013
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - LLM_FILTER_PORT=8017
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./config/schema.py:/app/config/schema.py:ro
+      - ./config/settings.py:/app/config/settings.py:ro
+      - ./app/utils/:/app/utils/
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8009/health || exit 1"]
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 16g
+        reservations:
+          memory: 8g
+    depends_on:
+      - biochirp_synonyms_expander
+      - biochirp_fuzzy_tool
+      - biochirp_llm_filter_tool
+      - biochirp_semantic_tool
+
+  biochirp_planner_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/planner
+    image: biochirp_planner_tool:latest
+    container_name: biochirp_planner_tool
+    ports:
+      - "8011:8011"
+    volumes:
+      - ./config/schema.py:/app/config/schema.py:ro
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8011/health || exit 1"]
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          memory: 1.5g
+
+
+  biochirp_ttd_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/ttd
+    image: biochirp_ttd_tool:latest
+    container_name: biochirp_ttd_tool
+    environment:
+      - PLANNER_HOST=biochirp_planner_tool
+      - PLANNER_PORT=8011
+      - EXPAND_AND_MATCH_DB_HOST=biochirp_expand_and_match_db_tool
+      - EXPAND_AND_MATCH_DB_PORT=8009
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+      - LLM_FILTER_PORT=8017
+      - EXPAND_HOST=biochirp_synonyms_expander
+      - EXPAND_PORT=8014
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - FUZZY_PORT=8013
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./config/schema.py:/app/config/schema.py:ro
+      - ./database/ttd/:/app/database/ttd/:ro
+      - ./app/utils/:/app/utils/:ro
+      - ./results:/app/results:rw
+      - ./resources/prompts/:/app/resources/prompts/:ro
+    ports:
+      - "8012:8012"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8012/health || exit 1"]
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 16g
+        reservations:
+          memory: 12g
+    depends_on:
+      - biochirp_planner_tool
+      - biochirp_expand_and_match_db_tool
+      - biochirp_synonyms_expander
+      - biochirp_fuzzy_tool
+      - biochirp_llm_filter_tool
+      - biochirp_semantic_tool
+
+  biochirp_ctd_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/ctd
+    image: biochirp_ctd_tool:latest
+    container_name: biochirp_ctd_tool
+    environment:
+      - PLANNER_HOST=biochirp_planner_tool
+      - PLANNER_PORT=8011
+      - EXPAND_AND_MATCH_DB_HOST=biochirp_expand_and_match_db_tool
+      - EXPAND_AND_MATCH_DB_PORT=8009
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+      - LLM_FILTER_PORT=8017
+      - EXPAND_HOST=biochirp_synonyms_expander
+      - EXPAND_PORT=8014
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - FUZZY_PORT=8013
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./config/schema.py:/app/config/schema.py:ro
+      - ./database/ctd/:/app/database/ctd/:ro
+      - ./app/utils/:/app/utils/:ro
+      - ./results:/app/results:rw
+      - ./resources/prompts/:/app/resources/prompts/:ro
+    ports:
+      - "8016:8016"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8016/health || exit 1"]
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 96g
+        reservations:
+          memory: 12g
+    depends_on:
+      - biochirp_planner_tool
+      - biochirp_expand_and_match_db_tool
+      - biochirp_synonyms_expander
+      - biochirp_fuzzy_tool
+      - biochirp_llm_filter_tool
+      - biochirp_semantic_tool
+
+
+  
+
+  # biochirp_redis_tool:
+  #   <<: *defaults
+  #   image: redis:7
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 24g
+  #       reservations:
+  #         memory: 16g
+
+  biochirp_hcdt_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/hcdt
+    image: biochirp_hcdt_tool:latest
+    container_name: biochirp_hcdt_tool
+    environment:
+      - PLANNER_HOST=biochirp_planner_tool
+      - PLANNER_PORT=8011
+      - EXPAND_AND_MATCH_DB_HOST=biochirp_expand_and_match_db_tool
+      - EXPAND_AND_MATCH_DB_PORT=8009
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+      - LLM_FILTER_PORT=8017
+      - EXPAND_HOST=biochirp_synonyms_expander
+      - EXPAND_PORT=8014
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - FUZZY_PORT=8013
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./config/schema.py:/app/config/schema.py:ro
+      - ./database/hcdt/:/app/database/hcdt/:ro
+      - ./app/utils/:/app/utils/
+      - ./results:/app/results:rw
+      - ./resources/prompts/:/app/resources/prompts/:ro
+    ports:
+      - "8018:8018"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8018/health || exit 1"]
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 24g
+        reservations:
+          memory: 16g
+    depends_on:
+      - biochirp_planner_tool
+      - biochirp_expand_and_match_db_tool
+      - biochirp_synonyms_expander
+      - biochirp_fuzzy_tool
+      - biochirp_llm_filter_tool
+      - biochirp_semantic_tool
+
+
+
+
+  biochirp_orchestrator:
+    <<: *defaults
+    build:
+      context: ./orchestrator_service
+    image: biochirp_orchestrator:latest
+    container_name: biochirp_orchestrator    
+
+    environment:
+      - PLANNER_HOST=biochirp_planner_tool
+      - PLANNER_PORT=8011
+      - EXPAND_AND_MATCH_DB_HOST=biochirp_expand_and_match_db_tool
+      - EXPAND_AND_MATCH_DB_PORT=8009
+      - EXPAND_HOST=biochirp_synonyms_expander
+      - EXPAND_PORT=8014
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - FUZZY_PORT=8013
+      - TTD_HOST=biochirp_ttd_tool
+      - TTD_PORT=8012
+      - CTD_HOST=biochirp_ctd_tool
+      - CTD_PORT=8016
+      - INTERPRETER_HOST=biochirp_interpreter_tool
+      - INTERPRETER_PORT=8005
+      - WEB_TOOL_HOST=biochirp_web_tool
+      - WEB_TOOL_PORT=8006
+      - README_HOST=biochirp_readme_tool
+      - README_PORT=8007
+      - TAVILY_HOST=biochirp_tavily_tool
+      - TAVILY_PORT=8008
+      - LLM_FILTER_PORT=8017
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+      - HCDT_HOST=biochirp_hcdt_tool
+      - HCDT_PORT=8018
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+      - REDIS_PORT=6379
+      - REDIS_HOST=biochirp_redis_tool
+      # - SEMANTIC_HOST=biochirp_semantic_tool
+      # - SEMANTIC_PORT=8015
+      # - BIOCHIRP_EMBEDDING_PORT=8003
+      # - BIOCHIRP_EMBEDDING_HOST=biochirp_embedding_tool
+    volumes:
+      - ./config/guardrail.py:/app/config/guardrail.py:ro
+      - ./config/schema.py:/app/config/schema.py:ro
+      - ./resources/prompts/agent_orchestrator.md:/app/resources/prompts/agent_orchestrator.md:ro
+      - ./resources/prompts/agent_memory.md:/app/resources/prompts/agent_memory.md:ro
+      - ./results:/app/results    
+    ports:
+      - "8010:8010"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8010/health || exit 1"]
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 32g
+        reservations:
+          memory: 24g
+    depends_on:
+      - biochirp_interpreter_tool
+      - biochirp_web_tool
+      - biochirp_readme_tool
+      - biochirp_tavily_tool
+      - biochirp_fuzzy_tool
+      - biochirp_ttd_tool
+      - biochirp_planner_tool
+      - biochirp_hcdt_tool
+      - biochirp_ctd_tool
+      - biochirp_expand_and_match_db_tool
+      - biochirp_llm_filter_tool
+      - biochirp_semantic_tool
+      - biochirp_synonyms_expander
+      - biochirp_redis_tool
+      # - biochirp_embedding_tool
+
+
+networks:
+  semantic_net:
+    external: true
+    name: semantic_net
+
+
+# networks:
+#   semantic_net:
+#     driver: bridge
+#     ipam:
+#       config:
+#         - subnet: 172.35.0.0/16    # <--- change this to a free subnet
+
+
+# networks:
+#   semantic_net:
+#     ipam:
+#       config:
+#         - subnet: 172.30.0.0/16
+
+# networks:
+#   custom_net:
+#     ipam:
+#       driver: default
+#       config:
+#         - subnet: 172.20.0.0/16

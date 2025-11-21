@@ -1,0 +1,97 @@
+
+services:
+
+  biochirp_llm_filter_tool:
+    build:
+      context: ../llm_member_filter
+      dockerfile: Dockerfile
+    image: biochirp_llm_filter_tool:latest
+    container_name: biochirp_llm_filter_tool
+    ports:
+      - "8017:8017"
+
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+
+    restart: unless-stopped
+
+    env_file:
+      - ../../../.env
+
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py
+      - ../../../resources/prompts/:/app/resources/prompts/
+
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8017/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - semantic_net
+
+
+
+  biochirp_fuzzy_tool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_fuzzy_tool:latest
+    container_name: biochirp_fuzzy_tool
+    ports:
+      - "8013:8013"
+
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - LLM_FILTER_PORT=8017
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+
+
+    restart: unless-stopped
+
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py
+      - ../../../resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl
+      - ../../../config/schema.py:/app/config/schema.py
+      - ../../../config/settings.py:/app/config/settings.py
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8013/health || exit 1"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+
+        # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+        reservations:
+          memory: 256m
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+
+    
+    depends_on:
+      - biochirp_llm_filter_tool
+    networks:
+      - semantic_net
+
+      
+networks:
+  semantic_net:
+    driver: bridge

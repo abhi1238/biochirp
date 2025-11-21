@@ -1,0 +1,56 @@
+services:
+  orchestrator_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_orchestrator:latest
+    container_name: biochirp_orchestrator
+
+    ports:
+      - "8010:8010"  # Map host port 8010 to container port 8010
+
+    env_file:
+      - ../.env
+
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+
+    volumes:
+      - ../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../config/schema.py:/app/config/schema.py:ro
+      - ../resources/prompts/agent_orchestrator.md:/app/resources/prompts/agent_orchestrator.md:ro      - ../resources/prompts/agent_orchestrator.md:/app/resources/prompts/agent_orchestrator.md
+      - ../resources/prompts/agent_memory.md:/app/resources/prompts/agent_memory.md:ro
+      - ../app/tools/:/app/tools/:ro
+      - ./results:/app/results
+      - .:/app
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8010/health || exit 1"]
+      interval: 20s        # healthcheck every 20 seconds
+      timeout: 10s         # allow 10 seconds per check (adjust if needed)
+      retries: 6           # fail after 6 consecutive failures
+      start_period: 40s    # allow 40s for startup before healthchecks begin
+      
+    # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 12g
+          cpus: "1.0"
+        reservations:
+          memory: 8g
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+

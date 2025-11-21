@@ -1,0 +1,52 @@
+services:
+  biochirp_malteos_transformer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_malteos_transformer:latest
+    container_name: biochirp_malteos_transformer
+    ports:
+      - "8023:8023"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8023/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+
+    # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # # Resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1g
+    #       cpus: "1.0"
+    #     reservations:
+    #       memory: 256m
+
+
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+

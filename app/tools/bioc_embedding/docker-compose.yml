@@ -1,0 +1,31 @@
+services:
+  biochirp_embedding_tool:
+    build: .
+    container_name: biochirp_embedding_tool
+    image: biochirp_embedding_tool:latest
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    networks:
+      - semantic_net
+
+
+networks:
+  semantic_net:
+    external: true
+  

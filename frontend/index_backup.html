@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BioChirp  Biological Intelligence Hub</title>
+
+  <!-- Tailwind CDN -->
+  <link rel="preconnect" href="https://cdn.tailwindcss.com">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ["Inter","ui-sans-serif","system-ui","Segoe UI","Roboto","Helvetica","Arial","sans-serif"],
+          },
+          colors: {
+            bio: {50:'#EDF8FF',100:'#D7F0FF',200:'#ADE2FF',300:'#7CD0FF',400:'#4EBBFF',500:'#1FA4FF',600:'#147DCC',700:'#0E5EA0',800:'#0A4476',900:'#082F53'},
+            leaf:'#22C55E', plum:'#A78BFA', amber:'#F59E0B'
+          },
+          boxShadow:{ glow:'0 0 0 2px rgba(31,164,255,.25), 0 12px 40px rgba(0,0,0,.35)'},
+          animation:{ gradient:'gradient 16s ease infinite' },
+          keyframes:{ gradient:{'0%,100%':{backgroundPosition:'0% 50%'},'50%':{backgroundPosition:'100% 50%'}}}
+        }
+      }
+    }
+  </script>
+  <style>
+    :root[data-theme="dark"]  { --bg:#070A15; --card:#0B1222; --muted:#8BA3B8; --text:#E6F2FF; --border:rgba(255,255,255,.08); --hover:rgba(255,255,255,.06) }
+    :root[data-theme="light"] { --bg:#F8FBFF; --card:#FFFFFF;  --muted:#486173; --text:#0B1624; --border:rgba(0,0,0,.08);  --hover:rgba(0,0,0,.04) }
+    html,body{height:100%}
+    .gradient-bg{
+      background:
+        radial-gradient(circle at 10% 20%, rgba(79,70,229,.18) 0%, transparent 50%),
+        radial-gradient(circle at 90% 0%,  rgba(34,197,94,.16) 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(167,139,250,.12) 0%, transparent 55%);
+      background-size:200% 200%; animation:gradient 18s ease infinite;
+    }
+    @media (prefers-reduced-motion: reduce){ .gradient-bg{ animation:none !important; } }
+    .dna-bg{ position:absolute; inset:0; opacity:.08; pointer-events:none; z-index:-1 }
+    .card{ background:var(--card); border:1px solid var(--border) }
+    .card-hover{ transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease }
+    .card-hover:hover{ transform: translateY(-3px); box-shadow:0 14px 28px rgba(0,0,0,.28); border-color:rgba(79,70,229,.45) }
+    .chip{ background:linear-gradient(135deg, rgba(31,164,255,.15), rgba(167,139,250,.15)); border:1px solid var(--border) }
+    .btn{ transition: transform .15s ease } .btn:active{ transform: translateY(1px) scale(.99) }
+    .status-dot{ width:10px; height:10px; border-radius:9999px }
+    .link-ghost{ border:1px solid var(--border); padding:.5rem .75rem; border-radius:.5rem }
+    .link-ghost:hover{ background:var(--hover) }
+    .cv{ content-visibility:auto; contain-intrinsic-size:800px 1200px }
+    @media (max-width:768px){ .cv{ contain-intrinsic-size:1200px 1600px } }
+  </style>
+</head>
+<body class="min-h-full font-display text-[--text] bg-[--bg] gradient-bg">
+
+  <!-- Subtle DNA overlay -->
+  <svg class="dna-bg" viewBox="0 0 1200 600" preserveAspectRatio="none">
+    <defs><linearGradient id="helix" x1="0" x2="1"><stop offset="0%" stop-color="#1FA4FF"/><stop offset="100%" stop-color="#A78BFA"/></linearGradient></defs>
+    <g fill="none" stroke="url(#helix)" stroke-width="2">
+      <path d="M100,100 C300,20 500,20 700,100 S1100,180 1200,100"/>
+      <path d="M100,500 C300,580 500,580 700,500 S1100,420 1200,500"/>
+      <path d="M400,60 V 540" opacity=".4"/><path d="M800,60 V 540" opacity=".4"/>
+    </g>
+  </svg>
+
+  <!-- NAVBAR (fixed & above content) -->
+  <header class="fixed top-0 inset-x-0 z-40 backdrop-blur bg-[--bg]/70 border-b border-[--border]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+      <a class="flex items-center gap-3" href="#">
+        <div class="h-10 w-10 rounded-xl bg-bio-500/15 border border-bio-500/30 flex items-center justify-center shadow-glow">
+          <div class="h-10 w-10 rounded-xl bg-white/80 border border-white/40 flex items-center justify-center shadow-glow">
+            <img src="/assets/brand/logo.png" alt="BioChirp logo" class="h-7 w-7 object-contain"/>
+          </div>
+        </div>
+        <div>
+          <div class="text-xl font-semibold tracking-tight">BioChirp</div>
+          <div class="text-xs text-[--muted] -mt-0.5">Biological Intelligence Hub</div>
+        </div>
+      </a>
+      <nav class="hidden md:flex items-center gap-2">
+        <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#features">Features</a>
+        <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#domains">What it Answers</a>
+        <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#how">How it works</a>
+        <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#services">Services</a>
+        <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#contact">Contact</a>
+        <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" id="helpOpen" href="#">Help</a>
+      </nav>
+      <div class="flex items-center gap-2">
+        <a id="githubBtn" class="link-ghost hidden sm:inline-flex items-center gap-2" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" class="w-5 h-5" fill="currentColor"><path d="M12 .5a12 12 0 00-3.79 23.4c.6.11.82-.26.82-.57v-2c-3.34.73-4.04-1.6-4.04-1.6-.55-1.38-1.34-1.75-1.34-1.75-1.1-.76.08-.75.08-.75 1.22.09 1.86 1.25 1.86 1.25 1.08 1.85 2.83 1.32 3.52 1 .11-.79.42-1.32.76-1.62-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.4 1.24-3.25-.12-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.24a11.5 11.5 0 016 0c2.3-1.56 3.3-1.24 3.3-1.24.66 1.66.24 2.88.12 3.18.77.85 1.24 1.93 1.24 3.25 0 4.63-2.8 5.66-5.48 5.96.43.37.81 1.1.81 2.22v3.29c0 .31.21.68.82.56A12 12 0 0012 .5z"/></svg>
+          <span>GitHub</span>
+        </a>
+        <!-- <a href="orchestrator_api.html" class="btn inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-bio-500 hover:bg-bio-400 text-white shadow-glow"> -->
+        <a href="/chat" class="px-4 py-2 rounded-xl bg-bio-500 hover:bg-bio-400 text-white shadow-glow">Open Chat</a>
+
+        <!-- <a href="/chat" class="btn inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-bio-500 hover:bg-bio-400 text-white shadow-glow"> -->
+          <!-- <span>Open Chat</span> -->
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M7 7h10v10"/></svg>
+        </a>
+        <button id="themeToggle" class="p-2 rounded-lg border border-[--border] hover:bg-[--hover]" title="Toggle theme">
+          <svg id="iconDark" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          <svg id="iconLight" class="w-5 h-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="relative overflow-hidden cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+      <div class="grid md:grid-cols-2 gap-10 items-center">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-bio-500/10 border border-bio-500/30 text-sm">
+            <span class="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
+            All systems operational
+          </div>
+          <h1 class="mt-4 text-3xl md:text-5xl font-extrabold leading-tight">
+            Answer <span class="bg-gradient-to-r from-bio-400 via-plum to-pink-400 bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient">drug, target, disease</span> questions with auditable AI
+          </h1>
+          <p class="mt-4 text-[--muted] max-w-prose">
+            BioChirp unifies LLM reasoning with curated biomedical datasets (Therapeutic Target Database, Comparative Toxicogenomics Database, HCDT) and real-time web research. Every answer includes citations, provenance, and structured fields like biomarker, pathway, approval status, and gene association.
+          </p>
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="#features" class="px-4 py-2 rounded-xl border border-[--border] hover:bg-[--hover]">See Features</a>
+            <a href="#domains" class="px-4 py-2 rounded-xl border border-[--border] hover:bg-[--hover]">What it Answers</a>
+            <!-- <a href="/chat" class="px-4 py-2 rounded-xl bg-bio-500 hover:bg-bio-400 text-white shadow-glow">Start Chatting</a>
+              -->
+            <a href="orchestrator_api.html" class="px-4 py-2 rounded-xl bg-bio-500 hover:bg-bio-400 text-white shadow-glow">Start Chatting</a>
+
+          </div>
+          <div class="mt-6 flex flex-wrap gap-2">
+            <span class="chip px-2.5 py-1 rounded-full text-xs">Auditability</span>
+            <span class="chip px-2.5 py-1 rounded-full text-xs">Database-GPT</span>
+            <span class="chip px-2.5 py-1 rounded-full text-xs">TTD · CTD · HCDT</span>
+            <span class="chip px-2.5 py-1 rounded-full text-xs">Web + Tavily</span>
+          </div>
+        </div>
+
+        <!-- Orchestration graphic -->
+        <div class="card rounded-2xl p-5 md:p-6 shadow-glow">
+          <div class="text-sm text-[--muted] mb-3">Orchestration flow</div>
+          <svg viewBox="0 0 640 340" class="w-full h-auto">
+            <defs><linearGradient id="edge" x1="0" x2="1"><stop offset="0%" stop-color="#1FA4FF" stop-opacity=".65"/><stop offset="100%" stop-color="#A78BFA" stop-opacity=".65"/></linearGradient></defs>
+            <g fill="none" stroke="url(#edge)" stroke-width="2" opacity=".75">
+              <path d="M120 80 C 220 20, 420 20, 520 80" />
+              <path d="M120 260 C 220 320, 420 320, 520 260" />
+              <path d="M320 40 V 300" />
+            </g>
+            <g>
+              <circle cx="120" cy="80"  r="26" fill="#1FA4FF22" stroke="#1FA4FF"/>
+              <circle cx="120" cy="260" r="26" fill="#22C55E22" stroke="#22C55E"/>
+              <circle cx="520" cy="80"  r="26" fill="#A78BFA22" stroke="#A78BFA"/>
+              <circle cx="520" cy="260" r="26" fill="#F59E0B22" stroke="#F59E0B"/>
+              <rect x="290" y="150" width="60" height="40" rx="8" fill="#0E1424" stroke="#4EBBFF"/>
+            </g>
+            <g font-size="12" text-anchor="middle" fill="currentColor">
+              <text x="120" y="116">Interpreter</text>
+              <text x="120" y="296">Web/Tavily</text>
+              <text x="520" y="116">TTD</text>
+              <text x="520" y="296">CTD / HCDT</text>
+              <text x="320" y="180">Orchestrator</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BEFORE / AFTER -->
+  <section class="py-6 md:py-8 cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="card rounded-2xl p-5">
+          <div class="text-sm text-[--muted] mb-1">Before BioChirp</div>
+          <ul class="text-sm list-disc pl-5 space-y-1 text-[--muted]">
+            <li>Manual lookups across TTD, CTD, HCDT + web</li>
+            <li>Copy/paste into sheets for downstream analysis</li>
+            <li>No standardized audit trail</li>
+          </ul>
+        </div>
+        <div class="card rounded-2xl p-5">
+          <div class="text-sm text-[--muted] mb-1">After BioChirp</div>
+          <ul class="text-sm list-disc pl-5 space-y-1">
+            <li>One unified, cited answer</li>
+            <li>Tabular outputs (CSV/JSON) with stable schema</li>
+            <li>Tool provenance & reproducibility by default</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features" class="py-6 md:py-10 cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-2xl md:text-3xl font-bold mb-6">Why scientists choose BioChirp</h2>
+      <div class="grid md:grid-cols-3 gap-5">
+        <article class="card card-hover rounded-2xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-bio-500 to-plum opacity-80"></div>
+            <h3 class="text-lg font-semibold">Auditable by Design</h3>
+          </div>
+          <p class="text-[--muted] text-sm">Citations, tool invocations, and step-wise provenance. Expand to view raw JSON from each micro-service for reproducibility.</p>
+          <div class="mt-3 text-xs flex flex-wrap gap-2">
+            <span class="chip px-2 py-1 rounded-full">Citations</span>
+            <span class="chip px-2 py-1 rounded-full">Provenance</span>
+            <span class="chip px-2 py-1 rounded-full">Reproducible</span>
+          </div>
+        </article>
+        <article class="card card-hover rounded-2xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-leaf to-bio-500 opacity-80"></div>
+            <h3 class="text-lg font-semibold">Database-GPT</h3>
+          </div>
+          <p class="text-[--muted] text-sm">Schema-aware retrieval from TTD, CTD, HCDT. Return clean tables or CSV/JSON filtered by pathway, biomarker, and approval status.</p>
+          <div class="mt-3 text-xs flex flex-wrap gap-2">
+            <span class="chip px-2 py-1 rounded-full">Schema-aware</span>
+            <span class="chip px-2 py-1 rounded-full">CSV/JSON</span>
+            <span class="chip px-2 py-1 rounded-full">Strict types</span>
+          </div>
+        </article>
+        <article class="card card-hover rounded-2xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-amber to-plum opacity-80"></div>
+            <h3 class="text-lg font-semibold">Web + Literature</h3>
+          </div>
+          <p class="text-[--muted] text-sm">Blend Tavily + web with curated datasets. Rank, summarize, and de-duplicate to keep answers fresh and grounded.</p>
+          <div class="mt-3 text-xs flex flex-wrap gap-2">
+            <span class="chip px-2 py-1 rounded-full">Freshness</span>
+            <span class="chip px-2 py-1 rounded-full">Summaries</span>
+            <span class="chip px-2 py-1 rounded-full">De-dup</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT IT ANSWERS -->
+  <section id="domains" class="py-6 md:py-10 cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-2xl md:text-3xl font-bold mb-4">What BioChirp answers</h2>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div class="card rounded-2xl p-5 card-hover"><h4 class="font-semibold mb-1">Drug</h4><p class="text-sm text-[--muted]">Mechanism, indications, status, linked targets & pathways.</p></div>
+        <div class="card rounded-2xl p-5 card-hover"><h4 class="font-semibold mb-1">Target / Gene</h4><p class="text-sm text-[--muted]">Gene family, associations, modulators, evidence strength.</p></div>
+        <div class="card rounded-2xl p-5 card-hover"><h4 class="font-semibold mb-1">Disease</h4><p class="text-sm text-[--muted]">Known targets, approved/clinical drugs, biomarkers.</p></div>
+        <div class="card rounded-2xl p-5 card-hover"><h4 class="font-semibold mb-1">Biomarker</h4><p class="text-sm text-[--muted]">Diagnostic/prognostic role, pathways, literature.</p></div>
+        <div class="card rounded-2xl p-5 card-hover"><h4 class="font-semibold mb-1">Pathway</h4><p class="text-sm text-[--muted]">Member genes, drugs acting on it, disease connections.</p></div>
+        <div class="card rounded-2xl p-5 card-hover"><h4 class="font-semibold mb-1">Approval Status</h4><p class="text-sm text-[--muted]">Investigational/approved timelines with sources.</p></div>
+      </div>
+      <div class="mt-6">
+        <div class="text-sm text-[--muted] mb-2">Try a one-click query</div>
+        <div class="flex flex-wrap gap-2" id="examples"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONNECTORS STRIP -->
+  <section class="py-6 md:py-10 cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="card rounded-2xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="text-sm text-[--muted]">Powered by curated knowledge bases</div>
+          <div class="flex items-center gap-6 opacity-90">
+            <div class="flex items-center gap-2"><div class="h-8 w-8 rounded-md bg-bio-500/20 border border-bio-500/40"></div><span class="text-sm">TTD</span></div>
+            <div class="flex items-center gap-2"><div class="h-8 w-8 rounded-md bg-plum/20 border border-white/20"></div><span class="text-sm">CTD</span></div>
+            <div class="flex items-center gap-2"><div class="h-8 w-8 rounded-md bg-leaf/20 border border-white/20"></div><span class="text-sm">HCDT</span></div>
+            <div class="flex items-center gap-2"><div class="h-8 w-8 rounded-md bg-amber/20 border border-white/20"></div><span class="text-sm">Web/Tavily</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES GRID -->
+  <section id="services" class="py-6 md:py-10 cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-2xl md:text-3xl font-bold">Micro-services</h2>
+        <button id="refreshStatus" class="px-3 py-1.5 rounded-lg border border-[--border] hover:bg-[--hover]">Refresh</button>
+      </div>
+      <div id="cards" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    </div>
+  </section>
+
+  <!-- CONTACT / SUPPORT -->
+  <section id="contact" class="py-6 md:py-10 cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-3 gap-5">
+        <div class="card rounded-2xl p-5 card-hover">
+          <h3 class="font-semibold mb-1">Contact</h3>
+          <p class="text-sm text-[--muted]">Questions, bugs, or feature requests? Wed love to hear from you.</p>
+          <div class="mt-3 flex flex-wrap gap-2 text-sm">
+            <a id="emailLink" class="link-ghost" href="#">Email</a>
+            <a id="issuesLink" class="link-ghost" target="_blank" rel="noopener">GitHub Issues</a>
+            <a id="helpLink" class="link-ghost" target="_blank" rel="noopener">Help Center</a>
+          </div>
+        </div>
+        <div class="card rounded-2xl p-5 card-hover">
+          <h3 class="font-semibold mb-1">Docs</h3>
+          <p class="text-sm text-[--muted]">API reference, schemas, and examples for integrating micro-services.</p>
+          <div class="mt-3"><a class="link-ghost text-sm" id="docsLink" target="_blank" rel="noopener">Open Documentation</a></div>
+        </div>
+        <div class="card rounded-2xl p-5 card-hover">
+          <h3 class="font-semibold mb-1">Community</h3>
+          <p class="text-sm text-[--muted]">Star the repo and discuss ideas with other researchers.</p>
+          <div class="mt-3"><a class="link-ghost text-sm" id="repoLink" target="_blank" rel="noopener">GitHub Repository</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="py-10 border-t border-[--border] cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-[--muted]">
+      <div class="flex items-center justify-center gap-4 mb-2">
+        <a id="footerHelp" class="link-ghost" href="#">Help</a>
+        <a id="footerContact" class="link-ghost" href="#contact">Contact</a>
+        <a id="footerRepo" class="link-ghost" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      © <span id="year"></span> BioChirp. Built for biological researchers who demand clarity.
+    </div>
+  </footer>
+
+  <!-- HELP MODAL (kept above header with z-50) -->
+  <div id="helpModal" class="fixed inset-0 hidden items-center justify-center z-50">
+    <div class="absolute inset-0 bg-black/50" id="helpBackdrop"></div>
+    <div role="dialog" aria-modal="true" class="relative card w-[92%] max-w-xl rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg font-semibold">Help & Support</h3>
+        <button id="helpClose" class="link-ghost">Close</button>
+      </div>
+      <p class="text-sm text-[--muted]">Find quick answers, open an issue, or contact us directly.</p>
+      <div class="mt-4 grid sm:grid-cols-2 gap-3 text-sm">
+        <a id="helpPrimary" class="card-hover border border-[--border] rounded-xl p-3 text-center" target="_blank" rel="noopener">Open Help Center</a>
+        <a id="helpIssues"  class="card-hover border border-[--border] rounded-xl p-3 text-center" target="_blank" rel="noopener">GitHub Issues</a>
+        <a id="helpDocs"    class="card-hover border border-[--border] rounded-xl p-3 text-center" target="_blank" rel="noopener">Documentation</a>
+        <a id="helpEmail"   class="card-hover border border-[--border] rounded-xl p-3 text-center">Email Us</a>
+      </div>
+      <p class="text-xs text-[--muted] mt-3">Tip: press <kbd>?</kbd> anywhere to open this panel.</p>
+    </div>
+  </div>
+
+  <!-- CONFIG + SCRIPT -->
+  <script>
+    const CONFIG = {
+      chatUrl: "/chat",
+      links: {
+        help:   "/help",
+        docs:   "/docs",
+        repo:   "https://github.com/abhi1238/biochirp",
+        issues: "https://github.com/abhi1238/biochirp/issues",
+        email:  "mailto:abhishekh@iiitd.ac.in"
+      },
+      examples: [
+        { label: "PARP inhibitors for ovarian cancer", q: "List approved PARP inhibitors for ovarian cancer with targets, pathways, approval status and citations." },
+        { label: "TNF modulators in RA",               q: "Drugs targeting TNF for rheumatoid arthritis with approval status and sources." },
+        { label: "EGFR+ NSCLC pathways",               q: "Key pathways for EGFR+ NSCLC and drugs acting on them with citations." },
+        { label: "Alzheimer's biomarkers",             q: "Diagnostic biomarkers for early Alzheimer's with evidence strength and citations." }
+      ],
+      services: [
+        { key:"interpreter", name:"Interpreter Tool", desc:"Safely run code and queries with guardrails.", color:"from-bio-500 to-plum", url:"https://biochirp.net/services/interpreter", health:"https://biochirp.net/services/interpreter/api/health"},
+        { key:"web", name:"Web Search Tool", desc:"Crawl and summarize web content with citations.", color:"from-blue-500 to-cyan-400", url:"https://biochirp.net/services/web", health:"https://biochirp.net/services/web/api/health"},
+        { key:"tavily", name:"Tavily Tool", desc:"Targeted, up-to-date biomedical search.", color:"from-emerald-500 to-lime-400", url:"https://biochirp.net/services/tavily",  health:"https://biochirp.net/services/tavily/api/health"},
+        { key:"readme", name:"Readme Tool", desc:"Get BioChirps capabilities overview.", color:"from-violet-500 to-indigo-500", url:"https://biochirp.net/services/readme", health:"https://biochirp.net/services/readme/api/health" },
+        { key:"fuzzy", name:"Fuzzy Selector", desc:"Intelligent fuzzy search and member retrieval.", color:"from-violet-500 to-indigo-500", url:"https://biochirp.net/services/fuzzy", health: "https://biochirp.net/services/fuzzy/api/health" },
+        { key:"synonyms_expander", name:"Synonym & Family Finder", desc:"Fetch synonyms and related entities via official APIs.", color:"from-violet-500 to-indigo-500", url:"https://biochirp.net/services/expand_synonyms", health:"https://biochirp.net/services/expand_synonyms/api/health"},
+        { key:"Semantic", name:"Semantic Selector", desc:"Intelligent Semantic member retriver.", color:"from-violet-500 to-indigo-500", url:"https://biochirp.net/services/semantic_filter", health: "https://biochirp.net/services/semantic_filter/api/health" },
+        { key:"llm_member_filter", name:"LLM Member Filter", desc:"Use LLMs for advanced synonym and family matching.", color:"from-violet-500 to-indigo-500", url:"https://biochirp.net/services/llm_filter", health: "https://biochirp.net/services/llm_filter/api/health" },
+        { key:"expand_and_match_db", name:"DB Synonym & Member Retrieval Database wise", desc:"Combine fuzzy, semantic, and API methods for comprehensive expansion.", color:"from-violet-500 to-indigo-500", url: "https://biochirp.net/services/expand_and_match_db", health:"https://biochirp.net/services/expand_and_match_db/api/health"},
+        { key:"planner", name:"Join Planner", desc:"Plan database joins by schema.", color:"from-fuchsia-500 to-pink-500", url:"https://biochirp.net/services/planner", health:"https://biochirp.net/services/planner/api/health"},
+        { key:"ttd", name:"TTD", desc:"Therapeutic Target Database.", color:"from-fuchsia-500 to-pink-500", url:"https://biochirp.net/services/ttd", health:"https://biochirp.net/services/ttd/api/health"},
+        { key:"ctd", name:"CTD", desc:"Comparative Toxicogenomics Database.", color:"from-orange-500 to-amber-400", url:"https://biochirp.net/services/ctd", health:"https://biochirp.net/services/ctd/api/health"},
+        { key:"hcdt", name:"HCDT", desc:"HCDT 2.0: A Highly Confident Drug-Target Database", color:"from-violet-500 to-indigo-500", url:"https://biochirp.net/services/hcdt", health:"https://biochirp.net/services/hcdt/api/health" }
+      ]
+    };
+
+    // Keep content below fixed header (dynamic padding)
+    function padForHeader() {
+      const header = document.querySelector('header');
+      if (!header) return;
+      document.body.style.paddingTop = header.offsetHeight + 'px';
+    }
+    window.addEventListener('load', padForHeader);
+    window.addEventListener('resize', padForHeader);
+
+    // Wire links
+    const repoBtn = document.getElementById('githubBtn'); if (repoBtn) repoBtn.href = CONFIG.links.repo;
+    document.getElementById('docsLink').href   = CONFIG.links.docs;
+    document.getElementById('repoLink').href   = CONFIG.links.repo;
+    document.getElementById('issuesLink').href = CONFIG.links.issues;
+    document.getElementById('helpLink').href   = CONFIG.links.help;
+    document.getElementById('emailLink').href  = CONFIG.links.email;
+    document.getElementById('footerRepo').href = CONFIG.links.repo;
+
+    // Theme toggle
+    document.getElementById('themeToggle')?.addEventListener('click', () => {
+      const root = document.documentElement;
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      document.getElementById('iconDark')?.classList.toggle('hidden', !isDark);
+      document.getElementById('iconLight')?.classList.toggle('hidden', isDark);
+    });
+
+    // Example chips
+    function renderExamples(){
+      const box = document.getElementById('examples');
+      CONFIG.examples.forEach(ex => {
+        const a = document.createElement('a');
+        a.className = 'chip px-3 py-1.5 rounded-full text-sm hover:bg-[--hover]';
+        a.textContent = ex.label;
+        a.href = `${CONFIG.chatUrl}?q=${encodeURIComponent(ex.q)}`;
+        box.appendChild(a);
+      });
+    }
+
+    // Service cards
+    function renderCards() {
+      const grid = document.getElementById('cards');
+      grid.innerHTML = '';
+      CONFIG.services.forEach(svc => {
+        const el = document.createElement('article');
+        el.className = 'card card-hover rounded-2xl p-5 flex flex-col gap-4';
+        el.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-xl bg-gradient-to-br ${svc.color} opacity-80"></div>
+              <div>
+                <h3 class="text-lg font-semibold">${svc.name}</h3>
+                <p class="text-sm text-[--muted]">${svc.desc}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="status-dot bg-gray-400" id="dot-${svc.key}"></span>
+              <span id="txt-${svc.key}" class="text-[--muted]">Checking</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="${svc.url}"  class="btn px-3 py-1.5 rounded-lg border border-[--border] hover:bg-[--hover]">Open Service</a>
+            ${svc.docs ? `<a href="${svc.docs}" class="btn px-3 py-1.5 rounded-lg border border-[--border] hover:bg-[--hover]">Docs</a>` : ''}
+          </div>`;
+        el.addEventListener('click', (e) => { if (e.target.tagName.toLowerCase() !== 'a') window.location.href = svc.url; });
+        grid.appendChild(el);
+      });
+    }
+
+    // Health check  updates ONLY the per-card indicators
+    async function checkStatus() {
+      for (const svc of CONFIG.services) {
+        const cardDot = document.getElementById(`dot-${svc.key}`);
+        const cardTxt = document.getElementById(`txt-${svc.key}`);
+        try {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), 5000);
+          const res = await fetch(svc.health, { signal: ctrl.signal });
+          clearTimeout(t);
+          if (res.ok) { cardDot?.classList.replace('bg-gray-400','bg-green-500'); cardTxt && (cardTxt.textContent='Healthy'); }
+          else        { cardDot?.classList.replace('bg-gray-400','bg-yellow-500'); cardTxt && (cardTxt.textContent='Degraded'); }
+        } catch {
+          cardDot?.classList.replace('bg-gray-400','bg-red-500');
+          if (cardTxt) cardTxt.textContent = 'Down';
+        }
+      }
+    }
+
+    // Help modal
+    const modal = document.getElementById('helpModal');
+    const openers = [document.getElementById('helpOpen'), document.getElementById('footerHelp')];
+    const closer  = document.getElementById('helpClose');
+    const backdrop= document.getElementById('helpBackdrop');
+    function openHelp(){ modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    function closeHelp(){ modal.classList.add('hidden');    modal.classList.remove('flex'); }
+    openers.forEach(el => el && el.addEventListener('click', (e)=>{ e.preventDefault(); openHelp(); }));
+    closer?.addEventListener('click', closeHelp); backdrop?.addEventListener('click', closeHelp);
+    document.addEventListener('keydown',(e)=>{ if(e.key==='?'){ openHelp(); } if(e.key==='Escape'){ closeHelp(); } });
+
+    // Wire help links + footer
+    document.getElementById('helpPrimary').href = CONFIG.links.help;
+    document.getElementById('helpIssues').href  = CONFIG.links.issues;
+    document.getElementById('helpDocs').href    = CONFIG.links.docs;
+    document.getElementById('helpEmail').href   = CONFIG.links.email;
+    document.getElementById('footerHelp').href  = '#';
+    document.getElementById('footerContact').href = '#contact';
+
+    // Start polling only when the services section is visible
+    let statusInterval = null;
+    const servicesSection = document.getElementById('services');
+    const statusObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !statusInterval) {
+          checkStatus(); // initial when first visible
+          statusInterval = setInterval(checkStatus, 30000);
+        } else if (!entry.isIntersecting && statusInterval) {
+          clearInterval(statusInterval);
+          statusInterval = null;
+        }
+      });
+    }, { root: null, threshold: 0.05 });
+    statusObserver.observe(servicesSection);
+
+    // Init
+    function init(){
+      renderExamples();
+      renderCards();
+      padForHeader();
+      checkStatus(); // optional immediate check
+      document.getElementById('refreshStatus')?.addEventListener('click', checkStatus);
+      document.getElementById('year').textContent = new Date().getFullYear();
+      document.getElementById('githubBtn').href   = CONFIG.links.repo;
+      document.getElementById('repoLink').href    = CONFIG.links.repo;
+      document.getElementById('docsLink').href    = CONFIG.links.docs;
+      document.getElementById('issuesLink').href  = CONFIG.links.issues;
+      document.getElementById('helpLink').href    = CONFIG.links.help;
+      document.getElementById('emailLink').href   = CONFIG.links.email;
+      document.getElementById('footerRepo').href  = CONFIG.links.repo;
+    }
+    init();
+
+    // NOTE: no global setInterval  polling handled by the observer above.
+  </script>
+</body>
+</html>

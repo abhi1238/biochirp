@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>BioChirp — Interpreter Service Console</title>
+
+<!-- Keep only needed assets; defer JS for faster first paint -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+
+<style>
+  :root[data-theme="dark"]{
+    --bg0:#0A0F1C; --bg1:#0B1222; --bg2:#0E1626; --bg3:#121C2E;
+    --card:#0F1828; --txt:#EAF2FF; --mut:#9FB0C4;
+    --brd:rgba(255,255,255,.12); --hover:rgba(255,255,255,.06);
+    --accent:#1FA4FF; --accent2:#A78BFA; --ok:#00E38C; --err:#ff6b6b;
+    --shadow:0 10px 28px rgba(0,0,0,.28); --ring:rgba(31,164,255,.28);
+  }
+  :root[data-theme="light"]{
+    --bg0:#F6FAFF; --bg1:#FFFFFF; --bg2:#FFFFFF; --bg3:#F1F5FA;
+    --card:#FFFFFF; --txt:#0B1624; --mut:#4C6278;
+    --brd:rgba(0,0,0,.10); --hover:rgba(0,0,0,.05);
+    --accent:#1FA4FF; --accent2:#6D50FF; --ok:#0FB27A; --err:#E25050;
+    --shadow:0 8px 22px rgba(17,24,39,.10); --ring:rgba(31,164,255,.22);
+  }
+  :root{ --chat-max: 1080px; --radius:14px; --radius-lg:18px }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    min-height:100vh; color:var(--txt); background:var(--bg0);
+    font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column;
+    background:
+      radial-gradient(800px 520px at -20% -10%, rgba(31,164,255,.08) 0%, transparent 60%),
+      radial-gradient(800px 520px at 120% 120%, rgba(167,139,250,.08) 0%, transparent 55%),
+      linear-gradient(135deg,var(--bg0) 0%,var(--bg1) 100%);
+  }
+
+  @media (min-width: 960px){
+    .bg-grid { position:fixed; inset:0; pointer-events:none; z-index:-2; opacity:.08;
+      background-image: linear-gradient(to right, var(--brd) 1px, transparent 1px), linear-gradient(to bottom, var(--brd) 1px, transparent 1px);
+      background-size: 48px 48px; }
+  }
+
+  .app{display:flex; min-height:100vh;}
+  .chat{flex:1; display:flex; flex-direction:column; min-width:0;}
+
+  .chat-header{
+    position:sticky; top:0; z-index:5; padding:10px 12px; border-bottom:1px solid var(--brd);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:color-mix(in oklab, var(--bg1) 92%, transparent); backdrop-filter: blur(6px);
+  }
+  .brand{ display:flex; align-items:center; gap:10px; min-width:0 }
+  .brand img{ display:block; width:28px; height:28px }
+  .title{ display:flex; flex-direction:column; min-width:0 }
+  .title .main{ font-size:16px; font-weight:800; line-height:1 }
+  .title .sub{ font-size:12px; font-weight:700; color:var(--mut) }
+
+  .status-wrap{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .connection-status{display:flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid var(--brd); background:var(--bg2); font-size:12px}
+  .status-dot{width:9px;height:9px;border-radius:50%}
+  .btn{padding:8px 10px;border-radius:10px;border:1px solid var(--brd);background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px}
+  .btn:hover{background:var(--hover)}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#00162a; border:none; font-weight:800}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+
+  .container{max-width:var(--chat-max); width:100%; margin:0 auto; padding:12px 12px 28px}
+  .cards{display:grid; grid-template-columns:1fr; gap:12px}
+  @media (min-width: 980px){ .cards{ grid-template-columns: 1fr 1fr } }
+
+  .card{
+    border:1px solid var(--brd); background:var(--card); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px; transition: border-color .25s ease, transform .25s ease, box-shadow .25s ease;
+  }
+  .card:hover{ border-color: color-mix(in oklab, var(--accent) 28%, var(--brd)); transform: translateY(-1px); }
+
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Courier New",monospace}
+  .badge{font-size:11px;padding:3px 8px;border-radius:10px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-weight:700}
+
+  pre{
+    white-space: pre-wrap; word-break: break-word; background:var(--bg3); color:var(--txt);
+    border:1px solid var(--brd); padding:12px; border-radius:10px; max-height:420px; overflow:auto;
+  }
+  .pre-head{display:flex; align-items:center; justify-content:space-between; margin:8px 0 0}
+  .copy-btn{font-size:11px; padding:3px 8px; border-radius:8px; border:1px solid var(--brd); background:var(--bg2)}
+  .copy-btn:hover{ background:var(--hover) }
+  :root[data-theme="dark"] .copy-btn{
+  background: var(--bg1);
+  color: var(--txt);
+  border-color: var(--brd);
+}
+:root[data-theme="dark"] .copy-btn:hover{
+  background: var(--hover);
+}
+
+
+  textarea{
+    width:100%; background:var(--bg3); color:var(--txt);
+    border:1px solid var(--brd); border-radius:10px; padding:10px 12px; min-height:120px; resize:vertical;
+  }
+  .help{font-size:12px;color:var(--mut);margin-top:6px}
+  .kbd{padding:.15rem .35rem;border:1px solid var(--brd);border-radius:.35rem;font-size:.75rem}
+
+  table{width:100%;border-collapse:collapse;border:1px solid var(--brd);border-radius:10px;overflow:hidden}
+  th,td{border-bottom:1px solid var(--brd); text-align:left; padding:8px 10px; font-size:13px}
+  thead th{background:var(--bg3); color:var(--mut)}
+  .table-wrap{overflow:auto}
+
+  .method{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--brd);background:var(--bg2);font-weight:700}
+  .get{color:#ffd76a}
+  .post{color:#63ffb3}
+
+  .warning{display:none;margin-top:8px;font-size:12px;color:#fbbf24}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .dot.online{background:var(--ok)}
+  .dot.offline{background:var(--err)}
+
+  @media (prefers-reduced-motion: reduce){
+    * { transition:none !important; animation:none !important }
+  }
+</style>
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<div class="app">
+  <main class="chat" role="main">
+    <!-- Header -->
+    <header class="chat-header">
+      <div class="brand">
+        <img src="/assets/brand/logo.svg" alt="BioChirp logo" width="28" height="28" loading="eager">
+        <div class="title">
+          <div class="main">Interpreter Service Console</div>
+          <div class="sub">BioChirp</div>
+        </div>
+      </div>
+      <div class="status-wrap">
+        <button class="btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">🌓 Theme</button>
+        <button class="btn" id="pingBtn" title="Ping /health">Ping</button>
+        <div class="connection-status" aria-live="polite">
+          <span class="status-dot dot" id="statusDot" aria-hidden="true"></span>
+          <span id="connectionStatus">Unknown</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="container">
+      <!-- Service Status -->
+      <section class="card">
+        <div class="row" style="align-items:flex-start">
+          <div style="flex:1; min-width:260px">
+            <div class="badge">Service Status</div>
+            <div class="help" style="margin-top:8px">
+              Health checks run against <code class="mono" id="endpointLabel"></code>
+            </div>
+            <div id="protoWarn" class="warning">⚠ Mixed-content likely: page is <span class="mono" id="pageProto"></span> but API is <span class="mono" id="apiProto"></span>.</div>
+            <div id="corsWarn"  class="warning">⚠ CORS blocked. Allow this origin or proxy same-origin.</div>
+            <div id="fileWarn"  class="warning">⚠ Opened via <span class="mono">file://</span>. Serve via HTTP.</div>
+            <div id="netWarn"   class="warning">⚠ Network error/timeout. Check API reachability.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div>
+              <div style="font-weight:800" id="statusText">Unknown</div>
+              <div class="help" id="statusMeta">—</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Schema & Examples -->
+      <section class="card">
+        <div class="row">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge">Schema</span>
+            <h3 style="font-size:16px">Input / Output Models</h3>
+          </div>
+        </div>
+
+        <div class="cards" style="margin-top:10px">
+          <!-- InterpreterInput -->
+          <div class="card" style="padding:12px">
+            <div class="row">
+              <div style="font-weight:800">InterpreterInput</div>
+              <span class="badge">Body • JSON</span>
+            </div>
+            <div class="table-wrap" style="margin-top:8px">
+              <table aria-label="InterpreterInput fields">
+                <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Example</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="mono">query</td>
+                    <td class="mono">string</td>
+                    <td>Yes</td>
+                    <td class="mono">"What is drug for fever?"</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pre-head">
+              <div class="help">Example request</div>
+              <button class="copy-btn" data-copy='{"query":"What is drug for fever?"}'>Copy</button>
+            </div>
+            <pre class="mono" id="example-input">{"query":"What is drug for fever?"}</pre>
+          </div>
+
+          <!-- QueryInterpreterOutputGuardrail -->
+          <div class="card" style="padding:12px">
+            <div class="row">
+              <div style="font-weight:800">QueryInterpreterOutputGuardrail</div>
+              <span class="badge">Response • JSON</span>
+            </div>
+
+            <div class="table-wrap" style="margin-top:8px">
+              <table aria-label="Top-level fields">
+                <thead><tr><th>Field</th><th>Type</th><th>Example</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">cleaned_query</td><td class="mono">string</td><td class="mono">"What is the drug for fever?"</td></tr>
+                  <tr><td class="mono">status</td><td class="mono">string</td><td class="mono">"valid"</td></tr>
+                  <tr><td class="mono">route</td><td class="mono">string</td><td class="mono">"biochirp"</td></tr>
+                  <tr><td class="mono">message</td><td class="mono">string</td><td class="mono">"Your question is clear. BioChirp will answer using its workflow."</td></tr>
+                  <tr><td class="mono">tool</td><td class="mono">string</td><td class="mono">"interpreter"</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="table-wrap" style="margin-top:10px">
+              <table aria-label="parsed_value (CommonFields)">
+                <thead><tr><th>parsed_value.*</th><th>Type</th><th>Example</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">drug_name</td><td class="mono">string | string[] | null</td><td class="mono">"requested"</td></tr>
+                  <tr><td class="mono">target_name</td><td class="mono">string | string[] | null</td><td class="mono">—</td></tr>
+                  <tr><td class="mono">gene_name</td><td class="mono">string | string[] | null</td><td class="mono">—</td></tr>
+                  <tr><td class="mono">disease_name</td><td class="mono">string | string[] | null</td><td class="mono">["Fever"]</td></tr>
+                  <tr><td class="mono">pathway_name</td><td class="mono">string | string[] | null</td><td class="mono">—</td></tr>
+                  <tr><td class="mono">biomarker_name</td><td class="mono">string | string[] | null</td><td class="mono">—</td></tr>
+                  <tr><td class="mono">drug_mechanism_of_action_on_target</td><td class="mono">string | string[] | null</td><td class="mono">—</td></tr>
+                  <tr><td class="mono">approval_status</td><td class="mono">string | string[] | null</td><td class="mono">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pre-head" style="margin-top:8px">
+              <div class="help">Example response</div>
+              <button
+                class="copy-btn"
+                data-copy='{
+  "cleaned_query":"What is the drug for fever?",
+  "status":"valid",
+  "route":"biochirp",
+  "message":"Your question is clear. BioChirp will answer using its workflow.",
+  "parsed_value":{"drug_name":"requested","disease_name":["Fever"]},
+  "tool":"interpreter"
+}'>Copy</button>
+            </div>
+            <pre class="mono" id="example-output">{
+  "cleaned_query":"What is the drug for fever?",
+  "status":"valid",
+  "route":"biochirp",
+  "message":"Your question is clear. BioChirp will answer using its workflow.",
+  "parsed_value":{"drug_name":"requested","disease_name":["Fever"]},
+  "tool":"interpreter"
+}</pre>
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <div class="help" style="margin-bottom:6px">Quick examples (click to fill request body)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="btn ex" data-q="What are the drugs for TB?">TB drugs</button>
+            <button class="btn ex" data-q="List EGFR-targeting TKIs with indications">EGFR TKIs</button>
+            <button class="btn ex" data-q="What are the genes linked to asthma?">Asthma genes</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- GET / -->
+      <section class="card">
+        <div class="row">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="method get mono">GET</span>
+            <span class="mono" style="font-weight:800">/</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" data-curl="GET /">cURL</button>
+            <button class="btn primary" data-try="GET /">Try it</button>
+          </div>
+        </div>
+        <div class="help" style="margin-top:6px">
+          <strong>Purpose:</strong> Returns a simple service banner to confirm the Interpreter is reachable.
+        </div>
+        <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-root">Copy</button></div>
+        <pre id="out-root" class="mono" aria-live="polite"></pre>
+      </section>
+
+      <!-- GET /health -->
+      <section class="card">
+        <div class="row">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="method get mono">GET</span>
+            <span class="mono" style="font-weight:800">/health</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" data-curl="GET /health">cURL</button>
+            <button class="btn primary" data-try="GET /health">Try it</button>
+          </div>
+        </div>
+        <div class="help" style="margin-top:6px">
+          <strong>Purpose:</strong> Liveness/readiness probe for monitoring and the status chip above.
+        </div>
+        <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-health">Copy</button></div>
+        <pre id="out-health" class="mono" aria-live="polite"></pre>
+      </section>
+
+      <!-- POST /interpreter -->
+      <section class="card">
+        <div class="row">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="method post mono">POST</span>
+            <span class="mono" style="font-weight:800">/interpreter</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" data-curl="POST /interpreter">cURL</button>
+            <button class="btn" id="fillExample">Fill example</button>
+            <button class="btn primary" data-try="POST /interpreter">Try it</button>
+          </div>
+        </div>
+        <div class="help" style="margin-top:6px">
+          <strong>Purpose:</strong> Runs the Interpreter with a JSON body and returns <span class="mono">QueryInterpreterOutputGuardrail</span>.
+        </div>
+
+        <div class="cards" style="margin-top:8px">
+          <div class="card" style="padding:10px">
+            <div class="help">Request body (JSON)</div>
+            <textarea id="in-interpreter" class="mono" placeholder='Provide input here. For example click "Fill example".' aria-label="POST /interpreter request body"></textarea>
+            <div class="help">Tip: Press <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> to send.</div>
+          </div>
+          <div class="card" style="padding:10px">
+            <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-interpreter">Copy</button></div>
+            <pre id="out-interpreter" class="mono" aria-live="polite"></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- cURL modal -->
+      <section id="curlModal" class="card" style="display:none">
+        <div class="row">
+          <div style="font-weight:800">cURL</div>
+          <button class="btn" id="curlClose">Close</button>
+        </div>
+        <pre id="curlText" class="mono"></pre>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button class="btn primary" id="curlCopy">Copy</button>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<script>
+  // ---------- Config ----------
+  // Hardcoded to your requested base URL:
+  const API_BASE = 'https://biochirp.iiitd.edu.in/services/interpreter/api';
+
+  // ---------- DOM helpers ----------
+  const $ = s => document.querySelector(s);
+  const statusDot = $('#statusDot');
+  const statusText= $('#statusText');
+  const statusMeta= $('#statusMeta');
+  const connText  = $('#connectionStatus');
+  const protoWarn = $('#protoWarn');
+  const corsWarn  = $('#corsWarn');
+  const fileWarn  = $('#fileWarn');
+  const netWarn   = $('#netWarn');
+  const pageProto = $('#pageProto');
+  const apiProto  = $('#apiProto');
+  const endpointLabel = $('#endpointLabel');
+  const curlModal = $('#curlModal');
+  const curlText  = $('#curlText');
+
+  function fullUrl(path){
+    const p = path.startsWith('/') ? path : `/${path}`;
+    return `${API_BASE}${p}`;
+  }
+  function pretty(obj){ try{ return JSON.stringify(obj, null, 2); } catch { return String(obj); } }
+
+  function setConnStatus(txt, state){
+    connText.textContent = txt;
+    statusDot.classList.remove('online','offline');
+    if (state === true) statusDot.classList.add('online');
+    else if (state === false) statusDot.classList.add('offline');
+  }
+
+  function isMixedContent(){
+    try{
+      const p1 = location.protocol;
+      const p2 = new URL(API_BASE, location.origin).protocol;
+      return (p1 === 'https:' && p2 === 'http:');
+    }catch(_){ return false; }
+  }
+
+  function hideWarnings(){ protoWarn.style.display='none'; corsWarn.style.display='none'; fileWarn.style.display='none'; netWarn.style.display='none'; }
+
+  // ---------- fetch with timeout/CORS handling ----------
+  async function doFetch(urlOrPath, init = {}, timeoutMs = 45000){
+    const url = urlOrPath.startsWith('http') ? urlOrPath : fullUrl(urlOrPath);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try{
+      const res = await fetch(url, { cache:'no-store', mode:'cors', ...init, signal:ctrl.signal });
+      clearTimeout(t);
+      const ok = res.ok;
+      const ct = res.headers.get('content-type') || '';
+      const body = ct.includes('application/json') ? await res.json() : await res.text();
+      if (!ok) throw new Error(`HTTP ${res.status}`);
+      return { ok:true, status:res.status, body };
+    }catch(err){
+      clearTimeout(t);
+      const msg = String(err);
+      if (msg.includes('TypeError: Failed to fetch')){
+        if (location.protocol === 'file:') fileWarn.style.display='block';
+        else corsWarn.style.display='block';
+      }else if (msg.includes('AbortError')){
+        netWarn.style.display='block';
+      }
+      if (isMixedContent()) protoWarn.style.display='block';
+      return { ok:false, body:{ error:msg } };
+    }
+  }
+
+  // ---------- heartbeat ----------
+  let pingInFlight = false;
+  function fmtTime(d = new Date()){ return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' }); }
+  async function ping(){
+    if (pingInFlight) return;
+    pingInFlight = true;
+    try{
+      const r = await doFetch('/health');
+      if (r.ok){
+        statusText.textContent = 'Online';
+        statusMeta.textContent = `HTTP ${r.status} • ${fmtTime()}`;
+        setConnStatus('Online', true);
+      }else{
+        statusText.textContent = 'Degraded';
+        statusMeta.textContent = `HTTP ${r.status} • ${fmtTime()}`;
+        setConnStatus('Degraded', null);
+      }
+    }catch{
+      statusText.textContent = 'Offline';
+      statusMeta.textContent = `Network/CORS error • ${fmtTime()}`;
+      setConnStatus('Offline', false);
+    }finally{
+      pingInFlight = false;
+    }
+  }
+
+  const PING_INTERVAL_MS = 12000;
+  let pingTimer = null;
+  function startHeartbeat(){
+    if (pingTimer) clearInterval(pingTimer);
+    pingTimer = setInterval(() => { if (!document.hidden) ping(); }, PING_INTERVAL_MS);
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
+  window.addEventListener('online',  () => ping());
+  window.addEventListener('offline', () => { statusText.textContent='Offline'; statusMeta.textContent=`Offline • ${fmtTime()}`; setConnStatus('Offline', false); });
+
+  // ---------- demo actions ----------
+  async function runGet(path, outSel){
+    const out = document.querySelector(outSel);
+    out.textContent = '…';
+    try{ const r = await doFetch(path); out.textContent = pretty(r.body); }
+    catch(e){ out.textContent = pretty({ error:String(e) }); }
+  }
+  async function runPost(path, inSel, outSel){
+    const out = document.querySelector(outSel);
+    out.textContent = '…';
+    let payload;
+    try{ payload = JSON.parse(document.querySelector(inSel).value || '{}'); }
+    catch{ out.textContent = pretty({ error:'Invalid JSON in request body' }); return; }
+    try{
+      const r = await doFetch(path, { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(payload) });
+      out.textContent = pretty(r.body);
+    }catch(e){ out.textContent = pretty({ error:String(e) }); }
+  }
+
+  function curlFor(kind, path){
+    const url = fullUrl(path);
+    if (kind === 'GET')  return `curl -s ${url}`;
+    if (kind === 'POST'){
+      const payload = document.querySelector('#in-interpreter').value || '{}';
+      return `curl -s -X POST ${url} -H 'content-type: application/json' -d '${payload.replace(/'/g, "'\\''")}'`;
+    }
+    return '';
+  }
+
+  function copyText(txt){ try{ navigator.clipboard.writeText(txt); }catch{} }
+
+  // ---------- wire UI ----------
+  $('#pingBtn').addEventListener('click', ping);
+
+  document.querySelectorAll('[data-try]').forEach(btn=>{
+    const [method, path] = btn.dataset.try.split(' ');
+    btn.addEventListener('click',()=>{
+      if (method==='GET'  && path==='/')             runGet('/', '#out-root');
+      if (method==='GET'  && path==='/health')       runGet('/health', '#out-health');
+      if (method==='POST' && path==='/interpreter')  runPost('/interpreter', '#in-interpreter', '#out-interpreter');
+    });
+  });
+
+  $('#fillExample').addEventListener('click',()=>{
+    document.querySelector('#in-interpreter').value = JSON.stringify(
+      { query: "What are the drugs for TB?" },
+      null, 2
+    );
+    window.scrollTo({ top: document.body.scrollHeight, behavior:'smooth' });
+  });
+
+  document.querySelectorAll('.ex').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelector('#in-interpreter').value = JSON.stringify({ query: btn.dataset.q }, null, 2);
+      window.scrollTo({ top: document.body.scrollHeight, behavior:'smooth' });
+    });
+  });
+
+  document.querySelectorAll('[data-copy]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      copyText(btn.getAttribute('data-copy') || '');
+      const old = btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=old, 900);
+    });
+  });
+
+  document.querySelectorAll('[data-copy-target]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const sel = btn.getAttribute('data-copy-target');
+      const el = document.querySelector(sel);
+      copyText(el ? el.textContent : '');
+      const old = btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=old, 900);
+    });
+  });
+
+  document.querySelectorAll('[data-curl]').forEach(btn=>{
+    const [method, path] = btn.dataset.curl.split(' ');
+    btn.addEventListener('click',()=>{
+      curlText.textContent = curlFor(method, path);
+      curlModal.style.display='block';
+      window.scrollTo({ top: curlModal.offsetTop - 20, behavior:'smooth' });
+    });
+  });
+  $('#curlClose').addEventListener('click',()=> curlModal.style.display='none');
+  $('#curlCopy').addEventListener('click',()=> copyText(curlText.textContent || ''));
+
+  // Theme toggle + persist
+  $('#themeToggle').addEventListener('click', ()=>{
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try{ localStorage.setItem('biochirp_theme', next); }catch{}
+  });
+  (function(){ try{
+    const saved = localStorage.getItem('biochirp_theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  }catch{} })();
+
+  // ---------- boot ----------
+  function start(){
+    endpointLabel.textContent = API_BASE;
+    try{
+      pageProto.textContent = location.protocol;
+      apiProto.textContent  = new URL(API_BASE, location.origin).protocol;
+    }catch{}
+    hideWarnings();
+    startHeartbeat();
+    ping();
+    runGet('/', '#out-root');
+    runGet('/health', '#out-health');
+  }
+  document.addEventListener('DOMContentLoaded', start);
+</script>
+</body>
+</html>

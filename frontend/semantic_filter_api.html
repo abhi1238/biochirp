@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>BioChirp - Biological Research AI (Chat)</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+
+<style>
+  :root[data-theme="dark"]{
+    --bg0:#070A15; --bg1:#0B1222; --bg2:#0E1626; --bg3:#121C2E;
+    --card:#0F1828; --txt:#EAF2FF; --mut:#9FB0C4;
+    --brd:rgba(255,255,255,.10); --hover:rgba(255,255,255,.06);
+    --accent:#1FA4FF; --accent2:#A78BFA; --ok:#00E38C; --err:#ff6b6b;
+    --shadow:0 12px 40px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"]{
+    --bg0:#F6FAFF; --bg1:#FFFFFF; --bg2:#FFFFFF; --bg3:#F4F7FB;
+    --card:#FFFFFF; --txt:#0B1624; --mut:#486173;
+    --brd:rgba(0,0,0,.10); --hover:rgba(0,0,0,.04);
+    --accent:#1FA4FF; --accent2:#6D50FF; --ok:#0FB27A; --err:#E25050;
+    --shadow:0 12px 40px rgba(17,24,39,.12);
+  }
+  :root{ --chat-max: 1200px; }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    min-height:100vh; color:var(--txt); background:var(--bg0);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column;
+    background:
+      radial-gradient(900px 600px at -20% -10%, rgba(31,164,255,.10) 0%, transparent 60%),
+      radial-gradient(900px 600px at 110% 110%, rgba(167,139,250,.10) 0%, transparent 55%),
+      linear-gradient(135deg,var(--bg0) 0%,var(--bg1) 100%);
+  }
+
+  .app{display:flex; min-height:100vh;}
+  .chat{flex:1; display:flex; flex-direction:column; min-width:0;}
+
+  .chat-header{position:sticky; top:0; z-index:5; padding:12px 14px; border-bottom:1px solid var(--brd);
+    display:flex; align-items:center; justify-content:space-between;
+    background:color-mix(in oklab, var(--bg1) 90%, transparent); backdrop-filter: blur(6px);}
+  .leftHdr{display:flex; align-items:center; gap:10px}
+  .chat-title{font-size:18px; font-weight:800}
+  .chat-title small{font-weight:700; color:var(--mut)}
+  .status-wrap{display:flex; gap:8px; align-items:center}
+  .connection-status{display:flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid var(--brd); background:var(--bg2); font-size:12px}
+  .status-dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+  .reconnect,.theme-btn,.share-btn{padding:6px 10px;border-radius:10px;border:1px solid var(--brd);background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px}
+
+  /* Centered modal overlay for Share */
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; place-items:center; z-index:80;}
+  .overlay.show{display:grid;}
+  .modal{width:min(560px,92vw); background:var(--card); border:1px solid var(--brd); border-radius:14px; box-shadow:var(--shadow); padding:14px;}
+  .modal h4{margin:0 0 6px 0; font-size:16px}
+  .modal .row{display:flex; gap:8px; align-items:center; margin-top:8px}
+  .modal input{flex:1; background:var(--bg2); color:var(--txt); border:1px solid var(--brd); border-radius:8px; padding:10px 12px; font-size:13px}
+  .modal .btns{display:flex; gap:8px; margin-top:10px; justify-content:flex-end}
+  .modal a.share-link{display:block; margin-top:8px; font-size:13px; word-break:break-all; color:var(--accent); text-decoration:underline}
+
+  .quick-asks{
+    max-width: var(--chat-max);
+    margin: 10px auto 0;
+    padding: 0 16px;
+    display:grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap:10px;
+  }
+  .qa-card{
+    border:1px solid var(--brd);
+    background:var(--card);
+    color:var(--txt);
+    padding:12px 14px;
+    border-radius:12px;
+    font-size:14px;
+    cursor:pointer;
+    box-shadow: var(--shadow);
+    transition: transform .06s ease, background .15s ease, border-color .15s ease;
+    user-select:none;
+  }
+  .qa-card:hover{ background:var(--bg2); border-color: color-mix(in oklab, var(--accent) 35%, var(--brd)); }
+  .qa-card:active{ transform: translateY(1px) scale(.99); }
+
+  .messages{flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px}
+  .message{display:flex; gap:12px; max-width:var(--chat-max); margin-inline:auto;}
+  .message.user{align-self:flex-end; flex-direction:row-reverse; margin-left:auto; margin-right:0;}
+  .message-avatar{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:transparent;color:#0b1222;border:1px solid var(--brd); font-size:18px}
+  .message-avatar img{ width:100%; height:100%; border-radius:12px; display:block; background:transparent }
+  .message-content{flex:1; display:flex; flex-direction:column; gap:8px; min-width:0}
+  .timestamp{font-size:11px; color:var(--mut)}
+  .message-bubble{position:relative; padding:12px 14px; border-radius:14px; background:var(--card); border:1px solid var(--brd); line-height:1.6; font-size:15px; box-shadow:var(--shadow); overflow-wrap:anywhere;}
+  .message.user .message-bubble{background:color-mix(in oklab,var(--card) 88%, #0ae 12%);}
+  .message.assistant .message-bubble pre{background:var(--bg3);border:1px solid var(--brd);border-radius:12px;padding:12px;overflow:auto}
+  .message.assistant .message-bubble code{background:var(--bg3);border:1px solid var(--brd);padding:2px 6px;border-radius:6px}
+
+  .tool-card{background:var(--card);border:1px solid var(--brd);border-radius:12px;overflow:hidden}
+  .tool-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer}
+  .tool-info{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tool-icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--txt);border:1px solid var(--brd);font-size:12px}
+  .tool-name{font-weight:800;font-size:13px}
+  .tool-chips{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+  .chip{font-size:11px;padding:3px 8px;border-radius:10px;font-weight:700;border:1px solid var(--brd);background:var(--bg2);color:var(--mut)}
+  .chip.status.running{color:#ffd76a}
+  .chip.status.completed{color:#63ffb3}
+  .chip.status.failed{color:#ff9c9c}
+  .chip.time{color:var(--txt)}
+  .expand-icon{transition:.25s;color:var(--mut)}
+  .tool-card.expanded .expand-icon{transform:rotate(180deg)}
+  .tool-body{max-height:0;overflow:hidden;transition:max-height .3s}
+  .tool-card.expanded .tool-body,
+  .tool-card.show-output .tool-body{max-height:70vh;overflow:auto}
+
+  .tool-output{padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;white-space:pre-wrap;word-break:break-word}
+
+  .table-toolbar{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:2px 0 8px;}
+  .table-actions{ display:flex; gap:8px; align-items:center; }
+  .pager{ display:flex; gap:8px; align-items:center; font-size:12px; color:var(--mut); }
+  .pager button{padding:6px 10px; border-radius:10px; border:1px solid var(--brd); background:var(--bg2); color:var(--txt); cursor:pointer;}
+  .pager button:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .input-area{padding:12px 14px;border-top:1px solid var(--brd);background:color-mix(in oklab, var(--bg1) 92%, transparent);backdrop-filter: blur(6px);}
+  .input-container{display:flex;gap:10px;align-items:flex-end; max-width:var(--chat-max); margin:0 auto}
+  .input-wrapper{flex:1}
+  #messageInput{width:100%;min-height:48px;max-height:150px;padding:12px 14px;border-radius:12px;outline:none;resize:none;background:var(--card);border:1px solid var(--brd);color:var(--txt);font-size:14px}
+  #sendButton{width:52px;height:52px;border:none;border-radius:12px;color:#00162a;cursor:pointer;font-size:20px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:var(--shadow)}
+  #sendButton:disabled{ opacity:.5; cursor:not-allowed }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  @media (max-width: 920px){
+    .message{max-width:100%}
+    .quick-asks{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+
+  .message-avatar{ background:#fff; color:#0b1222; border:1px solid var(--brd); }
+  .tool-icon{ background:#fff; color:#0b1222; border:1px solid var(--brd); }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="chat">
+    <header class="chat-header">
+      <div class="leftHdr"><div class="chat-title">Research Chat <small>• Biological Intelligence</small></div></div>
+      <div class="status-wrap">
+        <button class="theme-btn" id="themeToggle">🌓 Theme</button>
+        <button class="share-btn" id="shareBtn" title="Create a public share link">🔗 Share</button>
+        <button class="reconnect" onclick="manualReconnect()">Reconnect</button>
+        <div class="connection-status"><div class="status-dot" id="statusDot"></div><span id="connectionStatus">Connecting…</span></div>
+      </div>
+    </header>
+
+    <div id="quickAsks" class="quick-asks" aria-label="Quick questions">
+      <div class="qa-card" onclick="askPreset('What are the drugs for TB?')">What are the drugs for TB?</div>
+      <div class="qa-card" onclick="askPreset('List the TKI.')">List the TKI</div>
+      <div class="qa-card" onclick="askPreset('What are the genes linked to asthma?')">What are the genes linked to asthma?</div>
+      <div class="qa-card" onclick="askPreset('What are the pathway and biomarker linked to melanoma?')">What are the pathway and biomarker linked to melanoma?</div>
+    </div>
+
+    <section class="messages" id="messagesContainer"></section>
+
+    <footer class="input-area">
+      <div class="input-container">
+        <div class="input-wrapper">
+          <textarea id="messageInput" placeholder="Ask about drugs, pathways, biomarkers, clinical data..." rows="1"></textarea>
+        </div>
+        <button id="sendButton" title="Send" onclick="sendMessage()">➤</button>
+      </div>
+    </footer>
+  </main>
+</div>
+
+<!-- Centered modal overlay for Share -->
+<div id="shareOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+  <div class="modal">
+    <h4 id="shareTitle">Share link created</h4>
+    <a id="shareLinkAnchor" class="share-link" href="#" target="_blank" rel="noopener">Link</a>
+    <div class="row">
+      <input id="shareLinkInput" value="" readonly />
+      <button class="reconnect" id="copyShareBtn">Copy</button>
+    </div>
+    <div class="btns">
+      <button class="reconnect" id="closeShareBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // const WS_URL = 'wss://biochirp.iiitd.edu.in/chat';
+  const WS_URL = 'wss://biochirp.iiitd.edu.in/chat/';
+
+  marked.setOptions({
+    gfm:true, breaks:true, mangle:false, headerIds:false,
+    highlight:(code,lang)=>{ try{return hljs.highlight(code,{language:lang}).value;}catch{return hljs.highlightAuto(code).value;} }
+  });
+
+  let ws=null, pingInterval=null;
+  let currentAssistantMessage=null;
+  let currentToolCards=new Map();
+  let toolBuffers=new Map();
+  let toolCount=0;
+
+  const toolStartTimes = new Map();
+  const toolElapsed = new Map();
+
+  let orchestratorDone=false;
+  let isStreaming=false;
+
+  let orchestratorBuf='';
+  let suppressOrchStream=false;
+
+  let pendingUI = new Map();
+  let rafScheduled = false;
+
+  const primaryByName = new Map();   // name -> primary tool_id
+  const aliasToPrimary = new Map();  // aliasId -> primaryId
+  const nameKey = (n)=> String(n||'tool').trim().toLowerCase();
+  const canonicalId = (raw)=> aliasToPrimary.get(raw) || raw || 'tool';
+
+  const activeSessionId = 'sess_' + Math.random().toString(36).slice(2,10);
+
+  function setStatus(t,ok){ document.getElementById('connectionStatus').textContent=t; document.getElementById('statusDot').style.background=ok?'var(--ok)':'var(--err)'; }
+  function startPing(){ clearInterval(pingInterval); pingInterval=setInterval(()=>{ if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'ping',ts:Date.now()})); },30000); }
+  function nowStamp(){ return new Date().toLocaleString(); }
+  function scrollEnd(){ const mc=document.getElementById('messagesContainer'); mc.scrollTop=mc.scrollHeight; }
+  function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+  function disableInput(){ document.getElementById('messageInput').disabled=true; document.getElementById('sendButton').disabled=true; }
+  function enableInput(){ if (ws && ws.readyState===WebSocket.OPEN) { document.getElementById('messageInput').disabled=false; document.getElementById('sendButton').disabled=false; } }
+
+  function startStreaming(){ isStreaming=true; disableInput(); }
+  function maybeFinishStreaming(){
+    if (orchestratorDone && toolCount===0) { isStreaming=false; enableInput(); }
+  }
+
+  function connect(){
+    try{ ws && ws.close(); }catch{}
+    ws=new WebSocket(WS_URL);
+    disableInput();
+    ws.onopen=()=>{ setStatus('Connected',true); startPing(); if(!isStreaming) enableInput(); };
+    ws.onclose=()=>{ setStatus('Disconnected',false); disableInput(); setTimeout(connect,1500); };
+    ws.onerror=()=>{ setStatus('Error',false); disableInput(); };
+    ws.onmessage=(e)=>{ let d; try{ d = JSON.parse(e.data); }catch{ return; } route(d); };
+  }
+  window.addEventListener('load', ()=>{ resetChatUI(); connect(); initTheme(); });
+  function manualReconnect(){ try{ if(ws) ws.close(); }catch{} connect(); }
+
+  function resetChatUI(){
+    const mc=document.getElementById('messagesContainer');
+    mc.innerHTML = `
+      <div class="message assistant">
+        <div class="message-avatar" title="Assistant">
+          <img src="assets/brand/logo.svg" alt="Assistant">
+        </div>
+        <div class="message-content">
+          <div class="timestamp">${nowStamp()}</div>
+          <div class="message-bubble">Welcome to **BioChirp**! Ask about drugs, pathways, biomarkers, or clinical data.</div>
+        </div>
+      </div>`;
+    currentAssistantMessage=null; currentToolCards.clear(); orchestratorBuf='';
+    toolBuffers.clear(); toolCount=0; suppressOrchStream=false;
+    orchestratorDone=false; isStreaming=false;
+    toolStartTimes.clear(); toolElapsed.clear();
+    const last = mc.querySelector('.message-bubble');
+    if(last){ last.innerHTML = marked.parse(last.textContent); last.querySelectorAll('pre code').forEach(c=>hljs.highlightElement(c)); }
+    scrollEnd();
+    showQuickAsks();
+  }
+
+  function createAssistant(){
+    const el=document.createElement('div'); el.className='message assistant';
+    el.innerHTML=`<div class="message-avatar" title="Assistant">
+        <img src="assets/brand/logo.svg" alt="Assistant">
+      </div>
+      <div class="message-content"><div class="timestamp">${nowStamp()}</div><div class="message-bubble"></div></div>`;
+    document.getElementById('messagesContainer').appendChild(el);
+    return el;
+  }
+  function mainBubble(msgDiv){
+    const mc=msgDiv.querySelector('.message-content');
+    let b=[...mc.querySelectorAll('.message-bubble')].find(x=>!x.closest('.tool-card'));
+    if(!b){ b=document.createElement('div'); b.className='message-bubble'; mc.appendChild(b); }
+    return b;
+  }
+  function toolClass(n){ n=(n||'').toLowerCase(); if(n.includes('ttd')||n.includes('ctd')||n.includes('hcdt'))return'table-card'; if(n.includes('web'))return'tool-web'; if(n.includes('interpreter'))return'tool-interpreter'; return'tool-generic'; }
+  function toolEmoji(n){
+    n = String(n||'').toLowerCase();
+    if (n.includes('ttd'))          return '🎯';
+    if (n.includes('ctd'))          return '🧪';
+    if (n.includes('hcdt'))         return '💊';
+    if (n.includes('web'))          return '🌐';
+    if (n.includes('interpreter'))  return '🧠';
+    if (n.includes('readme'))       return '📖';
+    if (n.includes('memory'))       return '🗂️';
+    if (n.includes('tavily') || n.includes('search')) return '🔎';
+    if (n.includes('orchestrator')) return '🤖';
+    return '🛠️';
+  }
+  function fmtMs(ms){
+    if (ms < 1000) return Math.max(0, Math.round(ms)) + ' ms';
+    const s = ms/1000;
+    return (s<60) ? s.toFixed(2) + ' s' : (s/60).toFixed(2) + ' min';
+  }
+
+  function createToolCard(id,name){
+    const c=document.createElement('div');
+    c.className=`tool-card ${toolClass(name)}`; c.dataset.toolId=id;
+    const icon = toolEmoji(name);
+    c.innerHTML=`<div class="tool-header" onclick="toggleCard(this)">
+        <div class="tool-info">
+          <div class="tool-icon">${icon}</div>
+          <div class="tool-name">${esc(name||'Tool')}</div>
+          <div class="tool-chips">
+            <div class="chip status running">Running…</div>
+            <div class="chip time" data-timechip>Time: —</div>
+          </div>
+        </div>
+        <div class="expand-icon">▾</div>
+      </div>
+      <div class="tool-body"><div class="tool-output">Streaming…</div></div>`;
+    return c;
+  }
+  function toggleCard(h){
+    const c = h.closest('.tool-card');
+    c.classList.toggle('expanded');
+    if (c.classList.contains('expanded')) c.dataset.userHold = '1';
+  }
+  function scheduleFlush(){
+    if (rafScheduled) return;
+    rafScheduled = true;
+    requestAnimationFrame(() => {
+      rafScheduled = false;
+      for (const [id, chunk] of pendingUI.entries()) {
+        pendingUI.delete(id);
+        const card = currentToolCards.get(id);
+        if (!card) continue;
+        const outEl = card.querySelector('.tool-output');
+        if (!outEl.dataset.streamed) { outEl.dataset.streamed = '1'; outEl.textContent = ''; }
+        if (chunk) outEl.textContent += chunk;
+        card.classList.add('expanded');
+      }
+      scrollEnd();
+    });
+  }
+
+  function sanitizeOrchestrator(content){
+    if (!content) return '';
+    const t = content.trim();
+    const startsWithEcho = /^\s*`{0,3}\s*"?input[_ ]?query"?\s*[:=>]/i.test(t);
+    const shortEcho = t.length <= 500 && /input[_ ]?query/i.test(t) && !/\n.*\n.*\n/.test(t);
+    const fencedEcho = /^```[\s\S]*?input[_ ]?query[\s\S]*?```$/i.test(t) && !/```[\s\S]*?```[\s\S]*?```/i.test(t);
+    return (startsWithEcho || shortEcho || fencedEcho) ? '' : content;
+  }
+
+  function onOrchDelta(text){
+    if (!text) return;
+    const maybe = sanitizeOrchestrator(text);
+    if (!maybe) return;
+    orchestratorBuf += maybe;
+    if (suppressOrchStream) return;
+
+    if (!currentAssistantMessage) currentAssistantMessage = createAssistant();
+    const bubble = mainBubble(currentAssistantMessage);
+    bubble.innerHTML = marked.parse(orchestratorBuf) +
+      `<span style="display:inline-block;width:2px;height:1em;background:var(--accent);margin-left:2px;animation:blink 1s infinite"></span>`;
+    bubble.querySelectorAll('pre code').forEach(c => hljs.highlightElement(c));
+    scrollEnd();
+  }
+  function onOrchFinal(text){
+    const cleaned = sanitizeOrchestrator(text);
+    if (!currentAssistantMessage) currentAssistantMessage = createAssistant();
+    const bubble = mainBubble(currentAssistantMessage);
+    bubble.innerHTML = marked.parse(cleaned || orchestratorBuf || '');
+    bubble.querySelectorAll('pre code').forEach(c=>hljs.highlightElement(c));
+    orchestratorBuf = '';
+    orchestratorDone = true;
+    maybeFinishStreaming();
+    scrollEnd();
+  }
+
+  function route(d){
+    switch(d.type){
+      case 'heartbeat':
+      case 'pong':
+      case 'user_ack': return;
+
+      case 'orchestrator_delta': onOrchDelta(d.content); return;
+      case 'orchestrator_final': onOrchFinal(d.content); return;
+
+      case 'delta': {
+        const nm = String(d.name||'').toLowerCase();
+        const the_is_orch = nm.includes('orchestrator') || (d.tool_id||'') === 'orchestrator';
+        const chunk = d.text ?? d.delta ?? d.content ?? '';
+        if (the_is_orch) { onOrchDelta(chunk); return; }
+        const id = canonicalId(d.tool_id || 'tool');
+        const t = String(chunk ?? '');
+        toolBuffers.set(id, (toolBuffers.get(id)||'') + t);
+        pendingUI.set(id, (pendingUI.get(id)||'') + t);
+        scheduleFlush();
+        return;
+      }
+
+      case 'Tool called':
+      case 'tool_called': {
+        suppressOrchStream = true;
+        const toolName = d.name || 'Tool';
+        const incomingId = d.tool_id || 'tool';
+        const key = nameKey(toolName);
+        if (!currentAssistantMessage) currentAssistantMessage = createAssistant();
+
+        if (primaryByName.has(key)) {
+          const primary = primaryByName.get(key);
+          aliasToPrimary.set(incomingId, primary);
+          toolBuffers.set(incomingId, '');
+          scrollEnd();
+          return;
+        }
+
+        primaryByName.set(key, incomingId);
+        toolStartTimes.set(incomingId, performance.now());
+        toolCount++;
+
+        const card = createToolCard(incomingId, toolName);
+        currentToolCards.set(incomingId, card);
+        toolBuffers.set(incomingId, '');
+
+        const mc = currentAssistantMessage.querySelector('.message-content');
+        const main = mc.querySelector('.message-bubble:not(.tool-card .message-bubble)');
+        if (main) mc.insertBefore(card, main); else mc.appendChild(card);
+        scrollEnd();
+        return;
+      }
+
+      case 'Tool output':
+      case 'Tool output delta': {
+        const id = canonicalId(d.tool_id || 'tool');
+        const out = (d.item && (d.item.delta ?? d.item.output)) ?? '';
+        const t = (typeof out === 'string') ? out
+                 : out && typeof out==='object' ? JSON.stringify(out)
+                 : String(out ?? '');
+        toolBuffers.set(id, (toolBuffers.get(id)||'') + t);
+        pendingUI.set(id, (pendingUI.get(id)||'') + t);
+        scheduleFlush();
+        return;
+      }
+
+      case 'tool_result': {
+        const canon = canonicalId(d.tool_id || 'tool');
+        const card = currentToolCards.get(canon);
+
+        const t0 = toolStartTimes.get(canon);
+        let ms = null;
+        if (typeof t0 === 'number') { ms = Math.max(0, performance.now() - t0); toolElapsed.set(canon, ms); }
+
+        const ok = (d.ok !== undefined) ? d.ok : true;
+
+        if (card) {
+          const statusChip = card.querySelector('.chip.status');
+          if (statusChip) {
+            statusChip.textContent = ok ? 'Completed (tap to view)' : 'Failed';
+            statusChip.className = 'chip status ' + (ok ? 'completed' : 'failed');
+          }
+          const timeChip = card.querySelector('[data-timechip]');
+          if (timeChip) timeChip.textContent = 'Time: ' + (ms==null ? '—' : fmtMs(ms));
+
+          const buf = toolBuffers.get(canon) || '';
+          renderToolOutput(card, buf, card.querySelector('.tool-name')?.textContent || '');
+          card.classList.add('expanded','show-output');
+          setTimeout(()=>{ card.classList.remove('show-output'); if (!card.dataset.userHold) card.classList.remove('expanded'); }, 2000);
+
+          const nm = (card.querySelector('.tool-name')?.textContent || '').toLowerCase();
+          if (primaryByName.get(nm) === canon) primaryByName.delete(nm);
+        }
+
+        if (toolStartTimes.has(canon)) {
+          toolStartTimes.delete(canon);
+          toolCount = Math.max(0, toolCount - 1);
+        }
+        if (toolCount === 0) { suppressOrchStream = false; }
+        maybeFinishStreaming();
+        return;
+      }
+
+      case 'final': {
+        const finalText = (typeof d.text === 'string') ? d.text : orchestratorBuf;
+        onOrchFinal(finalText || '');
+        return;
+      }
+
+      case 'ttd_table':
+      case 'ctd_table':
+      case 'hcdt_table':
+        renderTableEvent(d);
+        return;
+
+      default: return;
+    }
+  }
+
+  function renderToolOutput(card, output, toolName){
+    const outEl = card.querySelector('.tool-output');
+    delete outEl.dataset.streamed;
+    const toolKey = String(toolName||'').toLowerCase();
+    const isDbTool = toolKey.includes('ttd') || toolKey.includes('ctd') || toolKey.includes('hcdt');
+    const rows = isDbTool ? extractTableArray(output) : null;
+    if (isDbTool && Array.isArray(rows) && rows.length){
+      const csv = toCSV(rows);
+      const fname = (toolKey || 'table') + '.csv';
+      card.dataset.csv = csv; card.dataset.csvFilename = fname;
+      outEl.innerHTML =
+        `<div class="table-toolbar">
+           <div class="pager"><span class="pager-label" style="visibility:hidden"> </span></div>
+           <div class="table-actions">
+             <button class="reconnect" data-copy-csv>Copy CSV</button>
+             <button class="reconnect" data-download-csv>Download CSV</button>
+           </div>
+         </div>` + tableHtml(rows,'Results');
+      const copyBtn = outEl.querySelector('[data-copy-csv]');
+      const dlBtn = outEl.querySelector('[data-download-csv]');
+      if (copyBtn) copyBtn.addEventListener('click', ()=> navigator.clipboard.writeText(csv));
+      if (dlBtn) dlBtn.addEventListener('click', ()=>{
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+      });
+      return;
+    }
+    let obj=null, isTable=false, table=null;
+    if (typeof output==='string') { try { obj = JSON.parse(output); } catch {} }
+    else if (output && typeof output==='object') { obj = output; }
+    if (obj) {
+      const t = obj.table || obj?.item?.output?.table;
+      if (Array.isArray(t)) { isTable = true; table = t; }
+    }
+    outEl.textContent = isTable ? '' : (obj ? JSON.stringify(obj,null,2) : String(output || ''));
+    if (isTable) outEl.innerHTML = tableHtml(table,'Results');
+  }
+
+  function renderTableEvent(ev){
+    if (!currentAssistantMessage) currentAssistantMessage = createAssistant();
+    const mc = currentAssistantMessage.querySelector('.message-content');
+
+    const label = (ev && ev.row_count != null) ? ('rows: ' + ev.row_count) : 'Ready';
+    const downloadLink = (ev && ev.csv_path)
+      ? '<a class="reconnect" target="_blank" rel="noopener" href="/download?path=' + encodeURIComponent(ev.csv_path) + '">📥 Download CSV</a>'
+      : '';
+
+    const card = document.createElement('div');
+    card.className = 'tool-card table-card';
+    card.innerHTML =
+      '<div class="tool-header" onclick="toggleCard(this)">' +
+        '<div class="tool-info">' +
+          '<div class="tool-icon" title="Table">📊</div>' +
+          '<div class="tool-name">' + esc((ev && ev.type) || 'table') + '</div>' +
+          '<div class="tool-chips">' +
+            '<div class="chip status completed">' + esc(label) + '</div>' +
+            '<div class="chip time" data-timechip>Time: —</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="expand-icon">▾</div>' +
+      '</div>' +
+      '<div class="tool-body">' +
+        '<div class="tool-output">' +
+          '<div class="table-toolbar">' +
+            '<div class="pager">' +
+              '<button class="pager-prev" disabled>◀ Prev</button>' +
+              '<span class="pager-label">Page 1</span>' +
+              '<button class="pager-next" disabled>Next ▶</button>' +
+            '</div>' +
+            '<div class="table-actions">' + downloadLink + '</div>' +
+          '</div>' +
+          '<div class="table-preview" style="min-height:18px;color:var(--mut)">' +
+            ((ev && ev.csv_path) ? 'Loading…' : 'No CSV available') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    mc.appendChild(card);
+    card.classList.add('expanded');
+    setTimeout(()=>{ if(!card.dataset.userHold) card.classList.remove('expanded'); }, 5000);
+    scrollEnd();
+    if (ev && ev.csv_path) initPaginatedPreview(card, ev.csv_path, 5);
+  }
+
+  async function initPaginatedPreview(card, csvPath, rowsPerPage){
+    const previewEl = card.querySelector('.table-preview');
+    const labelEl   = card.querySelector('.pager-label');
+    const prevBtn   = card.querySelector('.pager-prev');
+    const nextBtn   = card.querySelector('.pager-next');
+    if (!csvPath) { previewEl.textContent = 'No CSV path provided.'; return; }
+    try{
+      const tStart = performance.now();
+      const url = '/download?path=' + encodeURIComponent(csvPath);
+      let res = await fetch(url, { headers: { Range: 'bytes=0-350000' } });
+      if (!(res.ok || res.status === 206)) res = await fetch(url);
+      if (!(res.ok || res.status === 206)) throw new Error('HTTP ' + res.status);
+      let text = await res.text();
+      text = (text || '').replace(/^\uFEFF/, ''); if (text && text[text.length-1] !== '\n') text += '\n';
+      const parsed = parseCSVHead(text, 300);
+      const rows = parsed.rows || [];
+      if (!rows.length){ previewEl.textContent = 'CSV appears empty or could not be parsed.'; return; }
+      card._preview = { rows, page:1, rpp:rowsPerPage||5, total:rows.length };
+      prevBtn.onclick = ()=>{ if(card._preview.page>1){ card._preview.page--; renderPreviewPage(card, labelEl, previewEl, prevBtn, nextBtn);} };
+      nextBtn.onclick = ()=>{ const totalPages = Math.ceil(card._preview.total / card._preview.rpp); if(card._preview.page<totalPages){ card._preview.page++; renderPreviewPage(card, labelEl, previewEl, prevBtn, nextBtn); } };
+      renderPreviewPage(card, labelEl, previewEl, prevBtn, nextBtn);
+      const timeChip = card.querySelector('[data-timechip]');
+      if (timeChip) timeChip.textContent = 'Time: ' + fmtMs(performance.now() - tStart);
+    }catch(err){
+      console.error('[preview] failed:', err);
+      previewEl.textContent = 'Preview failed. (Use Download link)';
+    }
+  }
+
+  function renderPreviewPage(card, labelEl, previewEl, prevBtn, nextBtn){
+    try{
+      const p = card._preview || {};
+      const rows = p.rows || [];
+      if (!rows.length) { previewEl.textContent = 'No data.'; return; }
+      const page = p.page || 1;
+      const rpp = p.rpp || 5;
+      const total = p.total || rows.length;
+      const start = (page-1)*rpp;
+      const slice = rows.slice(start, start+rpp);
+      const totalPages = Math.max(1, Math.ceil(total/rpp));
+      labelEl.textContent = 'Page ' + page + ' of ' + totalPages;
+      prevBtn.disabled = (page<=1);
+      nextBtn.disabled = (page>=totalPages);
+      previewEl.innerHTML = tableHtml(slice, 'Preview · rows ' + (start+1) + '-' + Math.min(start+slice.length,total) + ' of ~' + total);
+      scrollEnd();
+    }catch(e){
+      console.error('[preview] render error:', e);
+      previewEl.textContent = 'Preview render error.';
+    }
+  }
+
+  function extractTableArray(raw){
+    try{
+      const obj = (typeof raw==='string') ? JSON.parse(raw) : raw;
+      const t = obj && (obj.table ?? (obj.item && obj.item.output && obj.item.output.table));
+      if (Array.isArray(t)) return t;
+    }catch(e){}
+    if (typeof raw === 'string'){
+      const m = raw.match(/table\s*=\s*(\[[\s\S]*?\])\s*(?:\w+\s*=|$)/i);
+      if (m){
+        let arrTxt = m[1];
+        let jsonish = arrTxt
+          .replace(/([{,\s])'([^']+?)'\s*:/g, '$1"$2":')
+          .replace(/:\s*'([^']*)'/g, ': "$1"')
+          .replace(/None\b/g, 'null').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false');
+        try{ const t = JSON.parse(jsonish); if (Array.isArray(t)) return t; }catch(e){}
+      }
+    }
+    return null;
+  }
+  function toCSV(rows){
+    if(!rows || !rows.length) return '';
+    const cols = Array.from(new Set(rows.flatMap(r => Object.keys(r))));
+    const escv = (v)=>{ const s = (v==null ? '' : String(v)); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+    const head = cols.join(',');
+    const body = rows.map(r => cols.map(c => escv(r[c])).join(',')).join('\n');
+    return head + '\n' + body;
+  }
+  function parseCSVHead(text, maxRows){
+    const lines = text.split(/\r?\n/);
+    if(!lines.length) return { columns:[], rows:[] };
+    let idx=0; while(idx<lines.length && !lines[idx].trim()) idx++;
+    if(idx>=lines.length) return { columns:[], rows:[] };
+    const columns = parseLine(lines[idx++].replace(/^\uFEFF/,''));
+    const rows=[];
+    for(; idx<lines.length && rows.length<(maxRows||50); idx++){
+      const line = lines[idx]; if(!line) continue;
+      const vals = parseLine(line); if(vals.length===1 && vals[0]==='') continue;
+      const row={}; for(let c=0;c<columns.length;c++) row[columns[c]] = vals[c] ?? '';
+      rows.push(row);
+    }
+    return { columns, rows };
+    function parseLine(line){
+      const out=[]; let i=0, cur='', inQ=false;
+      while(i<line.length){
+        const ch=line[i];
+        if(inQ){
+          if(ch === '"'){ if(i+1<line.length && line[i+1]==='"'){ cur+='"'; i+=2; } else { inQ=false; i++; } }
+          else { cur+=ch; i++; }
+        }else{
+          if(ch === '"'){ inQ=true; i++; }
+          else if(ch === ','){ out.push(cur); cur=''; i++; }
+          else { cur+=ch; i++; }
+        }
+      }
+      out.push(cur);
+      return out;
+    }
+  }
+  function tableHtml(arr,caption){
+    if(!Array.isArray(arr)||!arr.length) return `<div style="color:var(--mut);font-style:italic;padding:6px 2px">[Empty Table]</div>`;
+    const cols=Object.keys(arr[0]);
+    const thead=`<thead><tr>${cols.map(k=>`<th style="position:sticky;top:0;background:var(--bg3);color:var(--txt);padding:10px 12px;border-bottom:1px solid var(--brd);text-align:left;font-size:13px">${k.replace(/_/g,' ')}</th>`).join('')}</tr></thead>`;
+    const tbody=arr.map(r=>`<tr>${cols.map(c=>`<td style="padding:9px 12px;border-bottom:1px solid var(--brd)"><div style="max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${String(r[c]??'')}">${String(r[c]??'')}</div></td>`).join('')}</tr>`).join('');
+    const cap=caption?`<caption style="text-align:left;color:var(--accent);padding:8px 6px 6px;font-weight:800">🔎 ${caption}</caption>`:'';
+    return `<div style="width:100%;overflow:auto;margin:.3em 0 .7em 0"><table style="border-collapse:separate;border-spacing:0;width:100%;background:var(--card);border:1px solid var(--brd);border-radius:11px">${cap}${thead}<tbody>${tbody}</tbody></table></div>`;
+  }
+
+  const messageInput=document.getElementById('messageInput');
+  const sendButton=document.getElementById('sendButton');
+  messageInput.addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }});
+  messageInput.addEventListener('input',function(){
+    this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,150)+'px';
+    const qa = document.getElementById('quickAsks');
+    if (qa && messageInput.value.trim().length) qa.style.display = 'none';
+  });
+
+  function addUser(text){
+    const el=document.createElement('div'); el.className='message user';
+    el.innerHTML=`<div class="message-avatar" title="You">👤</div>
+      <div class="message-content"><div class="timestamp">${nowStamp()}</div><div class="message-bubble"></div></div>`;
+    el.querySelector('.message-bubble').textContent = text;
+    document.getElementById('messagesContainer').appendChild(el); scrollEnd();
+  }
+
+  function kickOffStream(){
+    orchestratorDone=false;
+    startStreaming();
+    currentAssistantMessage=null; currentToolCards.clear();
+    orchestratorBuf=''; toolBuffers.clear(); toolCount=0;
+    pendingUI.clear();
+    suppressOrchStream=false;
+    toolStartTimes.clear(); toolElapsed.clear();
+  }
+
+  function sendMessage(){
+    const txt=messageInput.value.trim();
+    if(!txt || !ws || ws.readyState!==WebSocket.OPEN || isStreaming) return;
+    addUser(txt);
+    ws.send(JSON.stringify({user_input:txt, session_id: activeSessionId}));
+    messageInput.value=''; messageInput.style.height='auto';
+    kickOffStream();
+    const qa = document.getElementById('quickAsks'); if (qa) qa.style.display = 'none';
+  }
+
+  function askPreset(text){
+    if (!ws || ws.readyState !== WebSocket.OPEN || isStreaming) return;
+    addUser(text);
+    ws.send(JSON.stringify({ user_input: text, session_id: activeSessionId }));
+    messageInput.value=''; messageInput.style.height='auto';
+    kickOffStream();
+    const qa = document.getElementById('quickAsks'); if (qa) qa.style.display = 'none';
+  }
+  function showQuickAsks(){ const qa = document.getElementById('quickAsks'); if (qa) qa.style.display = ''; }
+
+  function initTheme(){
+    try{
+      const saved = localStorage.getItem('biochirp_theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    }catch{}
+    document.getElementById('themeToggle')?.addEventListener('click', ()=>{
+      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = (cur==='dark') ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try{ localStorage.setItem('biochirp_theme', next); }catch{}
+    });
+  }
+
+  /* =========================
+     SHARE helpers (interactive snapshot; unsafe=true)
+     ========================= */
+
+  function absolutizeLinks(rootEl, base) {
+    const aTags = rootEl.querySelectorAll('a[href]');
+    for (const a of aTags) {
+      try { a.href = new URL(a.getAttribute('href'), base).toString(); } catch {}
+    }
+    const imgTags = rootEl.querySelectorAll('img[src]');
+    for (const img of imgTags) {
+      const src = img.getAttribute('src');
+      if (src && !/^data:|^https?:/i.test(src)) {
+        try { img.src = new URL(src, base).toString(); } catch {}
+      }
+    }
+  }
+
+  function inlineImagesToDataURL(container) {
+    const imgs = Array.from(container.querySelectorAll('img[src]'));
+    for (const img of imgs) {
+      const src = img.getAttribute('src') || '';
+      if (!src || /^data:/i.test(src)) continue;
+      try {
+        const res = await fetch(src, { mode: 'cors' });
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onload = () => resolve();
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        img.setAttribute('src', reader.result);
+      } catch {}
+    }
+  }
+
+  function rehydrateSnapshotControls(root){
+    // Re-enable tool-card controls
+    root.querySelectorAll('.tool-card button').forEach(btn=>{
+      btn.removeAttribute('disabled'); btn.disabled=false; btn.setAttribute('aria-disabled','false'); btn.style.pointerEvents='auto';
+    });
+    // Inert live-only controls in the snapshot
+    const inertSelectors = ['#sendButton', '#shareBtn', '#themeToggle', '.reconnect', '.connection-status button'];
+    inertSelectors.forEach(sel=>{
+      root.querySelectorAll(sel).forEach(el=>{
+        el.setAttribute('data-snapshot-inert','1');
+        el.onclick = null;
+        el.addEventListener('click', e=> e.preventDefault(), { once:true });
+        el.removeAttribute('disabled'); el.disabled=false; el.setAttribute('aria-disabled','true');
+      });
+    });
+    // Defensive: ensure pointer events on tool areas
+    root.querySelectorAll('.tool-card .tool-body, .tool-card .tool-output, .tool-card button')
+      .forEach(el => el.style.pointerEvents = 'auto');
+  }
+
+  function ensureSnapshotToolBootstrap(root){
+    // Strip inline onclick and bind fresh handlers (prevents ReferenceError in snapshot)
+    root.querySelectorAll('.tool-card .tool-header').forEach(h=>{
+      h.removeAttribute('onclick');
+      if (!h.dataset._snapshotBound){
+        h.dataset._snapshotBound='1';
+        h.addEventListener('click', ()=>{
+          const c = h.closest('.tool-card');
+          if (!c) return;
+          c.classList.toggle('expanded');
+          if (c.classList.contains('expanded')) c.dataset.userHold='1';
+        });
+      }
+    });
+
+    root.querySelectorAll('.tool-card').forEach(card=>{
+      const out = card.querySelector('.tool-output');
+      if (!out) return;
+      const csv = card.dataset.csv;
+      const fname = card.dataset.csvFilename || 'table.csv';
+
+      const copyBtn = out.querySelector('[data-copy-csv]');
+      if (copyBtn && !copyBtn.dataset._snapshotBound){
+        copyBtn.dataset._snapshotBound = '1';
+        copyBtn.addEventListener('click', ()=>{
+          if (!csv) return;
+          navigator.clipboard.writeText(csv).then(()=>{
+            const old = copyBtn.textContent; copyBtn.textContent='Copied!'; setTimeout(()=>copyBtn.textContent=old, 900);
+          }).catch(()=>{});
+        });
+      }
+
+      const dlBtn = out.querySelector('[data-download-csv]');
+      if (dlBtn && !dlBtn.dataset._snapshotBound){
+        dlBtn.dataset._snapshotBound='1';
+        dlBtn.addEventListener('click', ()=>{
+          if (!csv) return;
+          const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = fname;
+          document.body.appendChild(a);
+          a.click();
+          URL.revokeObjectURL(a.href);
+          a.remove();
+        });
+      }
+    });
+  }
+
+  // Minimal bootstrap JS injected into the snapshot
+  function buildShareBootstrapScript(){
+    const s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.textContent = `
+      (function(){
+        function q(sa,root){ return Array.from((root||document).querySelectorAll(sa)); }
+        function bind(){
+          q('.tool-card .tool-header').forEach(h=>{
+            h.removeAttribute('onclick');
+            h.addEventListener('click', ()=>{
+              const c=h.closest('.tool-card'); if(!c) return;
+              c.classList.toggle('expanded');
+              if(c.classList.contains('expanded')) c.dataset.userHold='1';
+            });
+          });
+          q('.tool-card').forEach(card=>{
+            const out = card.querySelector('.tool-output'); if(!out) return;
+            const csv = card.dataset.csv; const fname = card.dataset.csvFilename || 'table.csv';
+            const copyBtn = out.querySelector('[data-copy-csv]');
+            if (copyBtn && csv) copyBtn.addEventListener('click', ()=>{ navigator.clipboard.writeText(csv).catch(()=>{}); copyBtn.textContent='Copied!'; setTimeout(()=>copyBtn.textContent='Copy CSV',900); });
+            const dlBtn = out.querySelector('[data-download-csv]');
+            if (dlBtn && csv) dlBtn.addEventListener('click', ()=>{ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove(); });
+          });
+        }
+        bind(); document.addEventListener('DOMContentLoaded', bind);
+      })();`;
+    return s;
+  }
+
+  // Build an interactive HTML snapshot (no WS; JS bootstrap included)
+  async function buildShareHTML() {
+    if (isStreaming) {
+      showModalError('Please wait for the current response to complete before sharing.');
+      return null;
+    }
+
+    // Force render outputs so CSV/text is preserved
+    currentToolCards.forEach((card, id) => {
+      const buf = toolBuffers.get(id) || '';
+      const name = card.querySelector('.tool-name')?.textContent || '';
+      renderToolOutput(card, buf, name);
+    });
+
+    const htmlEl = document.documentElement.cloneNode(false);
+    const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+    htmlEl.setAttribute('data-theme', theme);
+
+    // HEAD (styles + permissive CSP for inline bootstrap)
+    const outHead = document.createElement('head');
+    const title = document.createElement('title'); title.textContent = document.title || 'BioChirp — Shared Chat'; outHead.appendChild(title);
+    outHead.appendChild(Object.assign(document.createElement('meta'), { charset:'utf-8' }));
+    const mv=document.createElement('meta'); mv.setAttribute('name','viewport'); mv.setAttribute('content','width=device-width,initial-scale=1'); outHead.appendChild(mv);
+    const csp=document.createElement('meta'); csp.setAttribute('http-equiv','Content-Security-Policy'); csp.setAttribute('content', "default-src 'self' data:; style-src 'self' 'unsafe-inline' https:; img-src * data: blob:; script-src 'self' 'unsafe-inline';"); outHead.appendChild(csp);
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(link=> outHead.appendChild(link.cloneNode(true)));
+    const styleBundle=document.createElement('style'); let cssText=''; document.querySelectorAll('style').forEach(st=> cssText += st.textContent + '\n'); styleBundle.textContent=cssText; outHead.appendChild(styleBundle);
+    htmlEl.appendChild(outHead);
+
+    // BODY clone of .app only
+    const body = document.createElement('body');
+    const app = document.querySelector('.app');
+    const appClone = app.cloneNode(true);
+
+    // Absolutize and inline assets for portability
+    absolutizeLinks(appClone, window.location.origin);
+    // No CSS url() rewriting to avoid breaking paths
+    await inlineImagesToDataURL(appClone);
+
+    // Rehydrate interactive parts for snapshot
+    rehydrateSnapshotControls(appClone);
+    ensureSnapshotToolBootstrap(appClone);
+
+    // Snapshot banner
+    const banner = document.createElement('div');
+    banner.style.cssText = "position:sticky;top:0;z-index:50;margin:0;padding:8px 12px;text-align:center;font-size:12px;border-bottom:1px solid var(--brd);background:color-mix(in oklab, var(--bg1) 92%, transparent)";
+    banner.textContent = "Shared snapshot — interactive (no live chat)";
+    body.appendChild(banner);
+
+    body.appendChild(appClone);
+    body.appendChild(buildShareBootstrapScript());
+    htmlEl.appendChild(body);
+
+    return '<!DOCTYPE html>\n' + htmlEl.outerHTML;
+  }
+
+  /* -------- Centered modal helpers -------- */
+  const overlay = document.getElementById('shareOverlay');
+  const linkInp = document.getElementById('shareLinkInput');
+  const linkA   = document.getElementById('shareLinkAnchor');
+  document.getElementById('closeShareBtn')?.addEventListener('click', ()=> overlay.classList.remove('show'));
+  document.getElementById('copyShareBtn')?.addEventListener('click', ()=>{
+    linkInp.select(); linkInp.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(linkInp.value).then(()=>{
+      const b = document.getElementById('copyShareBtn'); const old=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=old,900);
+    });
+  });
+
+  function showModal(url){
+    linkInp.value = url || '';
+    linkA.href = url || '#';
+    linkA.textContent = url || '(no link)';
+    overlay.classList.add('show');
+  }
+  function showModalError(err){
+    linkInp.value = '';
+    linkA.href = '#';
+    linkA.textContent = 'Couldn’t create share link';
+    overlay.classList.add('show');
+    // replace title text temporarily
+    const t = document.getElementById('shareTitle'); const old = t.textContent;
+    t.textContent = 'Couldn’t create share link';
+    setTimeout(()=> t.textContent = old, 3000);
+  }
+
+  async function handleShareClick() {
+    try {
+      const html = await buildShareHTML();
+      if (!html) return;
+      const res = await fetch('/share', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          html,
+          title: 'BioChirp Chat Snapshot',
+          unsafe: true          // <= interactive snapshot
+        })
+      });
+
+      const bodyText = await res.text();
+      let data = null; try { data = JSON.parse(bodyText); } catch {}
+      if (!res.ok) {
+        const detail = (data && (data.detail || data.error)) || bodyText || ('HTTP ' + res.status);
+        showModalError(detail);
+        return;
+      }
+      const url = (data && data.url) ? data.url : '';
+      if (!url) { showModalError('No URL in server response'); return; }
+      showModal(url);
+    } catch (e) {
+      showModalError((e && e.message) || 'Unknown error');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.getElementById('shareBtn')?.addEventListener('click', handleShareClick);
+  });
+</script>
+</body>
+</html>

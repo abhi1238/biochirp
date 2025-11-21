@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<link rel="icon" type="image/png" href="assets/brand/biochirp-logo.svg">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BioChirp - Biological Research AI</title>
+<style>
+  :root{
+    --bg0:#0b111a; --bg1:#0f151d; --bg2:#121b28; --bg3:#162234;
+    --brd:#223247; --txt:#eaf2fb; --mut:#9fb0c4;
+    --accent:#00d4ff; --accent2:#0066ff; --ok:#00e38c; --err:#ff6b6b;
+    --radius:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    height:100vh; overflow:hidden; color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+    background:
+      radial-gradient(900px 600px at -20% -10%, #102840 0%, transparent 60%),
+      radial-gradient(900px 600px at 110% 110%, #0f2037 0%, transparent 55%),
+      linear-gradient(135deg,#0a0f18 0%,#141c2b 100%);
+  }
+  .container{display:flex;height:100vh}
+
+  /* Sidebar */
+  .sidebar{width:270px;background:var(--bg1);border-right:1px solid var(--brd);padding:18px;display:flex;flex-direction:column;gap:12px}
+  .logo{display:flex;gap:10px;align-items:center}
+  .logo-icon{
+  width:38px; height:38px; border-radius:10px;
+  display:block;             /* image is a block */
+  object-fit:cover;          /* crop nicely */
+}
+  /* .logo-icon{width:38px;height:38px;border-radius:10px;background:conic-gradient(from 120deg,var(--accent),var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;color:#001726;font-weight:800} */
+  .logo-text{font-size:20px;font-weight:800;color:#7fd8ff}
+  .new-conversation-btn{background:#121a25;border:1px solid var(--brd);color:#65d7ff;padding:12px 14px;border-radius:12px;cursor:pointer;font-size:14px}
+  .new-conversation-btn:hover{border-color:var(--accent)}
+  .convos{display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:calc(100vh - 170px);padding-right:4px}
+  .conversation-item{background:#101824;border:1px solid #1d2a3a;padding:10px 12px;border-radius:12px;color:#cbd8ea;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .conversation-item:hover{border-color:#2b4f77}
+  .conversation-item.active{border-color:#224c78;color:#8bdcff;background:#0f1c2c}
+  .convo-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+  .convo-meta{font-size:11px;color:#8aa8c6}
+
+  /* Chat */
+  .chat-container{flex:1;display:flex;flex-direction:column}
+  .chat-header{position:sticky;top:0;z-index:5;padding:14px 18px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;background:#0e1520cc;backdrop-filter:blur(6px)}
+  .chat-title{font-size:19px;font-weight:800;color:#8ed8ff}
+  .chat-title small{font-weight:700;color:#7fb0d4}
+  .status-wrap{display:flex;gap:8px;align-items:center}
+  .connection-status{display:flex;gap:8px;align-items:center;padding:6px 12px;border-radius:999px;border:1px solid #223247;background:#0f1724;font-size:12px}
+  .status-dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+  .reconnect{padding:6px 10px;border-radius:10px;border:1px solid #22465f;background:#0d1725;color:#a7dcff;cursor:pointer;font-size:12px}
+  .reconnect:hover{border-color:var(--accent);color:var(--accent)}
+
+.messages{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+  .message{display:flex;gap:12px;max-width:900px}
+  .message.user{align-self:flex-end;flex-direction:row-reverse}
+  .message-avatar{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+  .message.user .message-avatar{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+  .message.assistant .message-avatar{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#00172a}
+  .message-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:12px;
+  display:block;
+}
+  .message-content{flex:1;display:flex;flex-direction:column;gap:8px}
+  .timestamp{font-size:11px;color:#88a0b8}
+  .message-bubble{
+    padding:16px 18px;border-radius:var(--radius);
+    background:#0f1826; border:1px solid #1d2a3a;
+    line-height:1.6;font-size:15px
+  }
+  .message.user .message-bubble{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none}
+
+  /* Markdown code blocks only */
+  .message.assistant .message-bubble pre{background:#0b1726;border:1px solid #16324a;border-radius:12px;padding:12px;overflow:auto}
+  .message.assistant .message-bubble code{background:#0d1e31;border:1px solid #18324a;padding:2px 6px;border-radius:6px}
+  .copy-btn{position:absolute;top:8px;right:8px;font-size:12px;padding:6px 8px;border-radius:8px;border:1px solid #25465f;background:#0d1a29;color:#9ad6ff;cursor:pointer}
+  .copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* Tool cards */
+  .tool-card{background:#101a28;border:1px solid #1f2c3d;border-radius:12px;overflow:hidden}
+  .tool-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer}
+  .tool-info{display:flex;align-items:center;gap:10px}
+  .tool-icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#00131f;font-size:12px}
+  .tool-name{font-weight:800;font-size:13px;color:#9edcff}
+  .tool-status{font-size:11px;padding:4px 8px;border-radius:10px;font-weight:700;border:1px solid #213347;background:#0d1723}
+  .tool-status.running{color:#ffd76a}
+  .tool-status.completed{color:#63ffb3}
+  .tool-status.failed{color:#ff9c9c}
+  .expand-icon{transition:.25s;color:#7fbff0}
+  .tool-card.expanded .expand-icon{transform:rotate(180deg)}
+  .tool-body{max-height:0;overflow:hidden;transition:max-height .3s}
+  .tool-card.expanded .tool-body{max-height:520px;overflow:auto}
+  /* keep 3s auto-expand behavior */
+  .tool-card.show-output .tool-body{max-height:520px !important;overflow:auto}
+  .tool-output{padding:14px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;white-space:pre-wrap;word-break:break-word;color:#cfe6ff}
+  /* Responsive tables inside tool outputs */
+
+
+    /* Responsive tables inside tool outputs */
+.tool-body{ max-height:0; overflow:hidden; transition:max-height .3s; }               /* more room than 520px */
+/* Responsive tables inside tool outputs */
+.tool-card.expanded .tool-body,
+.tool-card.show-output .tool-body {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.tool-output .table-wrap { max-width: 100%; overflow: auto; }
+.tool-output table { width: 100%; table-layout: fixed; border-collapse: separate; }
+.tool-output th, .tool-output td { white-space: normal; word-break: break-word; }
+.tool-output pre, .tool-output code { white-space: pre-wrap; word-break: break-word; }
+
+  .tool-ttd .tool-icon{background:linear-gradient(135deg,#8affc1,#27e4a1)}
+  .tool-ctd .tool-icon{background:linear-gradient(135deg,#ffd36a,#ff8d4a)}
+  .tool-hcdt .tool-icon{background:linear-gradient(135deg,#7cc6ff,#2ea7ff)}
+  .tool-web .tool-icon{background:linear-gradient(135deg,#7fffda,#35e7ff)}
+  .tool-interpreter .tool-icon{background:linear-gradient(135deg,#c29bff,#8568ff)}
+  .tool-generic .tool-icon{background:linear-gradient(135deg,#ff9aa2,#ff6b6b)}
+
+  .input-area{padding:14px 18px;border-top:1px solid var(--brd);background:#0f1724cc;backdrop-filter:blur(6px)}
+  .input-container{display:flex;gap:12px;align-items:flex-end}
+  .input-wrapper{flex:1}
+  #messageInput{width:100%;min-height:50px;max-height:150px;padding:14px 16px;border-radius:12px;outline:none;resize:none;background:#0f1826;border:1px solid #1d2a3a;color:var(--txt);font-size:14px}
+  #messageInput:focus{border-color:var(--accent)}
+  #sendButton{width:52px;height:52px;border:none;border-radius:12px;color:#00162a;cursor:pointer;font-size:20px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+  #sendButton:hover{transform:translateY(-2px)}
+  #sendButton:disabled{opacity:.5;cursor:not-allowed}
+
+  .sample-questions-container{display:flex;gap:10px;flex-wrap:wrap;margin:6px 2px 2px}
+  .sample-question-card{background:#152133;color:#7ecbff;border:1px solid #223247;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;cursor:pointer}
+  .sample-question-card:hover{border-color:var(--accent);color:var(--accent)}
+
+  .table-wrap{max-width:100%;overflow-x:auto;border:1px solid #1f2e42;border-radius:11px;background:#101a28}
+  .result-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+  .result-table th{position:sticky;top:0;z-index:1;background:#132033;color:#8ecaff;padding:10px 12px;text-align:left;font-size:13px;border-bottom:2px solid #223a57}
+  .result-table td{padding:8px 10px;border-bottom:1px solid #1b2a3d}
+  .result-table .cell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .result-table.dense th{ padding:6px 8px; font-size:12px; }
+  .result-table.dense td{ padding:6px 8px; font-size:13px; line-height:1.25; }
+  .table-pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:8px 6px;font-size:12px;color:#9ad6ff}
+  .table-btn{font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid #22465f;background:#0d1a29;color:#9ad6ff}
+  .table-btn:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+</head>
+<body>
+<div class="container">
+  <aside class="sidebar">
+    <!-- <div class="logo"><div class="logo-icon">BC</div><div class="logo-text">BioChirp</div></div>-->
+     <div class="logo">
+        <img class="logo-icon" src="assets/brand/biochirp-logo.svg" alt="BioChirp">
+        <div class="logo-text">BioChirp</div>
+    </div> 
+    <button class="new-conversation-btn" onclick="startNewConversation()">+ New Conversation</button>
+    <div class="convos" id="convoList"></div>
+  </aside>
+
+  <main class="chat-container">
+    <header class="chat-header">
+      <div class="chat-title"><span id="chatTitle">Research Chat</span> <small> Biological Intelligence</small></div>
+      <div class="status-wrap">
+        <button class="reconnect" id="reconnectBtn" onclick="manualReconnect()">Reconnect</button>
+        <div class="connection-status"><div class="status-dot" id="statusDot"></div><span id="connectionStatus">Connecting...</span></div>
+      </div>
+    </header>
+
+    <!-- Quick-start cards -->
+    <!-- <div class="sample-questions-container" id="quickStart" style="padding:10px 18px 0">
+        <div class="sample-question-card" onclick="askSample('What are the drugs used for treating TB?')">?? What are the drugs for TB?</div>
+        <div class="sample-question-card" onclick="askSample('Show CTD genedisease links for BRCA1 with evidence.')">?? Give targets assoiciated with asthma1</div>
+        <div class="sample-question-card" onclick="askSample('List PARP inhibitors with targets and approval status.')">?? List the par[p inhibitors</div>
+        <div class="sample-question-card" onclick="askSample('Find biomarkers and pathways associated with melanoma.')">?? List biomarker associated with Melanoma</div>
+    </div> -->
+
+    <!-- Quick-start cards -->
+    <div class="sample-questions-container" id="quickStart" style="padding:10px 18px 0">
+        <div class="sample-question-card" onclick="askSample('List the primary drugs used in the treatment of tuberculosis, along with their mechanisms of action.')">?? What are the approved drugs for tuberculosis?</div>
+        <div class="sample-question-card" onclick="askSample('Retrieve the gene targets associated with asthma from curated databases.')">?? Which gene targets are associated with asthma?</div>
+        <div class="sample-question-card" onclick="askSample('List all clinically approved PARP inhibitors and their molecular targets, including approval status.')">?? List all PARP inhibitors with targets and approval status</div>
+        <div class="sample-question-card" onclick="askSample('Show key biomarkers and associated pathways linked to melanoma in current biomedical literature.')">?? What biomarkers and pathways are associated with melanoma?</div>
+    </div>
+
+
+    <section class="messages" id="messagesContainer"></section>
+
+    <footer class="input-area">
+      <div class="input-container">
+        <div class="input-wrapper">
+          <textarea id="messageInput" placeholder="Ask about drugs, pathways, biomarkers, clinical data..." rows="1"></textarea>
+        </div>
+        <button id="sendButton" onclick="sendMessage()">?</button>
+      </div>
+    </footer>
+  </main>
+</div>
+
+<script>
+/* =======================
+   CONFIG + MARKDOWN
+======================= */
+const WS_URL='wss://www.biochirp.net/chat';
+marked.setOptions({
+  gfm:true, breaks:true, mangle:false, headerIds:false,
+  highlight:(code,lang)=>{ try{return hljs.highlight(code,{language:lang}).value;}catch{return hljs.highlightAuto(code).value;} }
+});
+
+
+// const BOT_AVATAR_URL  = 'assets/brand/brand-logo.svg';   // e.g., SVG/PNG
+const BOT_AVATAR_URL  = 'assets/brand/biochirp-logo.svg';
+
+const USER_AVATAR_URL = '';    
+/* =======================
+   PERSISTENCE (localStorage)
+======================= */
+const STORAGE_KEY = 'biochirp.conversations.v1';
+
+function uid(){ return 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function nowISO(){ return new Date().toISOString(); }
+
+function loadConvos(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  }catch{ return []; }
+}
+
+function saveConvos(convos){
+  try{
+    const capped = convos.slice(-50);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(capped));
+  }catch{}
+}
+
+function getCurrentConvo(convos, id){
+  return convos.find(c => c.id === id);
+}
+
+/* Conversation model:
+{
+  id, title, createdAt, updatedAt,
+  messages: [
+    { role:'system'|'user'|'assistant', content:'markdown', ts },
+    { role:'tool', toolName, html, ts }
+  ]
+}
+*/
+let conversations = loadConvos();
+let currentConvoId = null;
+
+/* =======================
+   UI HELPERS
+======================= */
+function setStatus(t,ok){
+  document.getElementById('connectionStatus').textContent=t;
+  document.getElementById('statusDot').style.background=ok?'var(--ok)':'var(--err)';
+}
+function nowStamp(){ return new Date().toLocaleString(); }
+function scrollEnd(){ const mc=document.getElementById('messagesContainer'); mc.scrollTop=mc.scrollHeight; }
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function enhanceCode(scope){
+  scope.querySelectorAll('pre code').forEach(code=>{
+    const pre=code.closest('pre');
+    if(!pre.querySelector('.copy-btn')){
+      const btn=document.createElement('button'); btn.className='copy-btn'; btn.textContent='Copy';
+      btn.onclick=async()=>{ try{ await navigator.clipboard.writeText(code.textContent); btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy',1200);}catch{} };
+      pre.style.position='relative'; pre.appendChild(btn);
+    }
+  });
+}
+// function messageShell(role){
+//   const el=document.createElement('div'); el.className=`message ${role}`;
+//   el.innerHTML=`<div class="message-avatar">${role==='user'?'??':'??'}</div>
+//     <div class="message-content"><div class="timestamp">${nowStamp()}</div><div class="message-bubble"></div></div>`;
+//   document.getElementById('messagesContainer').appendChild(el);
+//   return el;
+// }
+function messageShell(role){
+  const el = document.createElement('div');
+  el.className = `message ${role}`;
+
+//   const avatarHTML = role === 'user'
+//     ? (USER_AVATAR_URL ? `<img src="${USER_AVATAR_URL}" alt="You">` : '??')
+//     : (BOT_AVATAR_URL  ? `<img src="${BOT_AVATAR_URL}"  alt="Bot">` : '??');
+    const avatarHTML = role === 'user'
+    ? (USER_AVATAR_URL ? `<img src="${USER_AVATAR_URL}" alt="You" onerror="this.replaceWith(document.createTextNode('??'))">` : '??')
+    : (BOT_AVATAR_URL  ? `<img src="${BOT_AVATAR_URL}"  alt="Bot" onerror="this.replaceWith(document.createTextNode('??'))">` : '??');
+
+  el.innerHTML = `
+    <div class="message-avatar">${avatarHTML}</div>
+    <div class="message-content">
+      <div class="timestamp">${nowStamp()}</div>
+      <div class="message-bubble"></div>
+    </div>`;
+  document.getElementById('messagesContainer').appendChild(el);
+  return el;
+}
+
+function mainBubble(msgDiv){
+  const mc=msgDiv.querySelector('.message-content');
+  let b=[...mc.querySelectorAll('.message-bubble')].find(x=>!x.closest('.tool-card'));
+  if(!b){ b=document.createElement('div'); b.className='message-bubble'; mc.appendChild(b); }
+  return b;
+}
+
+/* Sidebar */
+function renderSidebar(){
+  const wrap = document.getElementById('convoList');
+  wrap.innerHTML = '';
+  const sorted = [...conversations].sort((a,b)=> (b.updatedAt||b.createdAt).localeCompare(a.updatedAt||a.createdAt));
+  sorted.forEach(c=>{
+    const div = document.createElement('div');
+    div.className = 'conversation-item' + (c.id===currentConvoId ? ' active' : '');
+    div.onclick = ()=> openConversation(c.id);
+    div.innerHTML = `
+      <div class="convo-title" title="${esc(c.title||'Untitled')}">${esc(c.title||'Untitled')}</div>
+      <div class="convo-meta">${new Date(c.updatedAt||c.createdAt).toLocaleDateString()}</div>
+    `;
+    wrap.appendChild(div);
+  });
+}
+
+/* Render a conversation (from storage) */
+function renderConversation(id){
+  const convo = getCurrentConvo(conversations, id);
+  const mc=document.getElementById('messagesContainer');
+  mc.innerHTML = '';
+  document.getElementById('chatTitle').textContent = convo?.title || 'Research Chat';
+
+  if(!convo || !Array.isArray(convo.messages) || convo.messages.length===0){
+    const el = messageShell('assistant');
+    const b = mainBubble(el);
+    b.innerHTML = marked.parse('Welcome to **BioChirp**! Ask about drugs, pathways, biomarkers, or clinical data.');
+    enhanceCode(b);
+    scrollEnd();
+    return;
+  }
+
+  convo.messages.forEach(m=>{
+    if(m.role==='user'){
+      const el=messageShell('user');
+      const b=mainBubble(el);
+      b.textContent = m.content;
+    } else if(m.role==='assistant'){
+      const el=messageShell('assistant');
+      const b=mainBubble(el);
+      b.innerHTML = marked.parse(m.content||'');
+      b.querySelectorAll('pre code').forEach(c=>hljs.highlightElement(c));
+      enhanceCode(b);
+    } else if(m.role==='tool'){
+      let host = document.querySelector('.message.assistant:last-of-type');
+      if(!host){ host = messageShell('assistant'); }
+      const mc = host.querySelector('.message-content');
+      const card = document.createElement('div');
+      card.className='tool-card';
+      card.innerHTML = `
+        <div class="tool-header" onclick="toggleCard(this)">
+          <div class="tool-info"><div class="tool-icon">??</div><div class="tool-name">${esc(m.toolName||'Tool')}</div><div class="tool-status completed">Completed (click to view)</div></div>
+          <div class="expand-icon">?</div>
+        </div>
+        <div class="tool-body"><div class="tool-output">${m.html||'<i>No output</i>'}</div></div>
+      `;
+      mc.appendChild(card);
+    }
+  });
+  scrollEnd();
+}
+
+/* Create a new conversation */
+function createConversation(initialTitle){
+  const c = {
+    id: uid(),
+    title: initialTitle || 'New Research Session',
+    createdAt: nowISO(),
+    updatedAt: nowISO(),
+    messages: []
+  };
+  conversations.push(c);
+  saveConvos(conversations);
+  currentConvoId = c.id;
+  renderSidebar();
+  renderConversation(c.id);
+}
+
+/* Title heuristic */
+function maybeUpdateTitle(convo){
+  if(convo.title && convo.title !== 'New Research Session') return;
+  const firstUser = convo.messages.find(m=>m.role==='user' && m.content);
+  if(firstUser){
+    const txt = firstUser.content.trim();
+    const title = (txt.length>40? txt.slice(0,40)+'' : txt) || 'New Research Session';
+    convo.title = title;
+  }
+}
+
+/* Persistence helpers */
+function pushMessageToConvo(msg){
+  const convo = getCurrentConvo(conversations, currentConvoId);
+  if(!convo) return;
+  convo.messages.push(msg);
+  convo.updatedAt = nowISO();
+  maybeUpdateTitle(convo);
+  saveConvos(conversations);
+  renderSidebar();
+}
+function pushToolMessage(toolName, html){
+  pushMessageToConvo({ role:'tool', toolName, html, ts: nowISO() });
+}
+
+/* =======================
+   WS + STREAMING
+======================= */
+let ws=null, pingInterval=null;
+let currentAssistantMessage=null;
+let currentToolCards=new Map();
+let isWaiting=false;
+let orchestratorBuf='';
+let toolBuffers=new Map();
+let toolCount=0;
+let suppressOrchStream=true;
+
+// De-duplication
+const primaryByName = new Map();
+const aliasToPrimary = new Map();
+function getPrimaryId(id){ return aliasToPrimary.get(id) || id; }
+function nameKey(n){ return String(n||'tool').trim().toLowerCase(); }
+
+function connect(){ cleanupPing(); ws=new WebSocket(WS_URL);
+  ws.onopen=()=>{ setStatus('Connected',true); startPing(); };
+  ws.onclose=()=>{ setStatus('Disconnected',false); cleanupPing(); setTimeout(connect,2000); };
+  ws.onerror=()=>{ setStatus('Error',false); };
+  ws.onmessage=e=>{ try{ route(JSON.parse(e.data)); }catch{} };
+}
+function startPing(){ cleanupPing(); pingInterval=setInterval(()=>{ if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'ping',ts:Date.now()})); },30000); }
+function cleanupPing(){ if(pingInterval){ clearInterval(pingInterval); pingInterval=null; } }
+function manualReconnect(){ try{ if(ws) ws.close(); }catch{} connect(); }
+
+/* Tool card helpers */
+function toolClass(n){ n=(n||'').toLowerCase(); if(n.includes('ttd'))return'tool-ttd'; if(n.includes('ctd'))return'tool-ctd'; if(n.includes('hcdt'))return'tool-hcdt'; if(n.includes('web'))return'tool-web'; if(n.includes('interpreter'))return'tool-interpreter'; return'tool-generic'; }
+function createToolCard(id,name){
+  const c=document.createElement('div');
+  c.className=`tool-card ${toolClass(name)}`; c.dataset.toolId=id;
+  c.innerHTML=`<div class="tool-header" onclick="toggleCard(this)">
+      <div class="tool-info"><div class="tool-icon">??</div><div class="tool-name">${esc(name||'Tool')}</div><div class="tool-status running">Running...</div></div>
+      <div class="expand-icon">?</div>
+    </div>
+    <div class="tool-body"><div class="tool-output"></div></div>`;
+  return c;
+}
+function toggleCard(h){
+  const c = h.closest('.tool-card');
+  c.classList.toggle('expanded');
+  c.classList.remove('show-output');
+}
+
+/* Output rendering */
+function parseOutputParts(output) {
+  const parts = [];
+  let raw = '';
+  if (typeof output === 'string') raw = output;
+  else if (output && typeof output === 'object') raw = JSON.stringify(output);
+  else raw = String(output ?? '');
+  try { parts.push(JSON.parse(raw)); return parts; } catch {}
+
+  const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  let parsedSomething = false;
+  for (const line of lines) {
+    try { parts.push(JSON.parse(line)); parsedSomething = true; }
+    catch { if (line) parts.push(line); }
+  }
+  if (parsedSomething) return parts;
+  parts.push(raw);
+  return parts;
+}
+function isRecordsArray(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return false;
+  if (!arr.every(x => x && typeof x === 'object' && !Array.isArray(x))) return false;
+  const sample = arr.slice(0, Math.min(arr.length, 5));
+  const keySets = sample.map(o => new Set(Object.keys(o)));
+  const common = [...keySets[0]].filter(k => keySets.every(s => s.has(k)));
+  return common.length > 0;
+}
+function primitiveHtml(v) {
+  if (v === null) return `<span style="color:#9fb0c4"><i>null</i></span>`;
+  if (typeof v === 'boolean') return `<span>${v ? 'true' : 'false'}</span>`;
+  if (typeof v === 'number') return `<span>${v}</span>`;
+  return `<span>${esc(String(v))}</span>`;
+}
+function kvHtml(obj) {
+  const rows = Object.entries(obj).map(([k,v]) => {
+    return `<div style="display:grid;grid-template-columns:180px 1fr;gap:10px;padding:8px 10px;border-bottom:1px solid #1b2a3d">
+      <div style="color:#8ecaff;font-weight:700">${esc(k.replace(/_/g,' '))}</div>
+      <div>${renderValue(v)}</div>
+    </div>`;
+  }).join('');
+  return `<div style="background:#101a28;border:1px solid #1f2e42;border-radius:11px;overflow:hidden">${rows}</div>`;
+}
+function listHtml(arr, title) {
+  const items = arr.map(v => `<li style="padding:6px 8px;border-bottom:1px solid #1b2a3d">${renderValue(v)}</li>`).join('');
+  const cap = title ? `<div style="color:#79cfff;font-weight:800;margin:6px 2px">${esc(title)}</div>` : '';
+  return `${cap}<ul style="list-style:disc;padding-left:22px;margin:4px 0;background:#101a28;border:1px solid #1f2e42;border-radius:11px">${items}</ul>`;
+}
+function jsonPrettyHtml(obj, title) {
+  const cap = title ? `<summary style="cursor:pointer;color:#79cfff;font-weight:800">${esc(title)} (JSON)</summary>`
+                    : `<summary style="cursor:pointer;color:#79cfff;font-weight:800">JSON</summary>`;
+  const pretty = esc(JSON.stringify(obj, null, 2));
+  return `<details open style="margin:.4em 0">${cap}
+    <pre style="background:#0b1726;border:1px solid #16324a;border-radius:12px;padding:12px;overflow:auto;margin-top:8px"><code>${pretty}</code></pre>
+  </details>`;
+}
+function tableHtml(arr, caption) {
+  if (!Array.isArray(arr) || !arr.length) {
+    return `<div style="color:#9fb0c4;font-style:italic;padding:6px 2px">[Empty Table]</div>`;
+  }
+  const sample = arr.slice(0, Math.min(arr.length, 50));
+  const colsSet = new Set();
+  sample.forEach(r => Object.keys(r||{}).forEach(k => colsSet.add(k)));
+  const cols = [...colsSet];
+
+  const thead = `<thead><tr>${
+    cols.map(k=>`<th style="position:sticky;top:0;background:#132033;color:#8ecaff;padding:10px 12px;border-bottom:2px solid #223a57;text-align:left;font-size:13px">${esc(k.replace(/_/g,' '))}</th>`).join('')
+  }</tr></thead>`;
+
+  const tbody = arr.map(r=>`<tr>${
+    cols.map(c=>{
+      const cell = r?.[c];
+      const text = (cell !== null && cell !== undefined) ? String(cell) : '';
+      return `<td style="padding:9px 12px;border-bottom:1px solid #1b2a3d">
+        <div class="cell-wrap" title="${esc(text)}">${esc(text)}</div>
+      </td>`;
+    }).join('')
+  }</tr>`).join('');
+
+  const cap = caption
+    ? `<caption style="text-align:left;color:#79cfff;padding:8px 4px 6px 6px;font-weight:800">?? ${esc(caption)}</caption>`
+    : '';
+
+  return `<div style="width:100%;overflow:auto;margin:.4em 0 .8em 0">
+    <div class="table-wrap">
+      <table class="result-table" style="border-collapse:separate;border-spacing:0;width:100%;background:#101a28;border:1px solid #1f2e42;border-radius:11px">
+        ${cap}${thead}<tbody>${tbody}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderValue(v, hintTitle) {
+  if (v === null || typeof v !== 'object') return primitiveHtml(v);
+  if (Array.isArray(v)) {
+    if (isRecordsArray(v)) return tableHtml(v, hintTitle || 'Results');
+    return listHtml(v, hintTitle);
+  }
+  const sections = [];
+  const dataKeys = ['table','rows','data','results','items','entries'];
+  for (const key of dataKeys) {
+    const val = v[key];
+    if (val !== undefined) {
+      sections.push({ title:key.replace(/_/g,' '), html: renderValue(val, key) });
+    }
+  }
+  const remaining = {};
+  for (const [k,val] of Object.entries(v)) if (!dataKeys.includes(k)) remaining[k] = val;
+  const blocks = [];
+  if (sections.length) sections.forEach(s => blocks.push(`<div style="margin:.6em 0">${s.html}</div>`));
+  if (Object.keys(remaining).length) {
+    const deep = Object.values(remaining).some(x => x && typeof x === 'object');
+    blocks.push(deep ? jsonPrettyHtml(remaining, hintTitle || 'Details') : kvHtml(remaining));
+  }
+  if (!blocks.length) return jsonPrettyHtml(v, hintTitle);
+  return blocks.join('');
+}
+function redactEchoFields(obj){
+  const BAN = new Set(['inputquery','input_query','raw_input','query','prompt','args','kwargs','messages']);
+  if (Array.isArray(obj)) return obj.map(redactEchoFields);
+  if (obj && typeof obj === 'object') {
+    const out = {};
+    for (const [k,v] of Object.entries(obj)) {
+      if (BAN.has(String(k).toLowerCase())) continue;
+      out[k] = redactEchoFields(v);
+    }
+    return out;
+  }
+  return obj;
+}
+function renderToolOutput(card, output){
+  const out = card.querySelector('.tool-output');
+  const parts = parseOutputParts(output);
+  const rendered = parts.map(part=>{
+    let obj = part;
+    if (typeof part === 'string') { try{ obj=JSON.parse(part); }catch{} }
+    if (obj && typeof obj === 'object') {
+      obj = redactEchoFields(obj);
+      return `<div style="margin:.6em 0">${renderValue(obj)}</div>`;
+    } else {
+      const text = (obj===undefined || obj===null) ? '' : String(obj);
+      return text.trim()
+        ? `<pre style="background:#0b1726;border:1px solid #16324a;border-radius:12px;padding:10px;overflow:auto;margin:.6em 0"><code>${esc(text)}</code></pre>`
+        : '';
+    }
+  }).filter(Boolean);
+  out.innerHTML = rendered.length ? rendered.join('') : `<div style="color:#9fb0c4;font-style:italic">[No output]</div>`;
+  return out.innerHTML;
+}
+function needsCopyDownload(name){
+  const n = String(name||'').toLowerCase();
+  // match 'ttd', 'ctd', 'hcdt' even if name has suffix like "tool"
+  return n.includes('ttd') || n.includes('ctd') || n.includes('hcdt');
+}
+
+function toCSV(records){
+  if (!Array.isArray(records) || !records.length) return '';
+  const cols = Array.from(new Set(records.flatMap(r => Object.keys(r || {}))));
+  const esc = v => {
+    const s = v === null || v === undefined ? '' : String(v);
+    // CSV-safe (quote + double-up quotes)
+    return `"${s.replace(/"/g,'""')}"`;
+  };
+  const header = cols.map(esc).join(',');
+  const rows = records.map(r => cols.map(c => esc(r?.[c])).join(','));
+  return [header, ...rows].join('\n');
+}
+
+function addCopyDownload(card, rawString){
+  // prevent duplicates on re-renders
+  if (card.querySelector('.tool-actions')) return;
+
+  const headerRight = card.querySelector('.tool-header');   // add buttons on the right end
+  const bar = document.createElement('div');
+  bar.className = 'tool-actions';
+  bar.style.display = 'flex';
+  bar.style.gap = '8px';
+
+  const mkBtn = (label) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.fontSize = '11px';
+    b.style.padding = '4px 8px';
+    b.style.borderRadius = '8px';
+    b.style.border = '1px solid #22465f';
+    b.style.background = '#0d1a29';
+    b.style.color = '#9ad6ff';
+    b.style.cursor = 'pointer';
+    b.onmouseenter = () => { b.style.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--accent'); b.style.color = getComputedStyle(document.documentElement).getPropertyValue('--accent'); };
+    b.onmouseleave = () => { b.style.borderColor = '#22465f'; b.style.color = '#9ad6ff'; };
+    return b;
+  };
+
+  const btnCopy = mkBtn('Copy');
+  const btnDownload = mkBtn('Download');
+
+  btnCopy.onclick = async () => {
+    try {
+      let textToCopy = rawString ?? '';
+      // Prefer CSV if raw is an array of records
+      try {
+        const parsed = JSON.parse(rawString);
+        if (Array.isArray(parsed) && parsed.length && parsed.every(x => x && typeof x === 'object' && !Array.isArray(x))) {
+          const csv = toCSV(parsed);
+          if (csv.trim()) textToCopy = csv;
+        }
+      } catch {}
+      await navigator.clipboard.writeText(textToCopy);
+      btnCopy.textContent = 'Copied!';
+      setTimeout(()=> btnCopy.textContent = 'Copy', 1000);
+    } catch {}
+  };
+
+  btnDownload.onclick = () => {
+    let blob, filename = 'tool_output';
+    // Try JSON ? CSV preference
+    try {
+      const parsed = JSON.parse(rawString);
+      if (Array.isArray(parsed) && parsed.length && parsed.every(x => x && typeof x === 'object' && !Array.isArray(x))) {
+        const csv = toCSV(parsed);
+        if (csv.trim()) {
+          blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+          filename += '.csv';
+        }
+      }
+      if (!blob) {
+        blob = new Blob([JSON.stringify(parsed, null, 2)], {type:'application/json'});
+        filename += '.json';
+      }
+    } catch {
+      // Fallback: download the rendered text
+      blob = new Blob([rawString ?? ''], {type:'text/plain'});
+      filename += '.txt';
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 0);
+  };
+
+  // tuck buttons at the far right of the header
+  const rightWrap = document.createElement('div');
+  rightWrap.style.marginLeft = 'auto';
+  rightWrap.style.display = 'flex';
+  rightWrap.style.gap = '8px';
+  rightWrap.appendChild(btnCopy);
+  rightWrap.appendChild(btnDownload);
+  // move the existing ? chevron to the right of the buttons
+    const exp = card.querySelector('.expand-icon');
+    if (exp) rightWrap.appendChild(exp);
+  bar.appendChild(rightWrap);
+  headerRight.appendChild(bar);
+}
+
+/* Orchestrator streaming gates */
+function sanitizeOrchestrator(content){
+  if (!content) return '';
+  const t = content.trim();
+  const startsWithEcho = /^\s*`{0,3}\s*"?input[_ ]?query"?\s*[:=>]/i.test(t);
+  const shortEcho = t.length <= 500 && /input[_ ]?query/i.test(t) && !/\n.*\n.*\n/.test(t);
+  const fencedEcho = /^```[\s\S]*?input[_ ]?query[\s\S]*?```$/i.test(t) && !/```[\s\S]*?```[\s\S]*?```/i.test(t);
+  return (startsWithEcho || shortEcho || fencedEcho) ? '' : content;
+}
+function onOrchDelta(text){
+  if (suppressOrchStream || toolCount > 0) return;
+  if (!text) return;
+  const maybe = sanitizeOrchestrator(text);
+  if (!maybe) return;
+  if (!currentAssistantMessage) currentAssistantMessage = messageShell('assistant');
+  const bubble = mainBubble(currentAssistantMessage);
+  if (orchestratorBuf && maybe.startsWith(orchestratorBuf)) orchestratorBuf = maybe;
+  else orchestratorBuf += maybe;
+  bubble.innerHTML = marked.parse(orchestratorBuf) +
+    `<span style="display:inline-block;width:2px;height:1em;background:${getComputedStyle(document.documentElement).getPropertyValue('--accent')};margin-left:2px;animation:blink 1s infinite"></span>`;
+  bubble.querySelectorAll('pre code').forEach(c => hljs.highlightElement(c));
+  enhanceCode(bubble);
+  scrollEnd();
+}
+function onOrchFinal(text){
+  const cleaned = sanitizeOrchestrator(text);
+  if (!cleaned) { suppressOrchStream = true; return; }
+  if (!currentAssistantMessage) currentAssistantMessage = messageShell('assistant');
+  const bubble = mainBubble(currentAssistantMessage);
+  bubble.innerHTML = marked.parse(cleaned);
+  bubble.querySelectorAll('pre code').forEach(c=>hljs.highlightElement(c));
+  enhanceCode(bubble);
+  orchestratorBuf = '';
+  suppressOrchStream = true;
+  scrollEnd();
+
+  pushMessageToConvo({ role:'assistant', content: cleaned, ts: nowISO() });
+}
+
+/* Router */
+function route(d){
+  switch(d.type){
+    case 'heartbeat':
+    case 'pong':
+    case 'user_ack':
+      break;
+
+    case 'orchestrator_delta':
+      onOrchDelta(d.content); break;
+
+    case 'orchestrator_message':
+      break;
+
+    case 'orchestrator_final':
+      onOrchFinal(d.content); break;
+
+    case 'Tool called': {
+      toolCount++;
+      suppressOrchStream = true;
+      const toolName = d.item?.raw_item?.name || 'Tool';
+      const key = nameKey(toolName);
+      const incomingId = d.tool_id;
+      if (!currentAssistantMessage) currentAssistantMessage = messageShell('assistant');
+
+      if (primaryByName.has(key)) {
+        const primaryId = primaryByName.get(key);
+        aliasToPrimary.set(incomingId, primaryId);
+        toolBuffers.set(incomingId, '');
+        scrollEnd();
+        break;
+      }
+      const card = createToolCard(incomingId, toolName);
+      currentToolCards.set(incomingId, card);
+      primaryByName.set(key, incomingId);
+      toolBuffers.set(incomingId, '');
+
+      const mc = currentAssistantMessage.querySelector('.message-content');
+      const main = mc.querySelector('.message-bubble:not(.tool-card .message-bubble)');
+      if (main) mc.insertBefore(card, main); else mc.appendChild(card);
+      scrollEnd();
+      break;
+    }
+
+    case 'Tool output': {
+      const idRaw = d.tool_id;
+      const id = getPrimaryId(idRaw);
+      const out = d.item?.output;
+      const prev = toolBuffers.get(id) || '';
+      if (typeof out === 'string') toolBuffers.set(id, prev + out);
+      else if (out && typeof out === 'object') toolBuffers.set(id, prev + JSON.stringify(out, null, 2));
+      else toolBuffers.set(id, prev + String(out ?? ''));
+      break;
+    }
+
+    case 'tool_result': {
+      const idRaw = d.tool_id;
+      const id = getPrimaryId(idRaw);
+      const card = currentToolCards.get(id);
+      if (card) {
+        const st = card.querySelector('.tool-status');
+        if (st) {
+          st.textContent = d.ok ? 'Completed (click to view)' : 'Failed';
+          st.className = `tool-status ${d.ok ? 'completed' : 'failed'}`;
+        }
+        const buf = toolBuffers.get(id) || '';
+        const html = renderToolOutput(card, buf);
+
+        const toolNm = card.querySelector('.tool-name')?.textContent || '';
+        if (needsCopyDownload(toolNm)) addCopyDownload(card, buf);
+
+        /* keep the 3s auto-expand */
+        card.classList.add('show-output');
+        setTimeout(() => { card.classList.remove('show-output'); }, 3000);
+
+        /* persist rendered output */
+        const toolName = card.querySelector('.tool-name')?.textContent || 'Tool';
+        pushToolMessage(toolName, html);
+
+        const name = card.querySelector('.tool-name')?.textContent || 'Tool';
+        const key = nameKey(name);
+        if (primaryByName.get(key) === id) primaryByName.delete(key);
+      }
+      toolCount = Math.max(0, toolCount - 1);
+      if (toolCount === 0) suppressOrchStream = true;
+      break;
+    }
+    // // ??? ADD THESE 2 LINES ???
+    // const toolNm = card.querySelector('.tool-name')?.textContent || '';
+    // if (needsCopyDownload(toolNm)) addCopyDownload(card, buf);
+    // // ??? ADD THESE 2 LINES ???
+
+
+    case 'final':
+      onFinalTurn();
+      break;
+
+    case 'error':
+      onError(d.message);
+      break;
+  }
+}
+
+function onFinalTurn(){
+  if(currentAssistantMessage){
+    const cur=currentAssistantMessage.querySelector('span[style*="animation:blink"]');
+    if(cur) cur.remove();
+  }
+  isWaiting=false; enableInput();
+  orchestratorBuf=''; toolBuffers.clear();
+}
+function onError(m){
+  if(!currentAssistantMessage) currentAssistantMessage=messageShell('assistant');
+  const b=mainBubble(currentAssistantMessage);
+  b.innerHTML=`<div style="color:var(--err);font-weight:800;margin-bottom:6px">Error</div><div>${esc(m||'Unknown error')}</div>`;
+  isWaiting=false; enableInput();
+}
+
+/* INPUT */
+const messageInput=document.getElementById('messageInput');
+const sendButton=document.getElementById('sendButton');
+function disableInput(){ messageInput.disabled=true; sendButton.disabled=true; }
+function enableInput(){ messageInput.disabled=false; sendButton.disabled=false; messageInput.focus(); }
+function addUserToDOM(text){
+  const el=messageShell('user'); const b=mainBubble(el); b.textContent = text; scrollEnd();
+}
+messageInput.addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }});
+messageInput.addEventListener('input',function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,150)+'px'; });
+
+/* Quick-start cards: click to run immediately */
+function askSample(t){
+  messageInput.value = t;
+  sendMessage();
+}
+window.askSample = askSample; // make it callable from HTML onclic
+
+function sendMessage(){
+  const txt=messageInput.value.trim();
+  if(!txt || isWaiting || !ws || ws.readyState!==WebSocket.OPEN) return;
+  addUserToDOM(txt);
+  pushMessageToConvo({ role:'user', content: txt, ts: nowISO() });
+
+  ws.send(JSON.stringify({user_input:txt}));
+  messageInput.value=''; messageInput.style.height='auto';
+  isWaiting=true; disableInput();
+  currentAssistantMessage=null; currentToolCards.clear();
+  orchestratorBuf = '';
+  toolBuffers.clear();
+  toolCount = 0;
+  suppressOrchStream = true;
+}
+
+/* Conversation switching */
+function openConversation(id){
+  currentConvoId = id;
+  renderSidebar();
+  renderConversation(id);
+}
+
+/* New conversation */
+function startNewConversation(){
+  createConversation('New Research Session');
+}
+
+/* Boot */
+function firstRunBootstrap(){
+  if(conversations.length===0){
+    createConversation('New Research Session');
+    pushMessageToConvo({ role:'assistant', content: 'Welcome to **BioChirp**! Ask about drugs, pathways, biomarkers, or clinical data.', ts: nowISO() });
+  } else {
+    const latest = [...conversations].sort((a,b)=> (b.updatedAt||b.createdAt).localeCompare(a.updatedAt||a.createdAt))[0];
+    currentConvoId = latest.id;
+    renderSidebar();
+    renderConversation(currentConvoId);
+  }
+}
+
+// window.addEventListener('load', ()=>{
+//   firstRunBootstrap();
+//   connect();
+// });
+
+window.addEventListener('load', ()=>{
+  firstRunBootstrap();
+
+  // Auto-scroll to bottom while user is near the bottom
+  const MC = document.getElementById('messagesContainer');
+  function isNearBottom(el, px = 80){
+    return (el.scrollHeight - el.scrollTop - el.clientHeight) < px;
+  }
+  const keepPinned = () => { if (isNearBottom(MC)) MC.scrollTop = MC.scrollHeight; };
+  new MutationObserver(keepPinned).observe(MC, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+  window.addEventListener('resize', keepPinned);
+
+  connect();
+});
+
+
+/* Expose toggle for inline handler */
+window.toggleCard = toggleCard;
+window.manualReconnect = manualReconnect;
+window.startNewConversation = startNewConversation;
+</script>
+</body>
+</html>

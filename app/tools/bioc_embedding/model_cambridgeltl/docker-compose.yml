@@ -1,0 +1,46 @@
+services:
+  biochirp_cambridgeltl_transformer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_cambridgeltl_transformer:latest
+    container_name: biochirp_cambridgeltl_transformer
+    ports:
+      - "8022:8022"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    # env_file:
+    #   - ../../../.env
+    # volumes:
+    #   - ../../../config/guardrail.py:/app/config/guardrail.py
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8022/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+
+    # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+

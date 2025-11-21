@@ -1,0 +1,350 @@
+services:
+
+
+  # biochirp_qdrant:
+  #   image: qdrant/qdrant
+  #   container_name: biochirp_qdrant
+  #   ports:
+  #     - "6333:6333"
+  #     - "6334:6334"
+  #   networks:
+  #     - semantic_net
+  #   restart: unless-stopped
+
+  # biochirp_semantic_embedding:
+  #   build:
+  #     context: ../bioc_embedding
+  #   container_name: biochirp_semantic_embedding
+  #   image: biochirp_semantic_embedding:latest
+  #   ports:
+  #     - "8003:8003"
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+  #     interval: 20s
+  #     timeout: 20s
+  #     retries: 5
+  #   networks:
+  #     - semantic_net
+
+  biochirp_embedding_tool:
+    build:
+      context: ../bioc_embedding
+    container_name: biochirp_embedding_tool
+    image: biochirp_embedding_tool:latest
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+
+    deploy:
+      resources:
+        limits:
+          memory: 20g
+          cpus: "1.0"
+        reservations:
+          memory: 16g
+          devices:
+            - driver: nvidia
+              count: 1      # Number of GPUs to reserve
+              capabilities: [gpu]
+    networks:
+      - semantic_net
+
+  biochirp_llm_filter_tool:
+    build:
+      context: ../llm_member_filter
+      dockerfile: Dockerfile
+    image: biochirp_llm_filter_tool:latest
+    container_name: biochirp_llm_filter_tool
+    ports:
+      - "8017:8017"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../resources/prompts/:/app/resources/prompts/:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8017/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+        reservations:
+          memory: 256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - semantic_net
+
+  biochirp_fuzzy_tool:
+    build:
+      context: ../fuzzy
+      dockerfile: Dockerfile
+    image: biochirp_fuzzy_tool:latest
+    container_name: biochirp_fuzzy_tool
+    ports:
+      - "8013:8013"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - LLM_FILTER_PORT=8017
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl:ro
+      - ../../../config/schema.py:/app/config/schema.py:ro
+      - ../../../config/settings.py:/app/config/settings.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8013/health || exit 1"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+        reservations:
+          memory: 256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      - biochirp_llm_filter_tool
+    networks:
+      - semantic_net
+
+  biochirp_synonyms_expander:
+    build:
+      context: ../expand_synonyms
+      dockerfile: Dockerfile
+    image: biochirp_synonyms_expander:latest
+    container_name: biochirp_synonyms_expander
+    ports:
+      - "8014:8014"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../config/settings.py:/app/config/settings.py:ro
+      - ../../../config/schema.py:/app/config/schema.py:ro
+      - ../../services/synonyms/:/app/synonyms/:ro
+      # - ../../../resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8014/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+        reservations:
+          memory: 512m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - semantic_net
+
+
+
+
+  biochirp_semantic_tool:
+    build: ../semantic_filter
+    container_name: biochirp_semantic_tool
+    image: biochirp_semantic_tool:latest
+    ports:
+      - "8015:8015"
+    # networks:
+    #   - semantic_net
+
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - BIOCHIRP_EMBEDDING_PORT=8003
+      - BIOCHIRP_EMBEDDING_HOST=biochirp_embedding_tool
+      # - QDRANT_HOST=biochirp_qdrant      # <--- ADD THIS LINE
+      # - QDRANT_PORT=6334     
+    env_file:
+      - ../../../.env
+
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../config/settings.py:/app/config/settings.py:ro
+      - ../../../config/__init__.py:/app/config/__init__.py:ro
+      - ../../../resources/prompts/:/app/resources/prompts/:ro
+      - ../../../resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl:ro
+      # - ../../services/semantic_matching.py:/app/services/semantic_matching.py:ro
+
+
+    healthcheck:
+      # test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8015/health || exit 1"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+
+    depends_on:
+      - biochirp_embedding_tool
+      # - biochirp_qdrant   
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 20g
+          cpus: "1.0"
+        reservations:
+          memory: 16g
+          devices:
+            - driver: nvidia
+              count: 1      # Number of GPUs to reserve
+              capabilities: [gpu]
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: ["gpu"]
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 8g
+    #       cpus: "1.0"
+    #     reservations:
+    #         #       devices:
+    # #         - capabilities: ["gpu"]
+    #       memory: 6g
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - semantic_net
+
+
+  biochirp_expand_and_match_db_tool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_expand_and_match_db_tool:latest
+    container_name: biochirp_expand_and_match_db_tool
+    ports:
+      - "8009:8009"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - EXPAND_HOST=biochirp_synonyms_expander
+      - EXPAND_PORT=8014
+      - FUZZY_PORT=8013
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - LLM_FILTER_PORT=8017
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+      - BIOCHIRP_EMBEDDING_PORT=8003
+      - BIOCHIRP_EMBEDDING_HOST=biochirp_embedding_tool
+      # - QDRANT_HOST=biochirp_qdrant      # <--- ADD THIS LINE
+      # - QDRANT_PORT=6334         
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../config/schema.py:/app/config/schema.py:ro
+      # - ../../utils/preprocess.py:/app/utils/preprocess.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8009/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 12g
+          cpus: "1.0"
+        reservations:
+          memory: 8g
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      - biochirp_synonyms_expander
+      - biochirp_fuzzy_tool
+      - biochirp_llm_filter_tool
+      - biochirp_semantic_tool
+      - biochirp_embedding_tool
+      # - bioc_qdrant        #
+    networks:
+      - semantic_net
+
+networks:
+  semantic_net:
+    external: true
+  
+# networks:
+#   semantic_net:
+#     driver: bridge
+#     ipam:
+#       config:
+#         - subnet: 172.37.0.0/16    # <--- change this to a free subnet
+
+# networks:
+#   semantic_net:
+#     driver: bridge

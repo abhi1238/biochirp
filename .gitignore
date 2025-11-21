@@ -1,0 +1,12 @@
+.env
+database
+gui
+rough.md
+qdrant_storage
+results
+docker-compose1.yml
+qdrant.ipynb
+qdrant_ingest.ipynb
+rough.ipynb
+rough.md
+rough.py

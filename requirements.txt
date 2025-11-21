@@ -1,0 +1,33 @@
+# fastapi==0.119.0
+# uvicorn[standard]==0.37.0
+# pydantic==2.12.3
+# requests==2.32.5
+# langchain==0.1.20
+# openai-agents==0.4.0
+# pandas==2.3.3
+# aiohttp==3.9.5
+# mygene==3.2.2
+# owlready2==0.47
+# chembl_webresource_client==0.10.8
+# drug_named_entity_recognition==2.0.9 
+# redis==7.0.1
+# pandas==2.3.3
+# Flask==3.1.2
+
+fastapi==0.119.0
+uvicorn[standard]==0.37.0
+pydantic==2.12.3
+requests==2.32.5
+langchain==0.1.20
+openai-agents==0.4.0
+pandas==2.3.3
+# aiohttp==3.9.5
+mygene==3.2.2
+owlready2==0.47
+chembl_webresource_client==0.10.8
+drug_named_entity_recognition==2.0.9
+redis==7.0.1
+Flask==3.1.2
+# attrs
+# Add explicit attrs constraint
+# attrs>=21.2,<22.0

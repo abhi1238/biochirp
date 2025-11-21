@@ -1,0 +1,50 @@
+
+services:
+  biochirp_web_tool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_web_tool:latest
+    container_name: biochirp_web_tool
+    ports:
+      - "8006:8006"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+
+    # Improved: Separate config/prompts into organized folders inside container
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../resources/prompts/web_tool_prompt.md:/app/resources/prompts/web_tool_prompt.md:ro
+
+    # Improved: Robust healthcheck
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8006/health || exit 1"]
+      interval: 10s          # Healthcheck every 10 seconds
+      timeout: 10s           # Allow up to 10 seconds per healthcheck
+      retries: 5             # Mark as unhealthy after 5 failures
+      start_period: 30s      # Allow up to 30 seconds for the container to become healthy at startup
+
+    # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+        reservations:
+          memory: 1g
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+

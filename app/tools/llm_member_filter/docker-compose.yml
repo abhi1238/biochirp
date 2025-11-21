@@ -1,0 +1,53 @@
+
+
+services:
+  biochirp_llm_filter_tool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_llm_filter_tool:latest
+    container_name: biochirp_llm_filter_tool
+    ports:
+      - "8017:8017"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../config/settings.py:/app/config/settings.py:ro
+      - ../../../config/__init__.py:/app/config/__init__.py:ro
+      - ../../../resources/prompts/:/app/resources/prompts/:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8017/health || exit 1"]
+      interval: 10s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+
+
+
+    # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+        reservations:
+          memory: 256m
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+

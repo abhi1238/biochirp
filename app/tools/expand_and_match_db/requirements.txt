@@ -1,0 +1,15 @@
+fastapi==0.119.0
+uvicorn[standard]==0.37.0
+pydantic==2.12.3
+requests==2.32.5
+openai-agents==0.4.0
+# rapidfuzz==3.14.1
+numpy==2.3.4
+pandas==2.2.2            # pandas 2.3+ requires Python 3.9+, check compatibility; 2.2.2 is stable
+# aiohttp==3.9.5
+# mygene==3.2.2
+# owlready2==0.47
+# chembl_webresource_client==0.10.9
+# drug_named_entity_recognition==2.0.9
+# qdrant_client==1.15.1
+# sentence-transformers==5.1.1

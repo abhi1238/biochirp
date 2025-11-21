@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>BioChirp — CTD Service Console</title>
+
+  <style>
+    :root[data-theme="dark"]{
+      --bg0:#0A0F1C; --bg1:#0B1222; --bg2:#0E1626; --bg3:#121C2E;
+      --card:#0F1828; --txt:#EAF2FF; --mut:#9FB0C4;
+      --brd:rgba(255,255,255,.12); --hover:rgba(255,255,255,.06);
+      --accent:#1FA4FF; --accent2:#A78BFA; --ok:#00E38C; --err:#ff6b6b;
+      --shadow:0 10px 28px rgba(0,0,0,.28); --ring:rgba(31,164,255,.28);
+    }
+    :root[data-theme="light"]{
+      --bg0:#F6FAFF; --bg1:#FFFFFF; --bg2:#FFFFFF; --bg3:#F1F5FA;
+      --card:#FFFFFF; --txt:#0B1624; --mut:#4C6278;
+      --brd:rgba(0,0,0,.10); --hover:rgba(0,0,0,.05);
+      --accent:#1FA4FF; --accent2:#6D50FF; --ok:#0FB27A; --err:#E25050;
+      --shadow:0 8px 22px rgba(17,24,39,.10); --ring:rgba(31,164,255,.22);
+    }
+    :root{ --chat-max:1080px; --radius:14px; --radius-lg:18px }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      min-height:100vh; color:var(--txt); background:var(--bg0);
+      font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+      display:flex; flex-direction:column;
+      background:
+        radial-gradient(800px 520px at -20% -10%, rgba(31,164,255,.08) 0%, transparent 60%),
+        radial-gradient(800px 520px at 120% 120%, rgba(167,139,250,.08) 0%, transparent 55%),
+        linear-gradient(135deg,var(--bg0) 0%,var(--bg1) 100%);
+    }
+    @media (min-width: 960px){
+      .bg-grid{ position:fixed; inset:0; pointer-events:none; z-index:-2; opacity:.08;
+        background-image: linear-gradient(to right, var(--brd) 1px, transparent 1px), linear-gradient(to bottom, var(--brd) 1px, transparent 1px);
+        background-size: 48px 48px; }
+    }
+
+    .app{display:flex; min-height:100vh}
+    .chat{flex:1; display:flex; flex-direction:column; min-width:0}
+
+    .chat-header{
+      position:sticky; top:0; z-index:5; padding:10px 12px; border-bottom:1px solid var(--brd);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      background:color-mix(in oklab, var(--bg1) 92%, transparent); backdrop-filter: blur(6px);
+    }
+    .brand{ display:flex; align-items:center; gap:10px; min-width:0 }
+    .brand img{ display:block; width:28px; height:28px }
+    .title{ display:flex; flex-direction:column; min-width:0 }
+    .title .main{ font-size:16px; font-weight:800; line-height:1 }
+    .title .sub{ font-size:12px; font-weight:700; color:var(--mut) }
+
+    .status-wrap{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .connection-status{display:flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid var(--brd); background:var(--bg2); font-size:12px}
+    .status-dot{width:9px;height:9px;border-radius:50%}
+    .dot.online{background:var(--ok)} .dot.offline{background:var(--err)} .dot.degraded{background:#ffd76a}
+
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid var(--brd);background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px}
+    .btn:hover{background:var(--hover)}
+    .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#00162a; border:none; font-weight:800}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+
+    .container{max-width:var(--chat-max); width:100%; margin:0 auto; padding:12px 12px 28px}
+    .cards{display:grid; grid-template-columns:1fr; gap:12px}
+    @media (min-width: 980px){ .cards{ grid-template-columns: 1fr 1fr } }
+
+    .card{ border:1px solid var(--brd); background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; transition:border-color .25s ease, transform .25s ease, box-shadow .25s ease }
+    .card:hover{ border-color: color-mix(in oklab, var(--accent) 28%, var(--brd)); transform: translateY(-1px) }
+
+    .row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Courier New",monospace}
+    .badge{font-size:11px;padding:3px 8px;border-radius:10px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-weight:700}
+
+    pre{ white-space:pre-wrap; word-break:break-word; background:var(--bg3); color:var(--txt); border:1px solid var(--brd); padding:12px; border-radius:10px; max-height:420px; overflow:auto }
+    .pre-head{display:flex; align-items:center; justify-content:space-between; margin:8px 0 0}
+    .copy-btn{font-size:11px; padding:3px 8px; border-radius:8px; border:1px solid var(--brd); background:var(--bg2)}
+    .copy-btn:hover{ background:var(--hover) }
+    /* Dark-mode visibility for Copy buttons */
+    :root[data-theme="dark"] .copy-btn{ background:var(--bg1); color:var(--txt); border-color:var(--brd) }
+    :root[data-theme="dark"] .copy-btn:hover{ background:var(--hover) }
+
+    textarea{ width:100%; background:var(--bg3); color:var(--txt); border:1px solid var(--brd); border-radius:10px; padding:10px 12px; min-height:140px; resize:vertical }
+    .help{font-size:12px;color:var(--mut);margin-top:6px}
+    .kbd{padding:.15rem .35rem;border:1px solid var(--brd);border-radius:.35rem;font-size:.75rem}
+
+    table{width:100%;border-collapse:collapse;border:1px solid var(--brd);border-radius:10px;overflow:hidden}
+    th,td{border-bottom:1px solid var(--brd); text-align:left; padding:8px 10px; font-size:13px}
+    thead th{background:var(--bg3); color:var(--mut)}
+    .table-wrap{overflow:auto}
+
+    .method{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--brd);background:var(--bg2);font-weight:700}
+    .get{color:#ffd76a} .post{color:#63ffb3}
+
+    .field-block{margin-top:10px}
+    .field-head{display:flex; align-items:center; gap:6px; font-weight:800}
+    .field-sub{display:flex; align-items:center; gap:8px; color:var(--mut); font-size:12px; margin-top:4px}
+
+    .warning{display:none; margin-top:8px; padding:8px 10px; border:1px solid var(--brd); border-radius:10px; background:var(--bg2); color:var(--mut)}
+
+    .visually-hidden{
+      position:absolute !important; width:1px; height:1px; padding:0; margin:-1px;
+      overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="app">
+    <main class="chat" role="main" aria-labelledby="pageTitle">
+      <header class="chat-header">
+        <div class="brand">
+          <img src="/assets/brand/logo.svg" alt="BioChirp logo" width="28" height="28" loading="eager">
+          <div class="title">
+            <div id="pageTitle" class="main">CTD Service Console</div>
+            <div class="sub">/ctd • Comparative Toxicogenomics Database</div>
+          </div>
+        </div>
+        <div class="status-wrap">
+          <button class="btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">🌓 Theme</button>
+          <button class="btn" id="pingBtn" title="Ping /health">Ping</button>
+          <div class="connection-status" role="status" aria-live="polite">
+            <span class="status-dot dot" id="statusDot" aria-hidden="true"></span>
+            <span id="connectionStatus">Unknown</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="container">
+
+        <!-- Service Status -->
+        <section class="card" aria-labelledby="svcStatusH">
+          <div class="row" style="align-items:flex-start">
+            <div style="flex:1; min-width:260px">
+              <div id="svcStatusH" class="badge">Service Status</div>
+              <div class="help" style="margin-top:8px">Health checks run against <code class="mono" id="endpointLabel"></code></div>
+              <div id="protoWarn" class="warning">⚠ Mixed-content likely: page is <span class="mono" id="pageProto"></span> but API is <span class="mono" id="apiProto"></span>.</div>
+              <div id="corsWarn"  class="warning">⚠ CORS blocked. Allow this origin or proxy same-origin.</div>
+              <div id="fileWarn"  class="warning">⚠ Opened via <span class="mono">file://</span>. Serve via HTTP.</div>
+              <div id="netWarn"   class="warning">⚠ Network error/timeout. Check API reachability.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div>
+                <div style="font-weight:800" id="statusText">Unknown</div>
+                <div class="help" id="statusMeta">—</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Schema -->
+        <section class="card" aria-labelledby="schemaH">
+          <div class="row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="badge" id="schemaH">Schema</span>
+              <h3 style="font-size:16px">Input / Output Models</h3>
+            </div>
+          </div>
+
+          <div class="cards" style="margin-top:10px">
+            <!-- Request model -->
+            <div class="card" style="padding:12px" aria-labelledby="reqModelH">
+              <div class="row">
+                <div id="reqModelH" style="font-weight:800">QueryInterpreterOutputGuardrail</div>
+                <span class="badge">Body • JSON</span>
+              </div>
+              <div class="table-wrap" style="margin-top:8px">
+                <table aria-label="QueryInterpreterOutputGuardrail fields">
+                  <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">cleaned_query</td><td class="mono">string | null</td><td>No</td><td>Optional</td></tr>
+                    <tr><td class="mono">status</td><td class="mono">string | null</td><td>No</td><td>Optional</td></tr>
+                    <tr><td class="mono">route</td><td class="mono">string | null</td><td>No</td><td>Optional</td></tr>
+                    <tr><td class="mono">message</td><td class="mono">string | null</td><td>No</td><td>Optional</td></tr>
+                    <tr><td class="mono">parsed_value</td><td class="mono">object</td><td>Yes</td><td>drug/target/gene/disease</td></tr>
+                    <tr><td class="mono">tool</td><td class="mono">string | null</td><td>No</td><td>e.g., "interpreter"</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="pre-head">
+                <div class="help">Example request</div>
+                <button class="copy-btn" id="copySingleEx">Copy</button>
+              </div>
+              <pre class="mono" id="example-input">{
+  "cleaned_query": null,
+  "status": null,
+  "route": null,
+  "message": null,
+  "parsed_value": {
+    "drug_name": "requested",
+    "target_name": null,
+    "gene_name": null,
+    "disease_name": ["tuberculosis"],
+    "pathway_name": null,
+    "biomarker_name": null,
+    "drug_mechanism_of_action_on_target": null,
+    "approval_status": null
+  },
+  "tool": null
+}</pre>
+            </div>
+
+            <!-- Response model -->
+            <div class="card" style="padding:12px" aria-labelledby="respModelH">
+              <div class="row">
+                <div id="respModelH" style="font-weight:800">DatabaseTable</div>
+                <span class="badge">Response • JSON</span>
+              </div>
+              <div class="table-wrap" style="margin-top:8px">
+                <table aria-label="DatabaseTable fields">
+                  <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes / Example</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">database</td><td class="mono">string</td><td>Yes</td><td class="mono">"ctd"</td></tr>
+                    <tr><td class="mono">table</td><td class="mono">list[object] | null</td><td>No</td><td>Rows (dictionaries) from the DB</td></tr>
+                    <tr><td class="mono">csv_path</td><td class="mono">string | null</td><td>No</td><td>Server path to CSV dump</td></tr>
+                    <tr><td class="mono">row_count</td><td class="mono">integer | null</td><td>No</td><td>Number of rows returned</td></tr>
+                    <tr><td class="mono">tool</td><td class="mono">string</td><td>Yes</td><td class="mono">"ctd"</td></tr>
+                    <tr><td class="mono">message</td><td class="mono">string | null</td><td>No</td><td>Status note</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="pre-head">
+                <div class="help">Example response</div>
+                <button class="copy-btn" data-copy='{"database":"ctd","table":[{"chemical_name":"Isoniazid","disease_name":"Tuberculosis"}],"csv_path":"/tmp/ctd_table.csv","row_count":1,"tool":"ctd","message":"OK"}'>Copy</button>
+              </div>
+              <pre class="mono" id="example-output">{
+  "database": "ctd",
+  "table": [
+    {
+      "chemical_name": "Isoniazid",
+      "disease_name": "Tuberculosis"
+    }
+  ],
+  "csv_path": "/tmp/ctd_table.csv",
+  "row_count": 1,
+  "tool": "ctd",
+  "message": "OK"
+}</pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- ORDER: GET /, GET /health, POST /ctd -->
+
+        <!-- GET / -->
+        <section class="card" aria-labelledby="rootH">
+          <div class="row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="method mono get" aria-hidden="true">GET</span>
+              <span id="rootH" class="mono" style="font-weight:800">/</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn" data-curl="GET /">cURL</button>
+              <button class="btn primary" data-try="GET /">Try it</button>
+            </div>
+          </div>
+          <div class="help" style="margin-top:6px"><strong>Purpose:</strong> Service banner.</div>
+          <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-root">Copy</button></div>
+          <pre id="out-root" class="mono" aria-live="polite"></pre>
+        </section>
+
+        <!-- GET /health -->
+        <section class="card" aria-labelledby="healthH">
+          <div class="row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="method mono get" aria-hidden="true">GET</span>
+              <span id="healthH" class="mono" style="font-weight:800">/health</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" data-curl="GET /health">cURL</button>
+              <button class="btn primary" data-try="GET /health">Try it</button>
+            </div>
+          </div>
+          <div class="help" style="margin-top:6px"><strong>Purpose:</strong> Liveness/readiness probe.</div>
+          <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-health">Copy</button></div>
+          <pre id="out-health" class="mono" aria-live="polite"></pre>
+        </section>
+
+        <!-- POST /ctd -->
+        <section class="card" aria-labelledby="postH">
+          <div class="row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="method mono post" aria-hidden="true">POST</span>
+              <span id="postH" class="mono" style="font-weight:800">/ctd</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" data-curl="POST /ctd">cURL</button>
+              <button class="btn" id="fillExample">Fill example</button>
+              <button class="btn primary" data-try="POST /ctd">Try it</button>
+            </div>
+          </div>
+
+          <!-- Optional query param: connection_id -->
+          <div class="field-block">
+            <div class="field-head">connection_id (optional)</div>
+            <div class="field-sub"><span>string</span><span>(query)</span></div>
+            <div style="margin-top:6px">
+              <label class="visually-hidden" for="connId">connection_id</label>
+              <input id="connId" class="select" style="min-width:280px" placeholder="Leave empty unless provided by orchestrator" />
+            </div>
+          </div>
+
+          <div class="help" style="margin-top:10px"><strong>Purpose:</strong> Filters and returns CTD rows as a `DatabaseTable` with optional CSV path.</div>
+
+          <div class="cards" style="margin-top:8px">
+            <div class="card" style="padding:10px">
+              <div class="help">Request body (JSON)</div>
+              <textarea id="in-ctd" class="mono" placeholder='Click "Fill example" to insert the template.' aria-label="POST /ctd request body"></textarea>
+              <div class="help">Tip: Press <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> to send.</div>
+            </div>
+            <div class="card" style="padding:10px">
+              <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-ctd">Copy</button></div>
+              <pre id="out-ctd" class="mono" aria-live="polite"></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- cURL modal -->
+        <section id="curlModal" class="card" style="display:none" role="dialog" aria-modal="true" aria-labelledby="curlTitle">
+          <div class="row">
+            <div id="curlTitle" style="font-weight:800">cURL</div>
+            <button class="btn" id="curlClose" aria-label="Close cURL modal">Close</button>
+          </div>
+          <pre id="curlText" class="mono"></pre>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <button class="btn primary" id="curlCopy">Copy</button>
+          </div>
+        </section>
+
+      </section>
+    </main>
+  </div>
+
+  <script>
+    "use strict";
+
+    // ---------- Config ----------
+    const API_BASE = 'https://biochirp.iiitd.edu.in/services/ctd/api'; // adjust if different
+    const SINGLE_EX = {
+      "cleaned_query": null,
+      "status": null,
+      "route": null,
+      "message": null,
+      "parsed_value": {
+        "drug_name": "requested",
+        "target_name": null,
+        "gene_name": null,
+        "disease_name": ["tuberculosis"],
+        "pathway_name": null,
+        "biomarker_name": null,
+        "drug_mechanism_of_action_on_target": null,
+        "approval_status": null
+      },
+      "tool": null
+    };
+
+    // ---------- DOM helpers ----------
+    const $ = (s)=>document.querySelector(s);
+    const statusDot = $('#statusDot');
+    const statusText= $('#statusText');
+    const statusMeta= $('#statusMeta');
+    const connText  = $('#connectionStatus');
+    const protoWarn = $('#protoWarn');
+    const corsWarn  = $('#corsWarn');
+    const fileWarn  = $('#fileWarn');
+    const netWarn   = $('#netWarn');
+    const pageProto = $('#pageProto');
+    const apiProto  = $('#apiProto');
+    const endpointLabel = $('#endpointLabel');
+    const curlModal = $('#curlModal');
+    const curlText  = $('#curlText');
+
+    const fullUrl = (path)=> API_BASE + (path.startsWith('/') ? path : '/'+path);
+    const pretty = (o)=>{ try{ return JSON.stringify(o,null,2);}catch{ return String(o);} };
+
+    function setConnStatus(txt, state){
+      if (connText) connText.textContent = txt;
+      statusDot?.classList.remove('online','offline','degraded');
+      if (state === true)      statusDot?.classList.add('online');
+      else if (state === false)statusDot?.classList.add('offline');
+      else                     statusDot?.classList.add('degraded');
+    }
+    const isMixedContent = ()=> {
+      try { return (location.protocol === 'https:' && new URL(API_BASE).protocol === 'http:'); }
+      catch { return false; }
+    };
+    function hideWarnings(){ [protoWarn,corsWarn,fileWarn,netWarn].forEach(x=>{ if(x) x.style.display='none'; }); }
+
+    function parseJsonText(text){ if(!text || !text.trim()) return {}; return JSON.parse(text); }
+
+    // Build POST path with optional connection_id
+    function buildPostPath(basePath){
+      const cid = ($('#connId')?.value || '').trim();
+      return cid ? `${basePath}?connection_id=${encodeURIComponent(cid)}` : basePath;
+    }
+
+    // ---- fetch with timeout/CORS handling ----
+    async function doFetch(urlOrPath, init={}, timeoutMs=45000){
+      const url = urlOrPath.startsWith('http') ? urlOrPath : fullUrl(urlOrPath);
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), timeoutMs);
+      try{
+        const res = await fetch(url, { cache:'no-store', mode:'cors', signal:ctrl.signal, ...init });
+        clearTimeout(t);
+        const ct = res.headers.get('content-type') || '';
+        const body = ct.includes('application/json') ? await res.json() : await res.text();
+        if (!res.ok) return { ok:false, status:res.status, body };
+        return { ok:true, status:res.status, body };
+      }catch(err){
+        clearTimeout(t);
+        const msg = String(err);
+        if (msg.includes('TypeError: Failed to fetch')){
+          if (location.protocol === 'file:') { fileWarn && (fileWarn.style.display='block'); }
+          else { corsWarn && (corsWarn.style.display='block'); }
+        }else if (msg.includes('AbortError')){ netWarn && (netWarn.style.display='block'); }
+        if (isMixedContent() && protoWarn) protoWarn.style.display='block';
+        return { ok:false, body:{ error:msg } };
+      }
+    }
+
+    // ---- heartbeat ----
+    let pingInFlight = false;
+    const fmtTime = (d=new Date())=> d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    async function ping(){
+      if (pingInFlight) return; pingInFlight = true;
+      try{
+        const r = await doFetch('/health');
+        if (r.ok){ statusText.textContent='Online'; statusMeta.textContent=`HTTP ${r.status} • ${fmtTime()}`; setConnStatus('Online', true); }
+        else      { statusText.textContent='Degraded'; statusMeta.textContent=`${(r.body && (r.body.error||r.status)) || 'Error'} • ${fmtTime()}`; setConnStatus('Degraded', null); }
+      }catch{
+        statusText.textContent='Offline'; statusMeta.textContent=`Network/CORS error • ${fmtTime()}`; setConnStatus('Offline', false);
+      }finally{ pingInFlight = false; }
+    }
+    setInterval(()=>{ if(!document.hidden) ping(); }, 12000);
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) ping(); });
+    window.addEventListener('online',  ()=> ping());
+    window.addEventListener('offline', ()=> { statusText.textContent='Offline'; statusMeta.textContent=`Offline • ${fmtTime()}`; setConnStatus('Offline', false); });
+
+    // ---- actions ----
+    async function runGet(path, outSel){
+      const out = document.querySelector(outSel); if (out) out.textContent='…';
+      try{ const r = await doFetch(path); if(out) out.textContent = pretty(r.body); }
+      catch(e){ if(out) out.textContent = pretty({ error:String(e) }); }
+    }
+    async function runPost(path, inSel, outSel){
+      const out = document.querySelector(outSel); if (out) out.textContent='…';
+      let payload;
+      try{ payload = parseJsonText(document.querySelector(inSel).value || '{}'); }
+      catch{ if(out) out.textContent = pretty({ error:'Invalid JSON in request body' }); return; }
+      try{
+        const postPath = buildPostPath(path);
+        const r = await doFetch(postPath, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(payload) });
+        if(out) out.textContent = pretty(r.body);
+      }catch(e){
+        if(out) out.textContent = pretty({ error:String(e?.message||e) });
+      }
+    }
+
+    function curlFor(kind, path){
+      const base = fullUrl(path);
+      const cid = ($('#connId')?.value || '').trim();
+      const url = cid ? `${base}?connection_id=${encodeURIComponent(cid)}` : base;
+      if (kind === 'GET')  return `curl -s ${url}`;
+      if (kind === 'POST'){
+        const payload = ($('#in-ctd')?.value) ? $('#in-ctd').value : '{}';
+        return `printf %s '${payload.replace(/'/g, "'\\''")}' | curl -s -X POST ${url} -H 'content-type: application/json' --data-binary @-`;
+      }
+      return '';
+    }
+    const copyText = (txt)=>{ try{ navigator.clipboard.writeText(txt); }catch{} };
+
+    // wire UI
+    $('#pingBtn').addEventListener('click', ping);
+    document.querySelectorAll('[data-try]').forEach(btn=>{
+      const [method, path] = btn.dataset.try.split(' ');
+      btn.addEventListener('click',()=>{
+        if (method==='GET'  && path==='/')       runGet('/', '#out-root');
+        if (method==='GET'  && path==='/health') runGet('/health', '#out-health');
+        if (method==='POST' && path==='/ctd')    runPost('/ctd', '#in-ctd', '#out-ctd');
+      });
+    });
+    document.addEventListener('keydown', (e)=>{
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+        runPost('/ctd', '#in-ctd', '#out-ctd');
+      }
+    });
+
+    // Fill / Copy example
+    $('#fillExample').addEventListener('click', ()=>{
+      $('#in-ctd').value = JSON.stringify(SINGLE_EX, null, 2);
+      window.scrollTo({ top: document.body.scrollHeight, behavior:'smooth' });
+    });
+    $('#copySingleEx').addEventListener('click', ()=>{
+      const txt = $('#example-input').textContent || '';
+      copyText(txt);
+      const btn = $('#copySingleEx'); const old = btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=old, 900);
+    });
+
+    document.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        copyText(btn.getAttribute('data-copy') || '');
+        const old = btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=old, 900);
+      });
+    });
+    document.querySelectorAll('[data-copy-target]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const sel = btn.getAttribute('data-copy-target');
+        const el = document.querySelector(sel);
+        copyText(el ? el.textContent : '');
+        const old = btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=old, 900);
+      });
+    });
+    document.querySelectorAll('[data-curl]').forEach(btn=>{
+      const [method, path] = btn.dataset.curl.split(' ');
+      btn.addEventListener('click',()=>{
+        $('#curlText').textContent = curlFor(method, path);
+        $('#curlModal').style.display='block';
+        window.scrollTo({ top: $('#curlModal').offsetTop - 20, behavior:'smooth' });
+      });
+    });
+    $('#curlClose').addEventListener('click',()=> $('#curlModal').style.display='none');
+    $('#curlCopy').addEventListener('click',()=> copyText($('#curlText').textContent || ''));
+
+    // Theme toggle + persist
+    $('#themeToggle').addEventListener('click', ()=>{
+      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try{ localStorage.setItem('biochirp_theme', next); }catch{}
+    });
+    (function(){ try{
+      const saved = localStorage.getItem('biochirp_theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    }catch{} })();
+
+    // ---- boot ----
+    function start(){
+      if (endpointLabel) endpointLabel.textContent = API_BASE;
+      if (pageProto) pageProto.textContent = location.protocol.replace(':','');
+      try{ if (apiProto) apiProto.textContent = new URL(API_BASE).protocol.replace(':',''); }catch{}
+      hideWarnings(); ping();
+      runGet('/', '#out-root'); runGet('/health', '#out-health');
+    }
+    document.addEventListener('DOMContentLoaded', start);
+  </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+
+# services:
+services:
+  biochirp_planner_tool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_planner_tool:latest
+    container_name: biochirp_planner_tool
+
+    ports:
+      - "8011:8011"
+
+    env_file:
+      - ../../../.env
+
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - PORT=8011
+
+    volumes:
+      - ../../../config/schema.py:/app/config/schema.py:ro 
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+
+    # Use CMD-SHELL so the command runs in a shell; avoid needing curl if you prefer wget
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8013/health || exit 1"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+
+    restart: unless-stopped
+    # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+          cpus: "1.0"
+        reservations:
+          memory: 768m
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+
+
+
+
+
+
+  # biochirp_planner_tool:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   image: biochirp_planner_tool:latest
+  #   container_name: biochirp_planner_tool
+  #   ports:
+  #     - "8011:8011"
+
+  #   environment:
+  #     - TZ=Asia/Kolkata
+  #     - PYTHONUNBUFFERED=1
+
+  #   restart: unless-stopped
+
+  #   env_file:
+  #     - ../../../.env
+
+  #   volumes:
+  #     - ../../../config/schema.py:/app/schema.py
+  #     - ../../../config/guardrail.py:/app/guardrail.py
+
+    
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+  #     interval: 20s
+  #     timeout: 120s
+  #     retries: 5
+
+
+

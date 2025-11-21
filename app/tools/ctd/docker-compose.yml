@@ -1,0 +1,343 @@
+
+services:
+
+
+  biochirp_llm_filter_tool:
+    build:
+      context: ../llm_member_filter
+      dockerfile: Dockerfile
+    image: biochirp_llm_filter_tool:latest
+    container_name: biochirp_llm_filter_tool
+    ports:
+      - "8017:8017"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../resources/prompts/:/app/resources/prompts/:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8017/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+        reservations:
+          memory: 256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - semantic_net
+
+  biochirp_fuzzy_tool:
+    build:
+      context: ../fuzzy
+      dockerfile: Dockerfile
+    image: biochirp_fuzzy_tool:latest
+    container_name: biochirp_fuzzy_tool
+    ports:
+      - "8013:8013"
+
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - LLM_FILTER_PORT=8017
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+
+    restart: unless-stopped
+
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl:ro
+      - ../../../config/schema.py:/app/config/schema.py:ro
+      - ../../../config/settings.py:/app/config/settings.py:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8013/health || exit 1"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+
+    depends_on:
+      - biochirp_llm_filter_tool
+    networks:
+      - semantic_net
+
+
+  biochirp_expand_synonyms_tool:
+    build:
+      context: ../expand_synonyms
+      dockerfile: Dockerfile
+    image: biochirp_expand_synonyms_tool:latest
+    container_name: biochirp_expand_synonyms_tool
+    ports:
+      - "8014:8014"
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../config/settings.py:/app/config/settings.py:ro
+      - ../../../config/schema.py:/app/config/schema.py:ro
+      - ../../services/synonyms/:/app/synonyms/:ro
+      # - ../../../resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8014/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+        reservations:
+          memory: 512m
+    networks:
+      - semantic_net
+
+
+
+  biochirp_semantic_tool:
+    build: .
+    container_name: biochirp_semantic_tool
+    image: biochirp_semantic_tool:latest
+    ports:
+      - "8015:8015"
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py
+      - ../../../config/schema.py:/app/config/schema.py
+      - ../../utils/:/app/utils/
+      - ../../../config/settings.py:/app/config/settings.py
+      - ../../../config/__init__.py:/app/config/__init__.py
+      - ../../../resources/prompts/:/app/resources/prompts/
+      - ../../../resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+    networks:
+      - semantic_net
+
+  # biochirp_semantic_tool:
+  #   build: .
+  #   container_name: biochirp_semantic_tool
+  #   image: biochirp_semantic_tool:latest
+  #   ports:
+  #     - "8015:8015"
+  #   restart: unless-stopped
+  #   env_file:
+  #     - ../../../.env
+  #   volumes:
+  #     - ../../../config/guardrail.py:/app/config/guardrail.py
+  #     - ../../../config/settings.py:/app/config/settings.py
+  #     - ../../../config/__init__.py:/app/config/__init__.py
+  #     - ../../../resources/prompts/:/app/resources/prompts/
+  #     - ../../../resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+  #     interval: 20s
+  #     timeout: 20s
+  #     retries: 5
+  #   networks:
+  #     - semantic_net
+
+  biochirp_expand_and_match_db_tool:
+    build:
+      context: ../expand_and_match_db
+      dockerfile: Dockerfile
+    image: biochirp_expand_and_match_db_tool:latest
+    container_name: biochirp_expand_and_match_db_tool
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - EXPAND_HOST=biochirp_expand_synonyms_tool
+      - EXPAND_PORT=8014
+      - FUZZY_PORT=8013
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - LLM_FILTER_PORT=8017
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+    restart: unless-stopped
+
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py
+      - ../../../config/schema.py:/app/config/schema.py
+      - ../../utils/:/app/utils/
+    ports:
+      - "8009:8009"
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8009/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 12g
+          cpus: "1.0"
+        reservations:
+          memory: 8g
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - semantic_net
+    depends_on:
+      - biochirp_expand_synonyms_tool
+      - biochirp_fuzzy_tool
+      - biochirp_llm_filter_tool
+      - biochirp_semantic_tool
+
+
+  biochirp_planner_tool:
+    build:
+      context: ../planner
+      dockerfile: Dockerfile
+    image: biochirp_planner_tool:latest
+    container_name: biochirp_planner_tool
+
+    ports:
+      - "8011:8011"
+
+    env_file:
+      - ../../../.env
+
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - PORT=8011
+
+    volumes:
+      - ../../../config/schema.py:/app/config/schema.py:ro 
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8011/health || exit 1"]
+      interval: 20s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+          cpus: "1.0"
+        reservations:
+          memory: 768m
+    networks:
+      - semantic_net
+
+
+  biochirp_ctd_tool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: biochirp_ctd_tool:latest
+    container_name: biochirp_ctd_tool
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - PLANNER_HOST=biochirp_planner_tool
+      - PLANNER_PORT=8011
+      - EXPAND_AND_MATCH_DB_HOST=biochirp_expand_and_match_db_tool
+      - EXPAND_AND_MATCH_DB_PORT=8009
+      - LLM_FILTER_HOST=biochirp_llm_filter_tool
+      - LLM_FILTER_PORT=8017
+      - EXPAND_HOST=biochirp_expand_synonyms_tool
+      - EXPAND_PORT=8014
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - FUZZY_PORT=8013
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+    restart: unless-stopped
+    volumes:
+      - ../../../config/guardrail.py:/app/config/guardrail.py:ro
+      - ../../../config/schema.py:/app/config/schema.py:ro
+      - ../../../database/ctd/:/app/database/ctd/:ro
+      - ../../utils/:/app/utils/:ro
+      - ../../../resources/prompts/:/app/resources/prompts/:ro
+    ports:
+      - "8016:8016"
+    env_file:
+      - ../../../.env
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8016/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+
+        # Log rotation to prevent disk fill
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 36g
+          cpus: "1.0"
+        reservations:
+          memory: 16g
+    networks:
+      - semantic_net
+    depends_on:
+      - biochirp_planner_tool
+      - biochirp_expand_and_match_db_tool
+      - biochirp_expand_synonyms_tool
+      - biochirp_fuzzy_tool
+      - biochirp_llm_filter_tool
+      - biochirp_semantic_tool
+
+
+networks:
+  semantic_net:
+    driver: bridge

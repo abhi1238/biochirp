@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BioChirp Therapeutic Target Database Service Console</title>
+<link rel="preconnect" href="https://cdn.tailwindcss.com">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily:{display:["Inter","ui-sans-serif","system-ui","Segoe UI","Roboto","Helvetica","Arial","sans-serif"]},
+      colors:{bio:{500:"#1FA4FF"}, plum:"#A78BFA"}
+    }
+  }
+}
+</script>
+<style>
+:root[data-theme="dark"]{--bg:#0B1222;--card:#0E1424;--muted:#94A3B8;--text:#E6F2FF;--border:rgba(255,255,255,.08); --pre-bg: rgba(0,0,0,.30);
+  --pre-border: var(--border);}
+:root[data-theme="light"]{--bg:#f8fafc;--card:#ffffff;--muted:#64748b;--text:#0f172a;--border:rgba(0,0,0,.08); --pre-bg: #f1f5f9;
+  --pre-border: rgba(0,0,0,.12);}
+:root[data-theme="light"] .text-emerald-300 { color: #065f46 !important; }
+:root[data-theme="light"] .text-cyan-300    { color: #0e7490 !important; }
+:root[data-theme="light"] .border-emerald-500\/30 { border-color: rgba(16,185,129,.55) !important; }
+:root[data-theme="light"] .border-cyan-500\/30    { border-color: rgba(6,182,212,.55) !important; }
+:root[data-theme="light"] .bg-bio-500\/15   { background-color: rgba(31,164,255,.18) !important; }
+:root[data-theme="light"] .border-bio-500\/30 { border-color: rgba(31,164,255,.45) !important; }
+body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+.card{background:var(--card);border:1px solid var(--border)}
+.dot{width:10px;height:10px;border-radius:9999px}
+.kbd{padding:.15rem .35rem;border:1px solid var(--border);border-radius:.35rem;font-size:.75rem}
+.mono{font-family:ui-monospace,SFMONO-Regular,Menlo,Monaco,"Courier New",monospace}
+.shadow-glow{box-shadow:0 0 0 2px rgba(31,164,255,.25),0 12px 40px rgba(0,0,0,.35)}
+.btn{transition:transform .1s ease}
+pre{
+  white-space: pre-line;
+  word-break: break-all;
+  background-color: var(--pre-bg);
+  color: var(--text);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--pre-border);
+  overflow: auto;
+}
+.btn:active{transform:translateY(1px)}
+dialog[open] { display: flex; justify-content: center; align-items: center; }
+dialog::backdrop { background: rgba(0,0,0,0.5); }
+dialog.card { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+dialog[open] { z-index: 50; }
+#curlText { white-space: pre-wrap; word-break: break-word; }
+</style>
+</head>
+<body class="min-h-screen">
+<header class="sticky top-0 z-30 backdrop-blur bg-black/30 border-b border-[var(--border)]">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-white/80 border border-white/40 flex items-center justify-center shadow-glow">
+            <img src="/assets/brand/logo.png" alt="BioChirp logo" class="h-7 w-7 object-contain" />
+        </div>
+
+      <div>
+        <div class="font-semibold">BioChirp Therapeutic Target Database Service Console</div>
+        <div class="text-xs text-[var(--muted)]">Try the API from your browser</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="themeLight" class="px-3 py-1.5 rounded-md border border-[var(--border)] text-sm">Light</button>
+      <button id="themeDark" class="px-3 py-1.5 rounded-md border border-[var(--border)] text-sm">Dark</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+  <!-- Base URL / Status -->
+  <section class="card rounded-2xl p-4">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div class="w-full md:max-w-xl">
+        <label class="text-sm text-[var(--muted)]">Base URL of this service</label>
+        <div class="mt-1 flex gap-2">
+          <!-- KEEP THIS IN SYNC WITH DEFAULT_URL BELOW -->
+          <span id="baseUrl" class="w-full rounded-lg px-3 py-2 bg-black/30 border border-[var(--border)] mono inline-block">http://3.210.85.115:8012</span>
+        </div>
+        <p id="protoWarn" class="hidden mt-2 text-xs text-amber-300">
+          ?? Mixed-content likely: this page is <span class="mono" id="pageProto"></span> but your API is <span class="mono" id="apiProto"></span>. Load this page over the same scheme as the API, enable HTTPS on the API, or use a same-origin proxy.
+        </p>
+        <p id="corsWarn" class="hidden mt-2 text-xs text-amber-300">
+           CORS blocked. Ensure the API server allows this origin (e.g., via CORSMiddleware) or use a CORS proxy.
+        </p>
+        <p id="fileWarn" class="hidden mt-2 text-xs text-amber-300">
+           Running via file://. Use a local server (e.g., python -m http.server) to enable API calls.
+        </p>
+        <p id="netWarn" class="hidden mt-2 text-xs text-amber-300">
+           Network error or timeout. Check if the API is reachable.
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="statusDot" class="dot bg-gray-400"></span>
+        <div class="text-sm">
+          <div id="statusText" class="font-medium">Unknown</div>
+          <div id="statusMeta" class="text-[var(--muted)] text-xs"></div>
+        </div>
+        <button id="pingBtn" class="btn ml-2 rounded-md border border-[var(--border)] px-3 py-1.5 text-sm">Ping</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- GET / -->
+  <section class="card rounded-2xl p-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="rounded bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 mono border border-emerald-500/30">GET</span>
+        <h3 class="font-semibold mono">/</h3>
+      </div>
+      <div class="flex items-center gap-2">
+        <button data-curl="GET /" class="btn curl px-3 py-1.5 rounded-md border border-[var(--border)] text-xs">cURL</button>
+        <button data-try="GET /" class="btn try px-3 py-1.5 rounded-md bg-bio-500 hover:bg-sky-400 text-black/90 text-xs font-semibold">Try it</button>
+      </div>
+    </div>
+    <p class="text-sm text-[var(--muted)] mt-1">Root</p>
+    <div class="mt-3">
+      <label class="text-xs text-[var(--muted)]">Response</label>
+      <pre id="out-root" class="mono mt-1 p-3 rounded-lg bg-black/40 overflow-auto"></pre>
+    </div>
+  </section>
+
+  <!-- GET /health -->
+  <section class="card rounded-2xl p-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="rounded bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 mono border border-emerald-500/30">GET</span>
+        <h3 class="font-semibold mono">/health</h3>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <button data-curl="GET /health" class="btn curl px-3 py-1.5 rounded-md border border-[var(--border)] text-xs">cURL</button>
+        <button data-try="GET /health" class="btn try px-3 py-1.5 rounded-md bg-bio-500 hover:bg-sky-400 text-black/90 text-xs font-semibold">Try it</button>
+      </div>
+    </div>
+    <p class="text-sm text-[var(--muted)] mt-1">Health</p>
+    <div class="mt-3">
+      <label class="text-xs text-[var(--muted)]">Response</label>
+      <pre id="out-health" class="mono mt-1 p-3 rounded-lg bg-black/40 overflow-auto"></pre>
+    </div>
+  </section>
+
+  <!-- POST /hcdt -->
+  <section class="card rounded-2xl p-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="rounded bg-cyan-500/20 text-cyan-300 text-xs px-2 py-0.5 mono border border-cyan-500/30">POST</span>
+        <h3 class="font-semibold mono">/hcdt</h3>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <button data-curl="POST /hcdt" class="btn curl px-3 py-1.5 rounded-md border border-[var(--border)] text-xs">cURL</button>
+        <button data-example class="btn px-3 py-1.5 rounded-md border border-[var(--border)] text-xs">Fill example</button>
+        <button data-try="POST /hcdt" class="btn try px-3 py-1.5 rounded-md bg-bio-500 hover:bg-sky-400 text-black/90 text-xs font-semibold">Try it</button>
+      </div>
+    </div>
+    <p class="text-sm text-[var(--muted)] mt-1">Fuzzy</p>
+
+    <!-- Parameters -->
+    <div class="mt-4 mb-4">
+      <h4 class="text-sm font-semibold mb-2">Parameters</h4>
+      <div class="border border-[var(--border)] rounded-lg overflow-hidden">
+        <div class="grid grid-cols-12 bg-black/20 px-3 py-2 text-xs text-[var(--muted)] border-b border-[var(--border)]">
+          <div class="col-span-3">Name</div>
+          <div class="col-span-9">Description</div>
+        </div>
+        <div class="grid grid-cols-12 px-3 py-3 items-center">
+          <div class="col-span-3">
+            <div class="flex items-center gap-2">
+              <span class="mono text-sm">database</span>
+              <span class="text-red-500 text-xs">*</span>
+            </div>
+            <div class="text-xs text-[var(--muted)] mt-1">string</div>
+            <div class="text-xs text-[var(--muted)]">(query)</div>
+          </div>
+          <div class="col-span-9">
+            <select
+              id="param-db-name"
+              class="w-full rounded-lg px-3 py-2 bg-black/30 border border-[var(--border)] mono text-sm"
+              required
+            >
+              <option value="">Select database</option>
+              <option value="ttd">ttd</option>
+              <option value="ctd">ctd</option>
+              <option value="hcdt">hcdt</option>
+            </select>
+            <p class="text-xs text-[var(--muted)] mt-1">
+              Allowed values: <span class="kbd">ttd</span>, <span class="kbd">ctd</span>, <span class="kbd">hcdt</span>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="mt-4">
+      <div class="flex items-center justify-between mb-2">
+        <h4 class="text-sm font-semibold">
+          Request body <span class="text-red-500 text-xs">*</span>
+        </h4>
+        <span class="text-xs px-2 py-1 rounded border border-[var(--border)] mono">application/json</span>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-3">
+      <div>
+        <label class="text-xs text-[var(--muted)]">Request body (JSON)</label>
+        <textarea
+          id="in-hcdt"
+          rows="12"
+          class="mt-1 w-full rounded-lg px-3 py-2 bg-black/30 border border-[var(--border)] mono"
+          placeholder='Provide input here. For example case click on Fill example.'
+        ></textarea>
+        <p class="text-xs text-[var(--muted)] mt-1">Tip: Press <span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> to send.</p>
+      </div>
+      <div>
+        <label class="text-xs text-[var(--muted)]">Response</label>
+        <pre id="out-hcdt" class="mono mt-1 p-3 rounded-lg bg-black/40 overflow-auto" style="min-height: 350px;"></pre>
+      </div>
+    </div>
+  </section>
+
+  <dialog id="curlDlg" class="card rounded-xl p-4 max-w-3xl w-[92%]">
+    <div class="font-semibold mb-2">cURL</div>
+    <pre id="curlText" class="mono bg-black/40 p-3 rounded overflow-auto"></pre>
+    <div class="mt-2 flex items-center justify-end gap-2">
+      <button id="curlCopy" class="btn rounded-md bg-bio-500 hover:bg-sky-400 text-black/90 px-3 py-1.5 text-sm font-semibold">Copy</button>
+      <button id="curlClose" class="px-2 py-1 rounded border border-[var(--border)] text-sm">Close</button>
+    </div>
+  </dialog>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const baseUrl = $('#baseUrl');
+const statusDot = $('#statusDot');
+const statusText = $('#statusText');
+const statusMeta = $('#statusMeta');
+const protoWarn = $('#protoWarn');
+const corsWarn = $('#corsWarn');
+const fileWarn = $('#fileWarn');
+const netWarn = $('#netWarn');
+const pageProto = $('#pageProto');
+const apiProto = $('#apiProto');
+const dlg = $('#curlDlg'), curlText = $('#curlText');
+
+// *** IMPORTANT: keep this in sync with the <span id="baseUrl"> above ***
+const DEFAULT_URL = 'https://biochirp.net/services/hcdt/api';;
+
+function getBase() {
+  return DEFAULT_URL;
+}
+function fullUrl(path, params = {}) {
+  const url = `${getBase()}${path.startsWith('/') ? path : '/' + path}`;
+  const queryString = Object.entries(params)
+    .filter(([_, v]) => v !== '' && v != null)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return queryString ? `${url}?${queryString}` : url;
+}
+function showStatus(kind, meta = '') {
+  statusDot.className = 'dot ' + (kind === 'online' ? 'bg-green-500' : kind === 'degraded' ? 'bg-yellow-500' : kind === 'offline' ? 'bg-red-500' : 'bg-gray-400');
+  statusText.textContent = ({ online: 'Online', degraded: 'Degraded', offline: 'Offline', unknown: 'Unknown' })[kind] || 'Unknown';
+  statusMeta.textContent = meta || '';
+}
+function isMixedContent(url) {
+  try {
+    const p1 = location.protocol, p2 = new URL(url).protocol;
+    if (pageProto) pageProto.textContent = p1;
+    if (apiProto) apiProto.textContent = p2;
+    return (p1 === 'https:' && p2 === 'http:');
+  } catch (_) { return false }
+}
+function pretty(obj) {
+  try { return JSON.stringify(obj, null, 2) } catch (_) { return String(obj) }
+}
+async function doFetch(pathOrUrl, init = {}, timeoutMs = 90000) {
+  const url = pathOrUrl.startsWith('http') ? pathOrUrl : fullUrl(pathOrUrl);
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { cache: 'no-store', mode: 'cors', ...init, signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const ct = res.headers.get('content-type') || '';
+    const body = ct.includes('application/json') ? await res.json() : await res.text();
+    return { ok: true, status: res.status, body };
+  } catch (err) {
+    clearTimeout(t);
+    const errorMsg = String(err);
+    if (errorMsg.includes('TypeError: Failed to fetch')) {
+      if (location.protocol === 'file:') fileWarn.classList.remove('hidden');
+      else corsWarn.classList.remove('hidden');
+    } else if (errorMsg.includes('AbortError')) {
+      netWarn.classList.remove('hidden');
+    }
+    if (isMixedContent(getBase())) protoWarn.classList.remove('hidden');
+    return { ok: false, body: { error: errorMsg } };
+  }
+}
+function hydrateBase() {
+  baseUrl.textContent = getBase() || DEFAULT_URL;
+  if (isMixedContent(getBase())) protoWarn.classList.remove('hidden');
+  else protoWarn.classList.add('hidden');
+  corsWarn.classList.add('hidden');
+  fileWarn.classList.add('hidden');
+  netWarn.classList.add('hidden');
+}
+async function ping() {
+  try {
+    const r = await doFetch('/health');
+    if (r.ok) showStatus('online', `HTTP ${r.status}`);
+    else showStatus('degraded', `HTTP ${r.status}`);
+  } catch (e) {
+    showStatus('offline', (e && e.name === 'AbortError') ? 'Timeout' : 'Network/CORS error');
+  }
+}
+async function runGet(path, outSel) {
+  $(outSel).textContent = '';
+  try {
+    const r = await doFetch(path);
+    $(outSel).textContent = pretty(r.body);
+  } catch (e) {
+    $(outSel).textContent = pretty({ error: String(e) });
+  }
+}
+async function runPost(path, inSel, outSel, paramsSel = {}) {
+  $(outSel).textContent = '';
+
+  // Validate database
+  const dbSel = paramsSel.database ? $(paramsSel.database) : null;
+  const dbName = dbSel ? dbSel.value.trim() : '';
+  if (!dbName) {
+    $(outSel).textContent = pretty({ error: "Missing required query parameter 'database' (ttd|ctd|hcdt)" });
+    return;
+  }
+
+  // Parse body
+  let payload;
+  try {
+    payload = JSON.parse($(inSel).value || '{}');
+  } catch (e) {
+    $(outSel).textContent = pretty({ error: 'Invalid JSON in request body' });
+    return;
+  }
+
+  // Build URL with query params
+  const params = { database: dbName };
+
+  try {
+    const url = fullUrl(path, params);
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+      mode: 'cors'
+    });
+    const ct = r.headers.get('content-type') || '';
+    const body = ct.includes('application/json') ? await r.json() : await r.text();
+    $(outSel).textContent = pretty(body);
+  } catch (e) {
+    $(outSel).textContent = pretty({ error: String(e) });
+  }
+}
+function curlFor(kind, path) {
+  if (kind === 'GET') {
+    const url = fullUrl(path);
+    return `curl -s ${url}`;
+  }
+  if (kind === 'POST') {
+    const payload = $('#in-hcdt').value || '{}';
+    const dbName = $('#param-db-name').value.trim();
+    const url = fullUrl(path, dbName ? { database: dbName } : {});
+    return `curl -s -X POST '${url}' -H 'content-type: application/json' -d '${payload.replace(/'/g, "'\\''")}'`;
+  }
+  return '';
+}
+
+// Wire up
+$('#pingBtn').addEventListener('click', ping);
+
+document.querySelectorAll('button.try').forEach(btn => {
+  const [method, path] = btn.dataset.try.split(' ');
+  btn.addEventListener('click', () => {
+    if (method === 'GET' && path === '/') runGet('/', '#out-root');
+    if (method === 'GET' && path === '/health') runGet('/health', '#out-health');
+    if (method === 'POST' && path === '/hcdt') {
+      runPost('/hcdt', '#in-hcdt', '#out-hcdt', { database: '#param-db-name' });
+    }
+  });
+});
+
+document.querySelector('[data-example]').addEventListener('click', () => {
+  // Example matches the placeholder structure
+  $('#in-hcdt').value = JSON.stringify({
+    "cleaned_query": "what are the drugs used to treat fever?",
+    "status": "valid",
+    "route": "biochirp",
+    "message_to_user": "Your question is clear. BioChirp will answer using its workflow.",
+    "reasoning": "The term 'Fever' maps to disease_name; user asks generically for a drug, so drug_name is 'requested'.",
+    "parsed_value": {
+      "drug_name": "requested",
+      "target_name": null,
+      "gene_name": null,
+      "disease_name": ["Fever"],
+      "pathway_name": null,
+      "biomarker_name": null,
+      "drug_mechanism_of_action_on_target": null,
+      "approval_status": null
+    },
+    "tool": "interpreter"
+  }, null, 2);
+  $('#param-db-name').value = 'hcdt';
+});
+
+document.querySelectorAll('button.curl').forEach(btn => {
+  const [method, path] = btn.dataset.curl.split(' ');
+  btn.addEventListener('click', () => {
+    const curlCommand = curlFor(method, path);
+    if (curlCommand) {
+      curlText.textContent = curlCommand;
+      dlg.showModal();
+    }
+  });
+});
+
+$('#curlClose').addEventListener('click', () => dlg.close());
+$('#curlCopy').addEventListener('click', async () => {
+  await navigator.clipboard.writeText(curlText.textContent);
+  $('#curlCopy').textContent = 'Copied';
+  setTimeout(() => $('#curlCopy').textContent = 'Copy', 1200);
+});
+$('#in-hcdt').addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runPost('/hcdt', '#in-hcdt', '#out-hcdt', { database: '#param-db-name' });
+  }
+});
+
+const themeLight = document.getElementById('themeLight');
+const themeDark = document.getElementById('themeDark');
+themeLight.addEventListener('click', () => {
+  document.documentElement.setAttribute('data-theme', 'light');
+});
+themeDark.addEventListener('click', () => {
+  document.documentElement.setAttribute('data-theme', 'dark');
+});
+
+// Init
+hydrateBase();
+ping();
+runGet('/', '#out-root');
+runGet('/health', '#out-health');
+</script>
+</body>
+</html>
