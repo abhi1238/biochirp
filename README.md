@@ -138,15 +138,47 @@ Here’s a tighter, more explicit architecture section you can drop in:
 **High-level flow**
 
 ```
-User → Orchestrator → Interpreter → Planner
-         ↓                 ↓
-   Web/Literature   Synonym & Family Layer
-   (web, tavily)     (3 microservices)
-         ↓                 ↓
-   Matching Layer ←— Database Services
- (fuzzy + embed +        (TTD, CTD, HCDT)
- official APIs)                 ↓
-                     Summarizer (LLM-last) → UI (tables + citations)
+User
+  ↓
+Orchestrator
+  ↓
+Interpreter ───────────────┐
+(entity + intent,           │
+constraints, filters)       │
+                            ├──► Matching Layer (hybrid recall)
+Synonym/Family Layer ───────┘     • Fuzzy lexical
+(3 microservices)                  • Embedding similarity (Qdrant)
+                                   • Official/curated ID resolvers
+
+           ┌────────────────────────────────────────────────────────┐
+           │         Planner (schema-aware plan builder)            │
+           │  • Consumes Interpreter + Matching outputs             │
+           │  • Builds join/filter plan against TTD/CTD/HCDT        │
+           │  • Chooses tools, join order, keys, projections        │
+           └────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+                         Database Services (3)
+                     [TTD]   [CTD]   [HCDT]  → structured tables
+
+                 (if plan detects gaps/freshness needs)
+                                    │
+                                    ▼
+                 Web/Literature Enrichment (2)
+                     [web] + [tavily] → attach/verify citations
+
+                                    │
+                                    ▼
+            Merge + Deduplicate + Rank + Provenance (tool-by-tool logs)
+
+                                    │
+                                    ▼
+                       Summarizer (LLM-last; tables → text)
+
+                                    │
+                                    ▼
+                         UI (tables, CSV/JSON, citations)
+
 ```
 
 **Role of each service**
