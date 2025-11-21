@@ -1,17 +1,17 @@
 
 # BioChirp
 
-**BioChirp** is a database-first biomedical AI assistant for precision biological exploration. It unifies LLM reasoning with curated datasets (TTD, CTD, HCDT) and real-time web research—returning **auditable, structured answers** with citations and microservice-level provenance. ([biochirp.iiitd.edu.in][1])
+**BioChirp** is a database-first biomedical AI assistant for precision biological exploration. It unifies LLM reasoning with curated datasets (TTD, CTD, HCDT) and real-time web research—returning **auditable, structured answers** with citations and microservice-level provenance. ( [https://biochirp.iiitd.edu.in](https://biochirp.iiitd.edu.in)[1])
 
 **Why BioChirp vs general LLMs?**
 
 * **Database-first, LLM-last.** Sources of truth are curated biomedical tables; LLMs only interpret/summarize—never invent.
 * **Auditable by design.** Every step (retrieval → joining → ranking → summarization) is logged with traceable citations and raw tool outputs.
-* **Schema-aware outputs.** You get clean tables with stable columns (e.g., target, pathway, biomarker, approval status), exportable as CSV/JSON. ([biochirp.iiitd.edu.in][1])
+* **Schema-aware outputs.** You get clean tables with stable columns (e.g., target, pathway, biomarker, approval status), exportable as CSV/JSON. ( [https://biochirp.iiitd.edu.in](https://biochirp.iiitd.edu.in)[1])
 
 **Best suited for**
 
-* Drug ↔ target ↔ disease mappings, biomarkers, pathways, gene families, and approval status lookups that map to TTD/CTD/HCDT schemas (+ optional web/literature refresh). ([biochirp.iiitd.edu.in][1])
+* Drug ↔ target ↔ disease mappings, biomarkers, pathways, gene families, and approval status lookups that map to TTD/CTD/HCDT schemas (+ optional web/literature refresh). ( [https://biochirp.iiitd.edu.in](https://biochirp.iiitd.edu.in)[1])
 
 ---
 
@@ -60,7 +60,7 @@ biochirp/
 
 ### 3) Launch Qdrant (vector DB)
 
-BioChirp uses Qdrant for fast vector search. ([biochirp.iiitd.edu.in][1])
+BioChirp uses Qdrant for fast vector search. ( [https://biochirp.iiitd.edu.in](https://biochirp.iiitd.edu.in)[1])
 
 ```bash
 docker run -d \
@@ -267,7 +267,7 @@ PYTHONUNBUFFERED=1
 ## ❓ FAQ
 
 **How is BioChirp different from ChatGPT/general LLMs?**
-It’s **Database-GPT**: curated tables first; LLMs only interpret/summarize. Outputs are citable and reproducible with tool-by-tool provenance. ([biochirp.iiitd.edu.in][1])
+It’s **Database-GPT**: curated tables first; LLMs only interpret/summarize. Outputs are citable and reproducible with tool-by-tool provenance. ( [https://biochirp.iiitd.edu.in](https://biochirp.iiitd.edu.in)[1])
 
 **What questions does it answer best?**
 Drug, target/gene, disease, biomarker, pathway, and approval status queries that map to TTD/CTD/HCDT schemas. ([biochirp.iiitd.edu.in][1])
