@@ -1,0 +1,187 @@
+# # # services:
+# # #   orchestrator_service:
+# # #     build:
+# # #       context: .
+# # #       dockerfile: Dockerfile
+# # #     image: biochirp_opentarget:latest
+# # #     container_name: biochirp_opentarget
+
+# # #     ports:
+# # #       - "8026:8026"  # Map host port 8010 to container port 8010
+
+# # #     env_file:
+# # #       - ../.env
+
+# # #     environment:
+# # #       - TZ=Asia/Kolkata
+# # #       - PYTHONUNBUFFERED=1
+
+# # #     volumes:
+# # #       # - ../config/guardrail.py:/app/config/guardrail.py:ro
+# # #       - ../config/schema.py:/app/config/schema.py:ro
+# # #       # - ../resources/prompts/agent_orchestrator.md:/app/resources/prompts/agent_orchestrator.md:ro      - ../resources/prompts/agent_orchestrator.md:/app/resources/prompts/agent_orchestrator.md
+# # #       # - ../resources/prompts/agent_memory.md:/app/resources/prompts/agent_memory.md:ro
+# # #       # - ../resources/prompts/router.md:/app/resources/prompts/router.md:ro
+# # #       # - ../app/tools/:/app/tools/:ro
+# # #       # - ./results:/app/results
+# # #       # - .:/app
+
+# # #     restart: unless-stopped
+
+# # #     healthcheck:
+# # #       test: ["CMD-SHELL", "curl -f http://localhost:8026/health || exit 1"]
+# # #       interval: 20s        # healthcheck every 20 seconds
+# # #       timeout: 10s         # allow 10 seconds per check (adjust if needed)
+# # #       retries: 6           # fail after 6 consecutive failures
+# # #       start_period: 40s    # allow 40s for startup before healthchecks begin
+      
+# # #     # Log rotation to prevent disk fill
+# # #     logging:
+# # #       driver: json-file
+# # #       options:
+# # #         max-size: "10m"
+# # #         max-file: "5"
+# # #     # Resource limits
+# # #     deploy:
+# # #       resources:
+# # #         limits:
+# # #           memory: 12g
+# # #           cpus: "1.0"
+# # #         reservations:
+# # #           memory: 8g
+
+# # #     security_opt:
+# # #       - no-new-privileges:true
+# # #     cap_drop:
+# # #       - ALL
+
+
+
+
+
+# # version: "3.9"
+
+# services:
+#   redis:
+#     image: redis:7
+#     container_name: biochirp_redis
+#     ports:
+#       - "6379:6379"
+
+#   opentargets:
+#     # user: root
+#     build: .
+#     container_name: biochirp_opentarget
+#     depends_on:
+#       - redis
+#     environment:
+#       - RESULTS_ROOT=/app/results 
+#       - REDIS_HOST=redis
+#       - REDIS_PORT=6379
+#     ports:
+#       - "8026:8026"
+#     env_file:
+#       - ../.env
+#     volumes:
+#       - ../resources/prompts/opentarget_ner_prompt.md:/app/resources/prompts/opentarget_ner_prompt.md:ro 
+#       - ../resources/prompts/opentarget_web_normalization.md:/app/resources/prompts/opentarget_web_normalization.md:ro        
+#       - ../resources/prompts/opentarget_orchestrator.md:/app/resources/prompts/opentarget_orchestrator.md:ro
+#       - ../resources/prompts/opentarget_resolver_summarizer.md:/app/resources/prompts/opentarget_resolver_summarizer.md:ro       
+#       - ../../results:/app/results:rw
+#       # - ../resources/prompts/clarifier_agent.md:/app/resources/prompts/clarifier_agent.md:ro       
+
+      
+
+# networks:
+#   semantic_net:
+#     external: true
+#     name: semantic_net
+#     ipam:
+#       config:
+#         - subnet: 172.35.0.0/16 
+
+
+# # version: "3.9"
+
+# # services:
+# #   redis:
+# #     image: redis:7-alpine
+# #     container_name: biochirp_redis
+# #     ports:
+# #       - "6379:6379"
+# #     volumes:
+# #       - redis_data:/data
+# #     healthcheck:
+# #       test: ["CMD", "redis-cli", "ping"]
+# #       interval: 10s
+# #       timeout: 5s
+# #       retries: 5
+# #     restart: unless-stopped
+# #     networks:
+# #       - semantic_net
+
+# #   opentargets:
+# #     build:
+# #       context: .
+# #       dockerfile: Dockerfile
+# #     image: biochirp_opentarget:latest
+# #     container_name: biochirp_opentarget
+# #     user: root
+# #     depends_on:
+# #       redis:
+# #         condition: service_healthy
+# #     environment:
+# #       - RESULTS_ROOT=/app/results
+# #       - REDIS_HOST=redis
+# #       - REDIS_PORT=6379
+# #       - TZ=Asia/Kolkata
+# #       - PYTHONUNBUFFERED=1
+# #       - MAX_ROW_TO_DISPLAY=50
+# #     ports:
+# #       - "8026:8026"
+# #     env_file:
+# #       - ../.env
+# #     volumes:
+# #       # Prompt files (read-only)
+# #       - ../resources/prompts/opentarget_ner_prompt.md:/app/resources/prompts/opentarget_ner_prompt.md:ro
+# #       - ../resources/prompts/opentarget_web_normalization.md:/app/resources/prompts/opentarget_web_normalization.md:ro
+# #       - ../resources/prompts/opentarget_orchestrator.md:/app/resources/prompts/opentarget_orchestrator.md:ro
+# #       - ../resources/prompts/opentarget_resolver_summarizer.md:/app/resources/prompts/opentarget_resolver_summarizer.md:ro
+# #       # Results directory (read-write)
+# #       - ../results:/app/results:rw
+# #     healthcheck:
+# #       test: ["CMD-SHELL", "curl -f http://localhost:8026/health || exit 1"]
+# #       interval: 20s
+# #       timeout: 10s
+# #       retries: 6
+# #       start_period: 40s
+# #     restart: unless-stopped
+# #     logging:
+# #       driver: json-file
+# #       options:
+# #         max-size: "10m"
+# #         max-file: "5"
+# #     deploy:
+# #       resources:
+# #         limits:
+# #           memory: 12g
+# #           cpus: "1.0"
+# #         reservations:
+# #           memory: 8g
+# #     security_opt:
+# #       - no-new-privileges:true
+# #     cap_drop:
+# #       - ALL
+# #     networks:
+# #       - semantic_net
+
+# # networks:
+# #   semantic_net:
+# #     driver: bridge
+# #     ipam:
+# #       config:
+# #         - subnet: 172.35.0.0/16
+
+# # volumes:
+# #   redis_data:
+# #     driver: local

@@ -1,0 +1,366 @@
+# app/ctd.py
+import logging
+import os
+from typing import List, Optional
+
+import polars as pl
+import redis.asyncio as redis
+import requests
+from dotenv import load_dotenv
+
+from agents import Agent, Runner
+from config.guardrail import DatabaseTable, QueryInterpreterOutputGuardrail
+from config.schema import database_schemas
+from utils.dataframe_filtering import join_and_filter_database
+from utils.preprocess import _csv_path, _safe
+from .database_loader import return_preprocessed_ctd
+
+# --------------------------------------------------------------------------- #
+#  CONFIG
+# --------------------------------------------------------------------------- #
+SERVICE_NAME = os.getenv("SERVICE_NAME", "ctd")  # Generalized via env var
+DB_NAME = "Comparative Toxicogenomics Database"
+HEAD_VIEW_ROW_COUNT = int(os.getenv("HEAD_VIEW_ROW_COUNT", "50"))
+RESULTS_ROOT = os.environ.get("RESULTS_ROOT", "/app/results").rstrip("/")
+DB_NAME = "Comparative Toxicogenomics Database"
+SUMMARIZER_MODEL_NAME = os.getenv("SUMMARIZER_MODEL_NAME", "gpt-4o-mini")
+
+
+base_logger = logging.getLogger("uvicorn.error")
+log = base_logger.getChild("opentargets.member_selector")
+
+
+load_dotenv(override=True)
+
+# --------------------------------------------------------------------------- #
+#  PROMPT LOAD
+# --------------------------------------------------------------------------- #
+md_file_path = "/app/resources/prompts/agent_summarizer.md"
+with open(md_file_path, "r", encoding="utf-8") as f:
+    prompt_md = f.read()
+
+# --------------------------------------------------------------------------- #
+#  REDIS (lazy async client)
+# --------------------------------------------------------------------------- #
+REDIS_HOST = os.getenv("REDIS_HOST", "biochirp_redis_tool")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+_redis_client: Optional[redis.Redis] = None
+
+
+async def _get_redis() -> Optional[redis.Redis]:
+    global _redis_client
+    if _redis_client is None:
+        try:
+            _redis_client = redis.Redis(
+                host=REDIS_HOST,
+                port=REDIS_PORT,
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+            )
+            await _redis_client.ping()
+            log.info("[%s function] Redis connected", SERVICE_NAME)
+        except Exception as e:
+            log.error("[%s function] Redis init failed: %s", SERVICE_NAME, e, exc_info=True)
+            _redis_client = None
+    return _redis_client
+
+
+# --------------------------------------------------------------------------- #
+#  JSON (orjson fallback)
+# --------------------------------------------------------------------------- #
+try:
+    import orjson as _orjson
+
+    def _dumps(o):
+        return _orjson.dumps(o).decode()
+
+except Exception:  # pragma: no cover
+    import json
+
+def _dumps(o):
+    return json.dumps(o, ensure_ascii=False)
+
+
+def normalize_ctd_parsed_value(parsed: dict) -> dict:
+    """
+    CTD is gene-centric.
+
+    Rules:
+    1. target_name == "requested"  → drop target_name, gene_name="requested"
+    2. target_name is list         → merge into gene_name (dedup), drop target_name
+    3. Otherwise                  → no-op
+    """
+
+    if not parsed:
+        return parsed
+
+    target = parsed.get("target_name")
+    gene = parsed.get("gene_name")
+
+    # ---- Case 1: target_name == "requested"
+    if target == "requested":
+        parsed.pop("target_name", None)
+        parsed["gene_name"] = "requested"
+        return parsed
+
+    # ---- Case 2: target_name is list
+    if isinstance(target, list) and target:
+        parsed.pop("target_name", None)
+
+        if gene == "requested":
+            return parsed
+
+        if isinstance(gene, list):
+            parsed["gene_name"] = sorted(set(gene + target))
+        elif isinstance(gene, str):
+            parsed["gene_name"] = sorted(set([gene] + target))
+        else:
+            parsed["gene_name"] = target
+
+    return parsed
+
+
+def _post(url: str, **kw) -> Optional[requests.Response]:
+    try:
+        r = requests.post(url, timeout=kw.pop("timeout", 60), **kw)
+        r.raise_for_status()
+        return r
+    except requests.RequestException as e:
+        log.error("[%s function] POST %s failed: %s", SERVICE_NAME, url, e, exc_info=True)
+        return None
+
+
+def _valid_columns(req: dict, db: str) -> List[str]:
+    schema = {c for tbl in database_schemas[db].values() for c in tbl}
+    return [
+        col
+        for col, val in req.items()
+        if col in schema and (val == "requested" or (isinstance(val, list) and val))
+    ]
+
+
+async def _publish_ws(conn_id: str, csv_path: str, rows: int) -> None:
+    if not conn_id or not csv_path:
+        return
+    payload = {"type": f"{SERVICE_NAME}_table", "csv_path": csv_path, "row_count": rows}
+    client = await _get_redis()
+    if not client:
+        log.warning("[%s function][ws] Redis unavailable", SERVICE_NAME)
+        return
+    try:
+        await client.publish(conn_id, _dumps(payload))
+        log.info(
+            "[%s function][ws] Published %s_table – %s rows",
+            SERVICE_NAME,
+            SERVICE_NAME,
+            rows,
+        )
+    except Exception as e:
+        log.error("[%s function][ws] Publish failed: %s", SERVICE_NAME, e, exc_info=True)
+
+
+# --------------------------------------------------------------------------- #
+#  CTD DB CACHE (load once, reuse across requests)
+# --------------------------------------------------------------------------- #
+CTD_DB_CACHE = None  # type: ignore[assignment]
+
+
+def get_ctd_db():
+    """
+    Load CTD DB once and reuse it across all requests.
+    """
+    global CTD_DB_CACHE
+    if CTD_DB_CACHE is None:
+        log.info("[%s function] Cold-start: loading CTD database into memory", SERVICE_NAME)
+        CTD_DB_CACHE = return_preprocessed_ctd()
+        try:
+            num_tables = len(CTD_DB_CACHE[SERVICE_NAME])
+        except Exception:
+            num_tables = -1
+        log.info(
+            "[%s function] CTD database loaded into cache (tables=%s)",
+            SERVICE_NAME,
+            num_tables,
+        )
+    return CTD_DB_CACHE
+
+
+# --------------------------------------------------------------------------- #
+#  MAIN WORKER
+# --------------------------------------------------------------------------- #
+async def return_ctd_result(
+    input: QueryInterpreterOutputGuardrail,
+    connection_id: Optional[str] = None,
+) -> DatabaseTable:
+    db = SERVICE_NAME
+    tool = SERVICE_NAME
+    error_msg = None
+    data = None
+    inp = None
+    expand = None
+    filter_val = {}
+    out_cols: list[str] = []
+    plan = None
+    df = pl.DataFrame()
+    preview = []
+    csv_path = ""
+    message = ""
+
+    # ------------------------------------------------- Load DB (from cache)
+    try:
+        data = get_ctd_db()
+        log.info("[%s function] DB cache ready", db)
+    except Exception as e:
+        error_msg = f"Failed to load {DB_NAME}: {str(e)}"
+        log.error("[%s function] DB load error: %s", db, e, exc_info=True)
+
+    # ------------------------------------------------- Parse input
+    if not error_msg:
+        try:
+            inp = input.model_dump(exclude_none=True)
+            if "parsed_value" in inp and isinstance(inp["parsed_value"], dict):
+                inp["parsed_value"] = normalize_ctd_parsed_value(inp["parsed_value"])
+        except Exception as e:
+            error_msg = "Invalid input format."
+            log.error("[%s function] Input parse error: %s", db, e, exc_info=True)
+
+    # ------------------------------------------------- Expand & Match
+    if not error_msg:
+        expand_resp = _post(
+            f"http://biochirp_expand_and_match_db_tool:8009/expand_and_match_db?database={db}",
+            json=inp,
+        )
+
+        if not expand_resp:
+            error_msg = "Expand and match database tool unreachable."
+        else:
+            try:
+                expand = expand_resp.json()
+            except Exception as e:
+                error_msg = "Expand tool returned malformed JSON."
+                log.error("[%s function] Expand JSON error: %s", db, e, exc_info=True)
+
+        if not error_msg:
+            filter_val = expand.get("value", {}) or {}
+            out_cols = _valid_columns(filter_val, db)
+
+    # ------------------------------------------------- Validate columns
+    if not error_msg:
+        schema_cols = {c for tbl in database_schemas[db].values() for c in tbl}
+        used_cols = [
+            c
+            for c, v in filter_val.items()
+            if v == "requested" or (isinstance(v, list) and v)
+        ]
+        # Remove "target_name" if present
+        used_cols = [c for c in used_cols if c != "target_name"]
+        missing = [c for c in used_cols if c not in schema_cols]
+        if missing:
+            error_msg = (
+                f"Columns not in {DB_NAME}: `{', '.join(missing)}` – skipping."
+            )
+            log.warning("[%s function] %s", db, error_msg)
+
+    # ------------------------------------------------- Planner
+    if not error_msg:
+        plan_resp = _post(
+            f"http://biochirp_planner_tool:8011/planner?database={db}",
+            json=expand,
+        )
+
+        if not plan_resp:
+            error_msg = "Planner tool unreachable."
+        else:
+            try:
+                plan_obj = plan_resp.json().get("plan")
+                plan = plan_obj.get("plan") if isinstance(plan_obj, dict) and "plan" in plan_obj else plan_obj
+            except Exception as e:
+                log.error("[%s function] Planner JSON error: %s", db, e, exc_info=True)
+                plan = None
+
+            if not plan:
+                error_msg = "Planner failed to provide a valid plan."
+                log.error("[%s function] %s", db, error_msg)
+
+    # ------------------------------------------------- Execute query
+    if not error_msg:
+        try:
+            df, filter_stats = join_and_filter_database(
+                data, plan, db, out_cols, filter_val
+            )
+            log.info("[%s function] Query result: %s", db, df.shape)
+        except Exception as e:
+            error_msg = f"Query failed: {str(e)}"
+            log.error("[%s function] Query error: %s", db, e, exc_info=True)
+
+        if df.is_empty():
+            error_msg = "No rows matched."
+
+    log.info("[%s function] After query execution", db)
+
+    # ------------------------------------------------- Preview
+    if not error_msg:
+        preview = df.head(HEAD_VIEW_ROW_COUNT).to_dicts()
+        log.info("[%s function] Preview rows: %d", db, len(preview))
+
+    # ------------------------------------------------- CSV + WebSocket
+    if not error_msg and connection_id:
+        csv_path = _csv_path(f"{tool}_results")
+        log.info("[%s function] CSV path: %s", db, csv_path)
+        try:
+            os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+            df.write_csv(csv_path)  # **FULL** data
+            log.info(
+                "[%s function] CSV saved: %s (%d rows)",
+                tool,
+                csv_path,
+                df.height,
+            )
+        except Exception as e:
+            error_msg = f"CSV write failed: {str(e)}"
+            log.error("[%s function] CSV write failed: %s", tool, e, exc_info=True)
+            csv_path = ""
+
+        await _publish_ws(connection_id, csv_path, df.height)
+
+    # ------------------------------------------------- Summarization
+    if not error_msg:
+        summarizer_agent = Agent(
+            name="summarizer",
+            model=SUMMARIZER_MODEL_NAME,
+            instructions=prompt_md,
+            tools=[],
+            output_type=str,
+        )
+
+        database_summarizer = await Runner.run(
+            summarizer_agent,
+            str(
+                {
+                    "database": db,
+                    "table": preview,
+                    "row_count": df.height,
+                    "plan": plan,
+                    "filter_value": filter_val,
+                    "parsed_value": input.parsed_value,
+                    "query": input.cleaned_query,
+                }
+            ),
+        )
+
+    # ------------------------------------------------- Final message
+    if error_msg:
+        message = error_msg
+    else:
+        message = database_summarizer.final_output
+        log.info("[%s function] Natural language summary produced", db)
+
+    return DatabaseTable(
+        database=db,
+        table=preview if not error_msg else None,      # 50-row preview for UI
+        csv_path=csv_path if not error_msg else None,  # full file path if success
+        row_count=df.height if not error_msg else None,
+        tool=tool,
+        message=message,
+    )
