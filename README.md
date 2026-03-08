@@ -13,6 +13,7 @@ It combines curated local biomedical databases, graph-based query planning, iden
 - [Repository Structure](#repository-structure)
 - [Prerequisites](#prerequisites)
 - [Required Data Artifacts](#required-data-artifacts)
+- [Google Drive Bundle Layout](#google-drive-bundle-layout)
 - [Quick Start (Local)](#quick-start-local)
 - [Service Endpoints](#service-endpoints)
 - [Customization](#customization)
@@ -96,14 +97,69 @@ BioChirp expects the following local artifacts:
 2. **Concept value dictionary**:
    - `resources/values/concept_values_by_db_and_field.pkl`
 
-3. **Embedding pickle for semantic matching**:
+3. **Embedding pickle for first-time Qdrant ingest**:
    - `resources/embeddings/biochirp_embeddings.pkl`
 
-4. **Qdrant storage directory** (created automatically by Docker mount):
+4. **Qdrant storage snapshot** (optional, but allows immediate startup without ingest):
    - `qdrant_storage/`
 
 Project data bundle used by this repo:
 https://drive.google.com/drive/folders/1E6RmupO3Oa3tUFRzZAB-ueUTZkZnpKgU?usp=sharing
+
+## Google Drive Bundle Layout
+
+To make setup reproducible and fast, publish a single versioned archive in Drive:
+
+1. `biochirp_data_bundle_vYYYYMMDD.tar.gz`
+2. `biochirp_data_bundle_vYYYYMMDD.tar.gz.sha256`
+
+Put these paths inside the archive (relative to repo root after extract):
+
+- `database/ttd/`
+- `database/ctd/`
+- `database/hcdt/`
+- `resources/values/concept_values_by_db_and_field.pkl`
+- Include at least one of:
+  - `resources/embeddings/biochirp_embeddings.pkl` (for first-time ingest flow)
+  - `qdrant_storage/` (for immediate run, skip ingest)
+
+### Maintainer: create bundle before upload
+
+Option A (smaller bundle, requires Step 6 ingest):
+
+```bash
+tar -czf biochirp_data_bundle_vYYYYMMDD.tar.gz \
+  database/ttd \
+  database/ctd \
+  database/hcdt \
+  resources/values/concept_values_by_db_and_field.pkl \
+  resources/embeddings/biochirp_embeddings.pkl
+
+sha256sum biochirp_data_bundle_vYYYYMMDD.tar.gz > biochirp_data_bundle_vYYYYMMDD.tar.gz.sha256
+```
+
+Option B (larger bundle, immediate run without Step 6 ingest):
+
+```bash
+tar -czf biochirp_data_bundle_vYYYYMMDD.tar.gz \
+  database/ttd \
+  database/ctd \
+  database/hcdt \
+  resources/values/concept_values_by_db_and_field.pkl \
+  qdrant_storage
+
+sha256sum biochirp_data_bundle_vYYYYMMDD.tar.gz > biochirp_data_bundle_vYYYYMMDD.tar.gz.sha256
+```
+
+### User: download and verify
+
+```bash
+python -m pip install --user gdown
+gdown --fuzzy "<DRIVE_LINK_TO_TAR_GZ>" -O biochirp_data_bundle.tar.gz
+gdown --fuzzy "<DRIVE_LINK_TO_SHA256>" -O biochirp_data_bundle.tar.gz.sha256
+sha256sum -c biochirp_data_bundle.tar.gz.sha256
+tar -xzf biochirp_data_bundle.tar.gz
+```
 
 ## Quick Start (Local)
 
@@ -114,7 +170,17 @@ git clone https://github.com/abhi1238/biochirp.git
 cd biochirp
 ```
 
-### 2) Configure environment
+### 2) Download data bundle (required)
+
+If you have a published data bundle link:
+
+```bash
+python -m pip install --user gdown
+gdown --fuzzy "<DRIVE_LINK_TO_TAR_GZ>" -O biochirp_data_bundle.tar.gz
+tar -xzf biochirp_data_bundle.tar.gz
+```
+
+### 3) Configure environment
 
 Create a local env file from template:
 
@@ -124,7 +190,7 @@ cp .env.example .env
 
 Edit `.env` with your keys and model names.
 
-### 3) Create Docker network (required by compose)
+### 4) Create Docker network (required by compose)
 
 `docker-compose.yml` uses an **external** network named `semantic_net`.
 
@@ -134,7 +200,7 @@ docker network create --driver bridge --subnet 172.35.0.0/16 semantic_net
 
 If it already exists, Docker will report it and continue.
 
-### 4) Start Qdrant on the same network
+### 5) Start Qdrant on the same network
 
 ```bash
 docker run -d \
@@ -145,7 +211,7 @@ docker run -d \
   qdrant/qdrant:latest
 ```
 
-### 5) Ingest embeddings into Qdrant (first-time only)
+### 6) Ingest embeddings into Qdrant (first-time only)
 
 Use either notebook:
 
@@ -153,14 +219,15 @@ Use either notebook:
 - `qdrant_ingest.ipynb`
 
 Set Qdrant URL to `http://localhost:6333` and run all cells.
+If your data bundle already includes `qdrant_storage/`, you can skip this step.
 
-### 6) Launch BioChirp services
+### 7) Launch BioChirp services
 
 ```bash
 docker compose up --build -d
 ```
 
-### 7) Verify health
+### 8) Verify health
 
 ```bash
 curl http://localhost:8010/health
@@ -170,7 +237,7 @@ curl http://localhost:8031/health
 curl http://localhost:8029/health
 ```
 
-### 8) View logs
+### 9) View logs
 
 ```bash
 docker compose logs -f --tail=200
