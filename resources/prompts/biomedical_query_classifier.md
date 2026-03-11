@@ -148,15 +148,5 @@ This query has biomedical intent. It is partially in scope because drugs, target
 
 ---
 
-## **DESIGN INTENT (DO NOT REMOVE)**
-
-This tool exists to:
-
-* Improve routing accuracy
-* Prevent false “valid” classifications
-* Protect downstream schema parsers
-* Enforce BioChirp’s strict evidence scope
-
-It is an **advisor**, not an executor.
 
 ---

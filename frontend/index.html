@@ -109,7 +109,6 @@
           <div class="mt-6 flex flex-wrap gap-3">
             <a href="#features" class="px-4 py-2 rounded-xl border border-[--border] hover:bg-[--hover]">See Features</a>
             <a href="#domains" class="px-4 py-2 rounded-xl border border-[--border] hover:bg-[--hover]">What it Answers</a>
-            <a id="openChatBtn" class="px-4 py-2 rounded-xl bg-bio-500 hover:bg-bio-400 text-white shadow-glow cursor-pointer">Start Chatting</a>
             <a id="openOpenTargetBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-white shadow-glow cursor-pointer">Talk with OpenTarget</a>
             <a id="openTTDBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-fuchsia-500 hover:from-pink-400 hover:to-fuchsia-400 text-white shadow-glow cursor-pointer">Talk with TTD</a>
             <a id="openCTDBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white shadow-glow cursor-pointer">Talk with CTD</a>
@@ -445,10 +444,7 @@
       document.getElementById('iconLight')?.classList.toggle('hidden', isDark);
     });
 
-    // Start Chat button
-    document.getElementById('openChatBtn')?.addEventListener('click', () => {
-      window.location.href = CONFIG.chatUrl;
-    });
+    // Chat buttons
     document.getElementById('openOpenTargetBtn')?.addEventListener('click', () => {
       window.location.href = CONFIG.openTargetUrl;
     });

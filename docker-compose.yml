@@ -501,81 +501,81 @@ services:
 
 
 
-  biochirp_orchestrator:
-    <<: *defaults
-    build:
-      context: ./orchestrator_service
-    image: biochirp_orchestrator:latest
-    container_name: biochirp_orchestrator    
+  # biochirp_orchestrator:
+  #   <<: *defaults
+  #   build:
+  #     context: ./orchestrator_service
+  #   image: biochirp_orchestrator:latest
+  #   container_name: biochirp_orchestrator    
 
-    environment:
-      - PLANNER_HOST=biochirp_planner_tool
-      - PLANNER_PORT=8011
-      - EXPAND_AND_MATCH_DB_HOST=biochirp_expand_and_match_db_tool
-      - EXPAND_AND_MATCH_DB_PORT=8009
-      - EXPAND_HOST=biochirp_synonyms_expander
-      - EXPAND_PORT=8014
-      - FUZZY_HOST=biochirp_fuzzy_tool
-      - FUZZY_PORT=8013
-      - TTD_HOST=biochirp_ttd_tool
-      - TTD_PORT=8012
-      - CTD_HOST=biochirp_ctd_tool
-      - CTD_PORT=8016
-      - INTERPRETER_HOST=biochirp_interpreter_tool
-      - INTERPRETER_PORT=8005
-      - WEB_TOOL_HOST=biochirp_web_tool
-      - WEB_TOOL_PORT=8006
-      - README_HOST=biochirp_readme_tool
-      - README_PORT=8007
-      - TAVILY_HOST=biochirp_tavily_tool
-      - TAVILY_PORT=8008
-      - LLM_FILTER_PORT=8017
-      - LLM_FILTER_HOST=biochirp_llm_filter_tool
-      - HCDT_HOST=biochirp_hcdt_tool
-      - HCDT_PORT=8018
-      - SEMANTIC_HOST=biochirp_semantic_tool
-      - SEMANTIC_PORT=8015
-      - REDIS_PORT=6379
-      - REDIS_HOST=biochirp_redis_tool
-      # - SEMANTIC_HOST=biochirp_semantic_tool
-      # - SEMANTIC_PORT=8015
-      # - BIOCHIRP_EMBEDDING_PORT=8003
-      # - BIOCHIRP_EMBEDDING_HOST=biochirp_embedding_tool
-    volumes:
-      - ./config/guardrail.py:/app/config/guardrail.py:ro
-      - ./config/schema.py:/app/config/schema.py:ro
-      - ./resources/prompts/agent_orchestrator.md:/app/resources/prompts/agent_orchestrator.md:ro
-      - ./resources/prompts/agent_memory.md:/app/resources/prompts/agent_memory.md:ro
-      - ./resources/prompts/router.md:/app/resources/prompts/router.md:ro
+  #   environment:
+  #     - PLANNER_HOST=biochirp_planner_tool
+  #     - PLANNER_PORT=8011
+  #     - EXPAND_AND_MATCH_DB_HOST=biochirp_expand_and_match_db_tool
+  #     - EXPAND_AND_MATCH_DB_PORT=8009
+  #     - EXPAND_HOST=biochirp_synonyms_expander
+  #     - EXPAND_PORT=8014
+  #     - FUZZY_HOST=biochirp_fuzzy_tool
+  #     - FUZZY_PORT=8013
+  #     - TTD_HOST=biochirp_ttd_tool
+  #     - TTD_PORT=8012
+  #     - CTD_HOST=biochirp_ctd_tool
+  #     - CTD_PORT=8016
+  #     - INTERPRETER_HOST=biochirp_interpreter_tool
+  #     - INTERPRETER_PORT=8005
+  #     - WEB_TOOL_HOST=biochirp_web_tool
+  #     - WEB_TOOL_PORT=8006
+  #     - README_HOST=biochirp_readme_tool
+  #     - README_PORT=8007
+  #     - TAVILY_HOST=biochirp_tavily_tool
+  #     - TAVILY_PORT=8008
+  #     - LLM_FILTER_PORT=8017
+  #     - LLM_FILTER_HOST=biochirp_llm_filter_tool
+  #     - HCDT_HOST=biochirp_hcdt_tool
+  #     - HCDT_PORT=8018
+  #     - SEMANTIC_HOST=biochirp_semantic_tool
+  #     - SEMANTIC_PORT=8015
+  #     - REDIS_PORT=6379
+  #     - REDIS_HOST=biochirp_redis_tool
+  #     # - SEMANTIC_HOST=biochirp_semantic_tool
+  #     # - SEMANTIC_PORT=8015
+  #     # - BIOCHIRP_EMBEDDING_PORT=8003
+  #     # - BIOCHIRP_EMBEDDING_HOST=biochirp_embedding_tool
+  #   volumes:
+  #     - ./config/guardrail.py:/app/config/guardrail.py:ro
+  #     - ./config/schema.py:/app/config/schema.py:ro
+  #     - ./resources/prompts/agent_orchestrator.md:/app/resources/prompts/agent_orchestrator.md:ro
+  #     - ./resources/prompts/agent_memory.md:/app/resources/prompts/agent_memory.md:ro
+  #     - ./resources/prompts/router.md:/app/resources/prompts/router.md:ro
 
-      - ./results:/app/results    
-    ports:
-      - "8010:8010"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8010/health || exit 1"]
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 32g
-        reservations:
-          memory: 24g
-    depends_on:
-      - biochirp_interpreter_tool
-      - biochirp_web_tool
-      - biochirp_readme_tool
-      - biochirp_tavily_tool
-      - biochirp_fuzzy_tool
-      - biochirp_ttd_tool
-      - biochirp_planner_tool
-      - biochirp_hcdt_tool
-      - biochirp_ctd_tool
-      - biochirp_expand_and_match_db_tool
-      - biochirp_llm_filter_tool
-      - biochirp_semantic_tool
-      - biochirp_synonyms_expander
-      - biochirp_redis_tool
-      # - biochirp_embedding_tool
+  #     - ./results:/app/results    
+  #   ports:
+  #     - "8010:8010"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost:8010/health || exit 1"]
+  #     start_period: 30s
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 32g
+  #       reservations:
+  #         memory: 24g
+  #   depends_on:
+  #     - biochirp_interpreter_tool
+  #     - biochirp_web_tool
+  #     - biochirp_readme_tool
+  #     - biochirp_tavily_tool
+  #     - biochirp_fuzzy_tool
+  #     - biochirp_ttd_tool
+  #     - biochirp_planner_tool
+  #     - biochirp_hcdt_tool
+  #     - biochirp_ctd_tool
+  #     - biochirp_expand_and_match_db_tool
+  #     - biochirp_llm_filter_tool
+  #     - biochirp_semantic_tool
+  #     - biochirp_synonyms_expander
+  #     - biochirp_redis_tool
+  #     # - biochirp_embedding_tool
 
 
 
@@ -598,8 +598,8 @@ services:
       - FUZZY_PORT=8013
       - TTD_HOST=biochirp_ttd_tool
       - TTD_PORT=8012
-      - CTD_HOST=biochirp_ctd_tool
-      - CTD_PORT=8016
+      # - CTD_HOST=biochirp_ctd_tool
+      # - CTD_PORT=8016
       - INTERPRETER_HOST=biochirp_interpreter_tool
       - INTERPRETER_PORT=8005
       - WEB_TOOL_HOST=biochirp_web_tool
@@ -610,8 +610,8 @@ services:
       - TAVILY_PORT=8008
       - LLM_FILTER_PORT=8017
       - LLM_FILTER_HOST=biochirp_llm_filter_tool
-      - HCDT_HOST=biochirp_hcdt_tool
-      - HCDT_PORT=8018
+      # - HCDT_HOST=biochirp_hcdt_tool
+      # - HCDT_PORT=8018
       - SEMANTIC_HOST=biochirp_semantic_tool
       - SEMANTIC_PORT=8015
       - REDIS_PORT=6379
@@ -674,10 +674,10 @@ services:
       - EXPAND_PORT=8014
       - FUZZY_HOST=biochirp_fuzzy_tool
       - FUZZY_PORT=8013
-      - TTD_HOST=biochirp_ttd_tool
-      - TTD_PORT=8012
-      - CTD_HOST=biochirp_ctd_tool
-      - CTD_PORT=8016
+      # - TTD_HOST=biochirp_ttd_tool
+      # - TTD_PORT=8012
+      # - CTD_HOST=biochirp_ctd_tool
+      # - CTD_PORT=8016
       - INTERPRETER_HOST=biochirp_interpreter_tool
       - INTERPRETER_PORT=8005
       - WEB_TOOL_HOST=biochirp_web_tool

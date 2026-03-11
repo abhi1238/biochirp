@@ -203,8 +203,9 @@ def optimize_join_order(
         size = estimate_cardinality(pre_filtered_dfs[table])
         table_sizes.append((table, size))
 
-    # Sort by size (ascending), with -1 (unknown) at the end
-    table_sizes.sort(key=lambda x: (x[1] < 0, x[1]))
+    # Sort by size (ascending), with -1 (unknown) at the end.
+    # Final tie-break by table name to avoid nondeterminism from set iteration.
+    table_sizes.sort(key=lambda x: (x[1] < 0, x[1], x[0]))
     ordered = [t for t, _ in table_sizes]
 
     logger.debug(f"Join order for next batch: {ordered}")
@@ -425,16 +426,13 @@ def normalize_join_pairs(join_pairs: Dict[Any, Dict[str, Any]]) -> Dict[Tuple[st
 
     return normalized
 
-filter_stats: list = []
-
-
 def join_and_filter_database(
     dataset: Dict[str, Dict[str, pl.LazyFrame]],
     plan: Dict[str, Any],
     db_name: str,
     output_columns: List[str],
     filtered_outputs: Dict[str, Any]
-) -> pl.DataFrame:
+) -> Tuple[pl.DataFrame, List[FilterStat]]:
     """
     Join and filter database tables according to query plan.
 
@@ -444,6 +442,7 @@ def join_and_filter_database(
     """
     # Reset per-query cache (ContextVar to avoid cross-request collisions)
     _CARDINALITY_CACHE.set({})
+    filter_stats: List[FilterStat] = []
 
     logger.info(f"[{db_name}] Starting join_and_filter_database")
 

@@ -1,0 +1,12 @@
+fastapi==0.119.0
+uvicorn[standard]==0.37.0
+pydantic==2.12.3
+requests==2.32.5
+openai-agents==0.4.0
+kneed==0.8.5
+pandas==2.2.2
+qdrant_client==1.15.1
+sentence-transformers==5.1.1
+
+
+
