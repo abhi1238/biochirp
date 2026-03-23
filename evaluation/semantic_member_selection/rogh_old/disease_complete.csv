@@ -1,0 +1,913 @@
+method,disease,metric,value
+BC-FuzzyEq,diphtheria,precision,1.0
+BC-FuzzyEq,diphtheria,recall,0.36363636363636365
+BC-FuzzyEq,diphtheria,f1,0.5333333333333333
+BC-FuzzyEq,diphtheria,accuracy,0.9860557768924303
+BC-FuzzyEq,diphtheria,specificity,1.0
+BC-FuzzyEq,diphtheria,kappa,0.5278151034668104
+BC-Curated,diphtheria,precision,1.0
+BC-Curated,diphtheria,recall,0.18181818181818182
+BC-Curated,diphtheria,f1,0.3076923076923077
+BC-Curated,diphtheria,accuracy,0.9820717131474104
+BC-Curated,diphtheria,specificity,1.0
+BC-Curated,diphtheria,kappa,0.30299290342486923
+BC-EmbedEq,diphtheria,precision,1.0
+BC-EmbedEq,diphtheria,recall,0.9090909090909091
+BC-EmbedEq,diphtheria,f1,0.9523809523809523
+BC-EmbedEq,diphtheria,accuracy,0.99800796812749
+BC-EmbedEq,diphtheria,specificity,1.0
+BC-EmbedEq,diphtheria,kappa,0.9513660143383066
+BC-Final,diphtheria,precision,1.0
+BC-Final,diphtheria,recall,1.0
+BC-Final,diphtheria,f1,1.0
+BC-Final,diphtheria,accuracy,1.0
+BC-Final,diphtheria,specificity,1.0
+BC-Final,diphtheria,kappa,1.0
+gpt,diphtheria,precision,1.0
+gpt,diphtheria,recall,0.6363636363636364
+gpt,diphtheria,f1,0.7777777777777778
+gpt,diphtheria,accuracy,0.9920318725099602
+gpt,diphtheria,specificity,1.0
+gpt,diphtheria,kappa,0.7739247917135783
+grok,diphtheria,precision,1.0
+grok,diphtheria,recall,0.7272727272727273
+grok,diphtheria,f1,0.8421052631578948
+grok,diphtheria,accuracy,0.9940239043824701
+grok,diphtheria,specificity,1.0
+grok,diphtheria,kappa,0.839136936552019
+gemini,diphtheria,precision,1.0
+gemini,diphtheria,recall,0.5454545454545454
+gemini,diphtheria,f1,0.7058823529411764
+gemini,diphtheria,accuracy,0.9900398406374502
+gemini,diphtheria,specificity,1.0
+gemini,diphtheria,kappa,0.7012616043799099
+llama,diphtheria,precision,1.0
+llama,diphtheria,recall,0.5454545454545454
+llama,diphtheria,f1,0.7058823529411764
+llama,diphtheria,accuracy,0.9900398406374502
+llama,diphtheria,specificity,1.0
+llama,diphtheria,kappa,0.7012616043799099
+BC-FuzzyEq,rubella,precision,1.0
+BC-FuzzyEq,rubella,recall,0.5
+BC-FuzzyEq,rubella,f1,0.6666666666666666
+BC-FuzzyEq,rubella,accuracy,0.9820717131474104
+BC-FuzzyEq,rubella,specificity,1.0
+BC-FuzzyEq,rubella,kappa,0.6585034013605444
+BC-Curated,rubella,precision,1.0
+BC-Curated,rubella,recall,0.1111111111111111
+BC-Curated,rubella,f1,0.19999999999999998
+BC-Curated,rubella,accuracy,0.9681274900398407
+BC-Curated,rubella,specificity,1.0
+BC-Curated,rubella,kappa,0.19422150882825207
+BC-EmbedEq,rubella,precision,1.0
+BC-EmbedEq,rubella,recall,1.0
+BC-EmbedEq,rubella,f1,1.0
+BC-EmbedEq,rubella,accuracy,1.0
+BC-EmbedEq,rubella,specificity,1.0
+BC-EmbedEq,rubella,kappa,1.0
+BC-Final,rubella,precision,1.0
+BC-Final,rubella,recall,1.0
+BC-Final,rubella,f1,1.0
+BC-Final,rubella,accuracy,1.0
+BC-Final,rubella,specificity,1.0
+BC-Final,rubella,kappa,1.0
+gpt,rubella,precision,1.0
+gpt,rubella,recall,0.3333333333333333
+gpt,rubella,f1,0.5
+gpt,rubella,accuracy,0.9760956175298805
+gpt,rubella,specificity,1.0
+gpt,rubella,kappa,0.4908722109533471
+grok,rubella,precision,1.0
+grok,rubella,recall,0.8888888888888888
+grok,rubella,f1,0.9411764705882353
+grok,rubella,accuracy,0.9960159362549801
+grok,rubella,specificity,1.0
+grok,rubella,kappa,0.9391219985447491
+gemini,rubella,precision,1.0
+gemini,rubella,recall,0.7777777777777778
+gemini,rubella,f1,0.8750000000000001
+gemini,rubella,accuracy,0.9920318725099602
+gemini,rubella,specificity,1.0
+gemini,rubella,kappa,0.8709511568123394
+llama,rubella,precision,1.0
+llama,rubella,recall,0.6666666666666666
+llama,rubella,f1,0.8
+llama,rubella,accuracy,0.9880478087649402
+llama,rubella,specificity,1.0
+llama,rubella,kappa,0.794093519278097
+BC-FuzzyEq,multiple myeloma,precision,1.0
+BC-FuzzyEq,multiple myeloma,recall,0.34615384615384615
+BC-FuzzyEq,multiple myeloma,f1,0.5142857142857142
+BC-FuzzyEq,multiple myeloma,accuracy,0.9661354581673307
+BC-FuzzyEq,multiple myeloma,specificity,1.0
+BC-FuzzyEq,multiple myeloma,kappa,0.5009940357852889
+BC-Curated,multiple myeloma,precision,1.0
+BC-Curated,multiple myeloma,recall,0.11538461538461539
+BC-Curated,multiple myeloma,f1,0.20689655172413793
+BC-Curated,multiple myeloma,accuracy,0.954183266932271
+BC-Curated,multiple myeloma,specificity,1.0
+BC-Curated,multiple myeloma,kappa,0.19830579086238118
+BC-EmbedEq,multiple myeloma,precision,1.0
+BC-EmbedEq,multiple myeloma,recall,0.7692307692307693
+BC-EmbedEq,multiple myeloma,f1,0.8695652173913044
+BC-EmbedEq,multiple myeloma,accuracy,0.9880478087649402
+BC-EmbedEq,multiple myeloma,specificity,1.0
+BC-EmbedEq,multiple myeloma,kappa,0.8634137493197896
+BC-Final,multiple myeloma,precision,1.0
+BC-Final,multiple myeloma,recall,0.7692307692307693
+BC-Final,multiple myeloma,f1,0.8695652173913044
+BC-Final,multiple myeloma,accuracy,0.9880478087649402
+BC-Final,multiple myeloma,specificity,1.0
+BC-Final,multiple myeloma,kappa,0.8634137493197896
+gpt,multiple myeloma,precision,1.0
+gpt,multiple myeloma,recall,0.4230769230769231
+gpt,multiple myeloma,f1,0.5945945945945945
+gpt,multiple myeloma,accuracy,0.9701195219123506
+gpt,multiple myeloma,specificity,1.0
+gpt,multiple myeloma,kappa,0.5817131429841133
+grok,multiple myeloma,precision,1.0
+grok,multiple myeloma,recall,0.19230769230769232
+grok,multiple myeloma,f1,0.32258064516129037
+grok,multiple myeloma,accuracy,0.9581673306772909
+grok,multiple myeloma,specificity,1.0
+grok,multiple myeloma,kappa,0.3110704483074112
+gemini,multiple myeloma,precision,1.0
+gemini,multiple myeloma,recall,0.6538461538461539
+gemini,multiple myeloma,f1,0.7906976744186047
+gemini,multiple myeloma,accuracy,0.9820717131474104
+gemini,multiple myeloma,specificity,1.0
+gemini,multiple myeloma,kappa,0.7817602164042123
+llama,multiple myeloma,precision,1.0
+llama,multiple myeloma,recall,0.23076923076923078
+llama,multiple myeloma,f1,0.375
+llama,multiple myeloma,accuracy,0.9601593625498008
+llama,multiple myeloma,specificity,1.0
+llama,multiple myeloma,kappa,0.36262061960386005
+BC-FuzzyEq,iron deficiency anaemia,precision,1.0
+BC-FuzzyEq,iron deficiency anaemia,recall,0.8
+BC-FuzzyEq,iron deficiency anaemia,f1,0.888888888888889
+BC-FuzzyEq,iron deficiency anaemia,accuracy,0.99800796812749
+BC-FuzzyEq,iron deficiency anaemia,specificity,1.0
+BC-FuzzyEq,iron deficiency anaemia,kappa,0.8878963823135326
+BC-Curated,iron deficiency anaemia,precision,1.0
+BC-Curated,iron deficiency anaemia,recall,0.2
+BC-Curated,iron deficiency anaemia,f1,0.33333333333333337
+BC-Curated,iron deficiency anaemia,accuracy,0.9920318725099602
+BC-Curated,iron deficiency anaemia,specificity,1.0
+BC-Curated,iron deficiency anaemia,kappa,0.33111259160559586
+BC-EmbedEq,iron deficiency anaemia,precision,1.0
+BC-EmbedEq,iron deficiency anaemia,recall,1.0
+BC-EmbedEq,iron deficiency anaemia,f1,1.0
+BC-EmbedEq,iron deficiency anaemia,accuracy,1.0
+BC-EmbedEq,iron deficiency anaemia,specificity,1.0
+BC-EmbedEq,iron deficiency anaemia,kappa,1.0
+BC-Final,iron deficiency anaemia,precision,1.0
+BC-Final,iron deficiency anaemia,recall,1.0
+BC-Final,iron deficiency anaemia,f1,1.0
+BC-Final,iron deficiency anaemia,accuracy,1.0
+BC-Final,iron deficiency anaemia,specificity,1.0
+BC-Final,iron deficiency anaemia,kappa,1.0
+gpt,iron deficiency anaemia,precision,1.0
+gpt,iron deficiency anaemia,recall,0.4
+gpt,iron deficiency anaemia,f1,0.5714285714285715
+gpt,iron deficiency anaemia,accuracy,0.9940239043824701
+gpt,iron deficiency anaemia,specificity,1.0
+gpt,iron deficiency anaemia,kappa,0.5689753863766452
+grok,iron deficiency anaemia,precision,1.0
+grok,iron deficiency anaemia,recall,0.8
+grok,iron deficiency anaemia,f1,0.888888888888889
+grok,iron deficiency anaemia,accuracy,0.99800796812749
+grok,iron deficiency anaemia,specificity,1.0
+grok,iron deficiency anaemia,kappa,0.8878963823135326
+gemini,iron deficiency anaemia,precision,1.0
+gemini,iron deficiency anaemia,recall,0.4
+gemini,iron deficiency anaemia,f1,0.5714285714285715
+gemini,iron deficiency anaemia,accuracy,0.9940239043824701
+gemini,iron deficiency anaemia,specificity,1.0
+gemini,iron deficiency anaemia,kappa,0.5689753863766452
+llama,iron deficiency anaemia,precision,1.0
+llama,iron deficiency anaemia,recall,0.6
+llama,iron deficiency anaemia,f1,0.7499999999999999
+llama,iron deficiency anaemia,accuracy,0.9960159362549801
+llama,iron deficiency anaemia,specificity,1.0
+llama,iron deficiency anaemia,kappa,0.7481184144505767
+BC-FuzzyEq,hyperthyroidism,precision,1.0
+BC-FuzzyEq,hyperthyroidism,recall,0.09333333333333334
+BC-FuzzyEq,hyperthyroidism,f1,0.17073170731707318
+BC-FuzzyEq,hyperthyroidism,accuracy,0.8645418326693227
+BC-FuzzyEq,hyperthyroidism,specificity,1.0
+BC-FuzzyEq,hyperthyroidism,kappa,0.14902527795782028
+BC-Curated,hyperthyroidism,precision,1.0
+BC-Curated,hyperthyroidism,recall,0.08
+BC-Curated,hyperthyroidism,f1,0.14814814814814814
+BC-Curated,hyperthyroidism,accuracy,0.8625498007968128
+BC-Curated,hyperthyroidism,specificity,1.0
+BC-Curated,hyperthyroidism,kappa,0.12886675720537202
+BC-EmbedEq,hyperthyroidism,precision,1.0
+BC-EmbedEq,hyperthyroidism,recall,0.5066666666666667
+BC-EmbedEq,hyperthyroidism,f1,0.6725663716814159
+BC-EmbedEq,hyperthyroidism,accuracy,0.9262948207171314
+BC-EmbedEq,hyperthyroidism,specificity,1.0
+BC-EmbedEq,hyperthyroidism,kappa,0.6359894955512874
+BC-Final,hyperthyroidism,precision,1.0
+BC-Final,hyperthyroidism,recall,0.52
+BC-Final,hyperthyroidism,f1,0.6842105263157895
+BC-Final,hyperthyroidism,accuracy,0.9282868525896414
+BC-Final,hyperthyroidism,specificity,1.0
+BC-Final,hyperthyroidism,kappa,0.6482541165479386
+gpt,hyperthyroidism,precision,0.0
+gpt,hyperthyroidism,recall,0.0
+gpt,hyperthyroidism,f1,0.0
+gpt,hyperthyroidism,accuracy,0.850597609561753
+gpt,hyperthyroidism,specificity,1.0
+gpt,hyperthyroidism,kappa,0.0
+grok,hyperthyroidism,precision,0.9705882352941176
+grok,hyperthyroidism,recall,0.44
+grok,hyperthyroidism,f1,0.6055045871559633
+grok,hyperthyroidism,accuracy,0.9143426294820717
+grok,hyperthyroidism,specificity,0.9976580796252927
+grok,hyperthyroidism,kappa,0.5649562658712562
+gemini,hyperthyroidism,precision,1.0
+gemini,hyperthyroidism,recall,0.05333333333333334
+gemini,hyperthyroidism,f1,0.10126582278481014
+gemini,hyperthyroidism,accuracy,0.8585657370517928
+gemini,hyperthyroidism,specificity,1.0
+gemini,hyperthyroidism,kappa,0.0874596753546009
+llama,hyperthyroidism,precision,1.0
+llama,hyperthyroidism,recall,0.16
+llama,hyperthyroidism,f1,0.2758620689655173
+llama,hyperthyroidism,accuracy,0.8745019920318725
+llama,hyperthyroidism,specificity,1.0
+llama,hyperthyroidism,kappa,0.24473420260782358
+BC-FuzzyEq,generalized anxiety disorder,precision,1.0
+BC-FuzzyEq,generalized anxiety disorder,recall,0.8
+BC-FuzzyEq,generalized anxiety disorder,f1,0.888888888888889
+BC-FuzzyEq,generalized anxiety disorder,accuracy,0.99800796812749
+BC-FuzzyEq,generalized anxiety disorder,specificity,1.0
+BC-FuzzyEq,generalized anxiety disorder,kappa,0.8878963823135326
+BC-Curated,generalized anxiety disorder,precision,1.0
+BC-Curated,generalized anxiety disorder,recall,0.2
+BC-Curated,generalized anxiety disorder,f1,0.33333333333333337
+BC-Curated,generalized anxiety disorder,accuracy,0.9920318725099602
+BC-Curated,generalized anxiety disorder,specificity,1.0
+BC-Curated,generalized anxiety disorder,kappa,0.33111259160559586
+BC-EmbedEq,generalized anxiety disorder,precision,1.0
+BC-EmbedEq,generalized anxiety disorder,recall,1.0
+BC-EmbedEq,generalized anxiety disorder,f1,1.0
+BC-EmbedEq,generalized anxiety disorder,accuracy,1.0
+BC-EmbedEq,generalized anxiety disorder,specificity,1.0
+BC-EmbedEq,generalized anxiety disorder,kappa,1.0
+BC-Final,generalized anxiety disorder,precision,1.0
+BC-Final,generalized anxiety disorder,recall,1.0
+BC-Final,generalized anxiety disorder,f1,1.0
+BC-Final,generalized anxiety disorder,accuracy,1.0
+BC-Final,generalized anxiety disorder,specificity,1.0
+BC-Final,generalized anxiety disorder,kappa,1.0
+gpt,generalized anxiety disorder,precision,1.0
+gpt,generalized anxiety disorder,recall,0.4
+gpt,generalized anxiety disorder,f1,0.5714285714285715
+gpt,generalized anxiety disorder,accuracy,0.9940239043824701
+gpt,generalized anxiety disorder,specificity,1.0
+gpt,generalized anxiety disorder,kappa,0.5689753863766452
+grok,generalized anxiety disorder,precision,1.0
+grok,generalized anxiety disorder,recall,0.8
+grok,generalized anxiety disorder,f1,0.888888888888889
+grok,generalized anxiety disorder,accuracy,0.99800796812749
+grok,generalized anxiety disorder,specificity,1.0
+grok,generalized anxiety disorder,kappa,0.8878963823135326
+gemini,generalized anxiety disorder,precision,1.0
+gemini,generalized anxiety disorder,recall,0.6
+gemini,generalized anxiety disorder,f1,0.7499999999999999
+gemini,generalized anxiety disorder,accuracy,0.9960159362549801
+gemini,generalized anxiety disorder,specificity,1.0
+gemini,generalized anxiety disorder,kappa,0.7481184144505767
+llama,generalized anxiety disorder,precision,1.0
+llama,generalized anxiety disorder,recall,0.6
+llama,generalized anxiety disorder,f1,0.7499999999999999
+llama,generalized anxiety disorder,accuracy,0.9960159362549801
+llama,generalized anxiety disorder,specificity,1.0
+llama,generalized anxiety disorder,kappa,0.7481184144505767
+BC-FuzzyEq,multiple sclerosis,precision,1.0
+BC-FuzzyEq,multiple sclerosis,recall,0.3829787234042553
+BC-FuzzyEq,multiple sclerosis,f1,0.5538461538461539
+BC-FuzzyEq,multiple sclerosis,accuracy,0.9422310756972112
+BC-FuzzyEq,multiple sclerosis,specificity,1.0
+BC-FuzzyEq,multiple sclerosis,kappa,0.5294459887516976
+BC-Curated,multiple sclerosis,precision,1.0
+BC-Curated,multiple sclerosis,recall,0.14893617021276595
+BC-Curated,multiple sclerosis,f1,0.25925925925925924
+BC-Curated,multiple sclerosis,accuracy,0.9203187250996016
+BC-Curated,multiple sclerosis,specificity,1.0
+BC-Curated,multiple sclerosis,kappa,0.2408317580340259
+BC-EmbedEq,multiple sclerosis,precision,1.0
+BC-EmbedEq,multiple sclerosis,recall,0.7446808510638298
+BC-EmbedEq,multiple sclerosis,f1,0.8536585365853657
+BC-EmbedEq,multiple sclerosis,accuracy,0.9760956175298805
+BC-EmbedEq,multiple sclerosis,specificity,1.0
+BC-EmbedEq,multiple sclerosis,kappa,0.8409462956117655
+BC-Final,multiple sclerosis,precision,1.0
+BC-Final,multiple sclerosis,recall,0.7446808510638298
+BC-Final,multiple sclerosis,f1,0.8536585365853657
+BC-Final,multiple sclerosis,accuracy,0.9760956175298805
+BC-Final,multiple sclerosis,specificity,1.0
+BC-Final,multiple sclerosis,kappa,0.8409462956117655
+gpt,multiple sclerosis,precision,1.0
+gpt,multiple sclerosis,recall,0.3829787234042553
+gpt,multiple sclerosis,f1,0.5538461538461539
+gpt,multiple sclerosis,accuracy,0.9422310756972112
+gpt,multiple sclerosis,specificity,1.0
+gpt,multiple sclerosis,kappa,0.5294459887516976
+grok,multiple sclerosis,precision,1.0
+grok,multiple sclerosis,recall,0.5319148936170213
+grok,multiple sclerosis,f1,0.6944444444444444
+grok,multiple sclerosis,accuracy,0.9561752988047809
+grok,multiple sclerosis,specificity,1.0
+grok,multiple sclerosis,kappa,0.673196425400959
+gemini,multiple sclerosis,precision,1.0
+gemini,multiple sclerosis,recall,0.5106382978723404
+gemini,multiple sclerosis,f1,0.676056338028169
+gemini,multiple sclerosis,accuracy,0.954183266932271
+gemini,multiple sclerosis,specificity,1.0
+gemini,multiple sclerosis,kappa,0.654166417061044
+llama,multiple sclerosis,precision,0.7142857142857143
+llama,multiple sclerosis,recall,0.425531914893617
+llama,multiple sclerosis,f1,0.5333333333333333
+llama,multiple sclerosis,accuracy,0.9302788844621513
+llama,multiple sclerosis,specificity,0.9824175824175824
+llama,multiple sclerosis,kappa,0.4982580387229423
+BC-FuzzyEq,hordeolum,precision,1.0
+BC-FuzzyEq,hordeolum,recall,0.25
+BC-FuzzyEq,hordeolum,f1,0.4
+BC-FuzzyEq,hordeolum,accuracy,0.9701195219123506
+BC-FuzzyEq,hordeolum,specificity,1.0
+BC-FuzzyEq,hordeolum,kappa,0.3902834008097176
+BC-Curated,hordeolum,precision,1.0
+BC-Curated,hordeolum,recall,0.25
+BC-Curated,hordeolum,f1,0.4
+BC-Curated,hordeolum,accuracy,0.9701195219123506
+BC-Curated,hordeolum,specificity,1.0
+BC-Curated,hordeolum,kappa,0.3902834008097176
+BC-EmbedEq,hordeolum,precision,1.0
+BC-EmbedEq,hordeolum,recall,0.7
+BC-EmbedEq,hordeolum,f1,0.8235294117647058
+BC-EmbedEq,hordeolum,accuracy,0.9880478087649402
+BC-EmbedEq,hordeolum,specificity,1.0
+BC-EmbedEq,hordeolum,kappa,0.8175430094499638
+BC-Final,hordeolum,precision,1.0
+BC-Final,hordeolum,recall,0.8
+BC-Final,hordeolum,f1,0.888888888888889
+BC-Final,hordeolum,accuracy,0.9920318725099602
+BC-Final,hordeolum,specificity,1.0
+BC-Final,hordeolum,kappa,0.8848095456631484
+gpt,hordeolum,precision,1.0
+gpt,hordeolum,recall,0.25
+gpt,hordeolum,f1,0.4
+gpt,hordeolum,accuracy,0.9701195219123506
+gpt,hordeolum,specificity,1.0
+gpt,hordeolum,kappa,0.3902834008097176
+grok,hordeolum,precision,1.0
+grok,hordeolum,recall,0.3
+grok,hordeolum,f1,0.4615384615384615
+grok,hordeolum,accuracy,0.9721115537848606
+grok,hordeolum,specificity,1.0
+grok,hordeolum,kappa,0.4514517639712775
+gemini,hordeolum,precision,1.0
+gemini,hordeolum,recall,0.65
+gemini,hordeolum,f1,0.787878787878788
+gemini,hordeolum,accuracy,0.9860557768924303
+gemini,hordeolum,specificity,1.0
+gemini,hordeolum,kappa,0.7810046117412441
+llama,hordeolum,precision,1.0
+llama,hordeolum,recall,0.65
+llama,hordeolum,f1,0.787878787878788
+llama,hordeolum,accuracy,0.9860557768924303
+llama,hordeolum,specificity,1.0
+llama,hordeolum,kappa,0.7810046117412441
+BC-FuzzyEq,essential hypertension,precision,1.0
+BC-FuzzyEq,essential hypertension,recall,0.16666666666666666
+BC-FuzzyEq,essential hypertension,f1,0.2857142857142857
+BC-FuzzyEq,essential hypertension,accuracy,0.9701195219123506
+BC-FuzzyEq,essential hypertension,specificity,1.0
+BC-FuzzyEq,essential hypertension,kappa,0.2783208740655551
+BC-Curated,essential hypertension,precision,1.0
+BC-Curated,essential hypertension,recall,0.16666666666666666
+BC-Curated,essential hypertension,f1,0.2857142857142857
+BC-Curated,essential hypertension,accuracy,0.9701195219123506
+BC-Curated,essential hypertension,specificity,1.0
+BC-Curated,essential hypertension,kappa,0.2783208740655551
+BC-EmbedEq,essential hypertension,precision,1.0
+BC-EmbedEq,essential hypertension,recall,0.8888888888888888
+BC-EmbedEq,essential hypertension,f1,0.9411764705882353
+BC-EmbedEq,essential hypertension,accuracy,0.9960159362549801
+BC-EmbedEq,essential hypertension,specificity,1.0
+BC-EmbedEq,essential hypertension,kappa,0.9391219985447491
+BC-Final,essential hypertension,precision,1.0
+BC-Final,essential hypertension,recall,0.8888888888888888
+BC-Final,essential hypertension,f1,0.9411764705882353
+BC-Final,essential hypertension,accuracy,0.9960159362549801
+BC-Final,essential hypertension,specificity,1.0
+BC-Final,essential hypertension,kappa,0.9391219985447491
+gpt,essential hypertension,precision,1.0
+gpt,essential hypertension,recall,0.6111111111111112
+gpt,essential hypertension,f1,0.7586206896551725
+gpt,essential hypertension,accuracy,0.9860557768924303
+gpt,essential hypertension,specificity,1.0
+gpt,essential hypertension,kappa,0.7518712046321141
+grok,essential hypertension,precision,1.0
+grok,essential hypertension,recall,0.7777777777777778
+grok,essential hypertension,f1,0.8750000000000001
+grok,essential hypertension,accuracy,0.9920318725099602
+grok,essential hypertension,specificity,1.0
+grok,essential hypertension,kappa,0.8709511568123394
+gemini,essential hypertension,precision,1.0
+gemini,essential hypertension,recall,0.7777777777777778
+gemini,essential hypertension,f1,0.8750000000000001
+gemini,essential hypertension,accuracy,0.9920318725099602
+gemini,essential hypertension,specificity,1.0
+gemini,essential hypertension,kappa,0.8709511568123394
+llama,essential hypertension,precision,1.0
+llama,essential hypertension,recall,0.7222222222222222
+llama,essential hypertension,f1,0.8387096774193548
+llama,essential hypertension,accuracy,0.9900398406374502
+llama,essential hypertension,specificity,1.0
+llama,essential hypertension,kappa,0.8337087584470653
+BC-FuzzyEq,asthma,precision,1.0
+BC-FuzzyEq,asthma,recall,0.8148148148148148
+BC-FuzzyEq,asthma,f1,0.8979591836734693
+BC-FuzzyEq,asthma,accuracy,0.9900398406374502
+BC-FuzzyEq,asthma,specificity,1.0
+BC-FuzzyEq,asthma,kappa,0.8927808628791116
+BC-Curated,asthma,precision,1.0
+BC-Curated,asthma,recall,0.2962962962962963
+BC-Curated,asthma,f1,0.45714285714285713
+BC-Curated,asthma,accuracy,0.9621513944223108
+BC-Curated,asthma,specificity,1.0
+BC-Curated,asthma,kappa,0.4434589800443463
+BC-EmbedEq,asthma,precision,1.0
+BC-EmbedEq,asthma,recall,0.9629629629629629
+BC-EmbedEq,asthma,f1,0.9811320754716981
+BC-EmbedEq,asthma,accuracy,0.99800796812749
+BC-EmbedEq,asthma,specificity,1.0
+BC-EmbedEq,asthma,kappa,0.9800809459566702
+BC-Final,asthma,precision,1.0
+BC-Final,asthma,recall,1.0
+BC-Final,asthma,f1,1.0
+BC-Final,asthma,accuracy,1.0
+BC-Final,asthma,specificity,1.0
+BC-Final,asthma,kappa,1.0
+gpt,asthma,precision,1.0
+gpt,asthma,recall,0.48148148148148145
+gpt,asthma,f1,0.65
+gpt,asthma,accuracy,0.9721115537848606
+gpt,asthma,specificity,1.0
+gpt,asthma,kappa,0.6373206729280632
+grok,asthma,precision,1.0
+grok,asthma,recall,0.7407407407407407
+grok,asthma,f1,0.851063829787234
+grok,asthma,accuracy,0.9860557768924303
+grok,asthma,specificity,1.0
+grok,asthma,kappa,0.8439193390779073
+gemini,asthma,precision,1.0
+gemini,asthma,recall,0.7777777777777778
+gemini,asthma,f1,0.8750000000000001
+gemini,asthma,accuracy,0.9880478087649402
+gemini,asthma,specificity,1.0
+gemini,asthma,kappa,0.8688267572511107
+llama,asthma,precision,1.0
+llama,asthma,recall,0.6666666666666666
+llama,asthma,f1,0.8
+llama,asthma,accuracy,0.9820717131474104
+llama,asthma,specificity,1.0
+llama,asthma,kappa,0.7910074937552043
+BC-FuzzyEq,gastric ulcer,precision,1.0
+BC-FuzzyEq,gastric ulcer,recall,0.8
+BC-FuzzyEq,gastric ulcer,f1,0.888888888888889
+BC-FuzzyEq,gastric ulcer,accuracy,0.9860557768924303
+BC-FuzzyEq,gastric ulcer,specificity,1.0
+BC-FuzzyEq,gastric ulcer,kappa,0.881547899952808
+BC-Curated,gastric ulcer,precision,1.0
+BC-Curated,gastric ulcer,recall,0.5428571428571428
+BC-Curated,gastric ulcer,f1,0.7037037037037037
+BC-Curated,gastric ulcer,accuracy,0.9681274900398407
+BC-Curated,gastric ulcer,specificity,1.0
+BC-Curated,gastric ulcer,kappa,0.6884164791682832
+BC-EmbedEq,gastric ulcer,precision,1.0
+BC-EmbedEq,gastric ulcer,recall,0.9428571428571428
+BC-EmbedEq,gastric ulcer,f1,0.9705882352941176
+BC-EmbedEq,gastric ulcer,accuracy,0.9960159362549801
+BC-EmbedEq,gastric ulcer,specificity,1.0
+BC-EmbedEq,gastric ulcer,kappa,0.9684534657198517
+BC-Final,gastric ulcer,precision,1.0
+BC-Final,gastric ulcer,recall,0.9428571428571428
+BC-Final,gastric ulcer,f1,0.9705882352941176
+BC-Final,gastric ulcer,accuracy,0.9960159362549801
+BC-Final,gastric ulcer,specificity,1.0
+BC-Final,gastric ulcer,kappa,0.9684534657198517
+gpt,gastric ulcer,precision,1.0
+gpt,gastric ulcer,recall,0.2857142857142857
+gpt,gastric ulcer,f1,0.4444444444444445
+gpt,gastric ulcer,accuracy,0.950199203187251
+gpt,gastric ulcer,specificity,1.0
+gpt,gastric ulcer,kappa,0.42667884878940193
+grok,gastric ulcer,precision,1.0
+grok,gastric ulcer,recall,0.3142857142857143
+grok,gastric ulcer,f1,0.4782608695652174
+grok,gastric ulcer,accuracy,0.952191235059761
+grok,gastric ulcer,specificity,1.0
+grok,gastric ulcer,kappa,0.460263417256519
+gemini,gastric ulcer,precision,1.0
+gemini,gastric ulcer,recall,0.8857142857142857
+gemini,gastric ulcer,f1,0.9393939393939393
+gemini,gastric ulcer,accuracy,0.9920318725099602
+gemini,gastric ulcer,specificity,1.0
+gemini,gastric ulcer,kappa,0.9351463083780118
+llama,gastric ulcer,precision,1.0
+llama,gastric ulcer,recall,0.6857142857142857
+llama,gastric ulcer,f1,0.8135593220338984
+llama,gastric ulcer,accuracy,0.9780876494023905
+llama,gastric ulcer,specificity,1.0
+llama,gastric ulcer,kappa,0.8023480564106238
+BC-FuzzyEq,psoriasis,precision,1.0
+BC-FuzzyEq,psoriasis,recall,0.3103448275862069
+BC-FuzzyEq,psoriasis,f1,0.4736842105263158
+BC-FuzzyEq,psoriasis,accuracy,0.9203187250996016
+BC-FuzzyEq,psoriasis,specificity,1.0
+BC-FuzzyEq,psoriasis,kappa,0.44321206743566977
+BC-Curated,psoriasis,precision,1.0
+BC-Curated,psoriasis,recall,0.05172413793103448
+BC-Curated,psoriasis,f1,0.09836065573770492
+BC-Curated,psoriasis,accuracy,0.8904382470119522
+BC-Curated,psoriasis,specificity,1.0
+BC-Curated,psoriasis,kappa,0.08799630045583626
+BC-EmbedEq,psoriasis,precision,1.0
+BC-EmbedEq,psoriasis,recall,0.5172413793103449
+BC-EmbedEq,psoriasis,f1,0.6818181818181819
+BC-EmbedEq,psoriasis,accuracy,0.9442231075697212
+BC-EmbedEq,psoriasis,specificity,1.0
+BC-EmbedEq,psoriasis,kappa,0.6546097896599177
+BC-Final,psoriasis,precision,1.0
+BC-Final,psoriasis,recall,0.5344827586206896
+BC-Final,psoriasis,f1,0.6966292134831461
+BC-Final,psoriasis,accuracy,0.9462151394422311
+BC-Final,psoriasis,specificity,1.0
+BC-Final,psoriasis,kappa,0.6700744851759899
+gpt,psoriasis,precision,1.0
+gpt,psoriasis,recall,0.46551724137931033
+gpt,psoriasis,f1,0.6352941176470588
+gpt,psoriasis,accuracy,0.9382470119521913
+gpt,psoriasis,specificity,1.0
+gpt,psoriasis,kappa,0.6064039658050486
+grok,psoriasis,precision,1.0
+grok,psoriasis,recall,0.3620689655172414
+grok,psoriasis,f1,0.5316455696202532
+grok,psoriasis,accuracy,0.9262948207171314
+grok,psoriasis,specificity,1.0
+grok,psoriasis,kappa,0.5009940357852879
+gemini,psoriasis,precision,1.0
+gemini,psoriasis,recall,0.4827586206896552
+gemini,psoriasis,f1,0.6511627906976745
+gemini,psoriasis,accuracy,0.9402390438247012
+gemini,psoriasis,specificity,1.0
+gemini,psoriasis,kappa,0.6227832882476708
+llama,psoriasis,precision,1.0
+llama,psoriasis,recall,0.3448275862068966
+llama,psoriasis,f1,0.5128205128205129
+llama,psoriasis,accuracy,0.9243027888446215
+llama,psoriasis,specificity,1.0
+llama,psoriasis,kappa,0.4821370398523181
+BC-FuzzyEq,osteoarthritis,precision,1.0
+BC-FuzzyEq,osteoarthritis,recall,0.4857142857142857
+BC-FuzzyEq,osteoarthritis,f1,0.6538461538461539
+BC-FuzzyEq,osteoarthritis,accuracy,0.9641434262948207
+BC-FuzzyEq,osteoarthritis,specificity,1.0
+BC-FuzzyEq,osteoarthritis,kappa,0.6373123544994784
+BC-Curated,osteoarthritis,precision,1.0
+BC-Curated,osteoarthritis,recall,0.17142857142857143
+BC-Curated,osteoarthritis,f1,0.2926829268292683
+BC-Curated,osteoarthritis,accuracy,0.9422310756972112
+BC-Curated,osteoarthritis,specificity,1.0
+BC-Curated,osteoarthritis,kappa,0.27794861620870975
+BC-EmbedEq,osteoarthritis,precision,1.0
+BC-EmbedEq,osteoarthritis,recall,1.0
+BC-EmbedEq,osteoarthritis,f1,1.0
+BC-EmbedEq,osteoarthritis,accuracy,1.0
+BC-EmbedEq,osteoarthritis,specificity,1.0
+BC-EmbedEq,osteoarthritis,kappa,1.0
+BC-Final,osteoarthritis,precision,1.0
+BC-Final,osteoarthritis,recall,1.0
+BC-Final,osteoarthritis,f1,1.0
+BC-Final,osteoarthritis,accuracy,1.0
+BC-Final,osteoarthritis,specificity,1.0
+BC-Final,osteoarthritis,kappa,1.0
+gpt,osteoarthritis,precision,1.0
+gpt,osteoarthritis,recall,0.4857142857142857
+gpt,osteoarthritis,f1,0.6538461538461539
+gpt,osteoarthritis,accuracy,0.9641434262948207
+gpt,osteoarthritis,specificity,1.0
+gpt,osteoarthritis,kappa,0.6373123544994784
+grok,osteoarthritis,precision,1.0
+grok,osteoarthritis,recall,0.5714285714285714
+grok,osteoarthritis,f1,0.7272727272727273
+grok,osteoarthritis,accuracy,0.9701195219123506
+grok,osteoarthritis,specificity,1.0
+grok,osteoarthritis,kappa,0.7127050743990847
+gemini,osteoarthritis,precision,1.0
+gemini,osteoarthritis,recall,0.45714285714285713
+gemini,osteoarthritis,f1,0.6274509803921569
+gemini,osteoarthritis,accuracy,0.9621513944223108
+gemini,osteoarthritis,specificity,1.0
+gemini,osteoarthritis,kappa,0.6104076464341153
+llama,osteoarthritis,precision,1.0
+llama,osteoarthritis,recall,0.42857142857142855
+llama,osteoarthritis,f1,0.6
+llama,osteoarthritis,accuracy,0.9601593625498008
+llama,osteoarthritis,specificity,1.0
+llama,osteoarthritis,kappa,0.5825363825363827
+BC-FuzzyEq,urolithiasis,precision,1.0
+BC-FuzzyEq,urolithiasis,recall,0.15217391304347827
+BC-FuzzyEq,urolithiasis,f1,0.2641509433962264
+BC-FuzzyEq,urolithiasis,accuracy,0.9223107569721115
+BC-FuzzyEq,urolithiasis,specificity,1.0
+BC-FuzzyEq,urolithiasis,kappa,0.24589785070487633
+BC-Curated,urolithiasis,precision,1.0
+BC-Curated,urolithiasis,recall,0.021739130434782608
+BC-Curated,urolithiasis,f1,0.042553191489361694
+BC-Curated,urolithiasis,accuracy,0.9103585657370518
+BC-Curated,urolithiasis,specificity,1.0
+BC-Curated,urolithiasis,kappa,0.03880520806739803
+BC-EmbedEq,urolithiasis,precision,1.0
+BC-EmbedEq,urolithiasis,recall,0.9130434782608695
+BC-EmbedEq,urolithiasis,f1,0.9545454545454545
+BC-EmbedEq,urolithiasis,accuracy,0.9920318725099602
+BC-EmbedEq,urolithiasis,specificity,1.0
+BC-EmbedEq,urolithiasis,kappa,0.950188529470133
+BC-Final,urolithiasis,precision,1.0
+BC-Final,urolithiasis,recall,0.9130434782608695
+BC-Final,urolithiasis,f1,0.9545454545454545
+BC-Final,urolithiasis,accuracy,0.9920318725099602
+BC-Final,urolithiasis,specificity,1.0
+BC-Final,urolithiasis,kappa,0.950188529470133
+gpt,urolithiasis,precision,1.0
+gpt,urolithiasis,recall,0.41304347826086957
+gpt,urolithiasis,f1,0.5846153846153846
+gpt,urolithiasis,accuracy,0.9462151394422311
+gpt,urolithiasis,specificity,1.0
+gpt,urolithiasis,kappa,0.5611035554692057
+grok,urolithiasis,precision,1.0
+grok,urolithiasis,recall,0.8478260869565217
+grok,urolithiasis,f1,0.9176470588235294
+grok,urolithiasis,accuracy,0.9860557768924303
+grok,urolithiasis,specificity,1.0
+grok,urolithiasis,kappa,0.9100864848267746
+gemini,urolithiasis,precision,0.9761904761904762
+gemini,urolithiasis,recall,0.8913043478260869
+gemini,urolithiasis,f1,0.9318181818181818
+gemini,urolithiasis,accuracy,0.9880478087649402
+gemini,urolithiasis,specificity,0.9978070175438597
+gemini,urolithiasis,kappa,0.9252827942051995
+llama,urolithiasis,precision,1.0
+llama,urolithiasis,recall,0.7608695652173914
+llama,urolithiasis,f1,0.8641975308641976
+llama,urolithiasis,accuracy,0.9780876494023905
+llama,urolithiasis,specificity,1.0
+llama,urolithiasis,kappa,0.8525185620426261
+BC-FuzzyEq,gestational diabetes,precision,1.0
+BC-FuzzyEq,gestational diabetes,recall,0.6
+BC-FuzzyEq,gestational diabetes,f1,0.7499999999999999
+BC-FuzzyEq,gestational diabetes,accuracy,0.9960159362549801
+BC-FuzzyEq,gestational diabetes,specificity,1.0
+BC-FuzzyEq,gestational diabetes,kappa,0.7481184144505767
+BC-Curated,gestational diabetes,precision,1.0
+BC-Curated,gestational diabetes,recall,0.8
+BC-Curated,gestational diabetes,f1,0.888888888888889
+BC-Curated,gestational diabetes,accuracy,0.99800796812749
+BC-Curated,gestational diabetes,specificity,1.0
+BC-Curated,gestational diabetes,kappa,0.8878963823135326
+BC-EmbedEq,gestational diabetes,precision,1.0
+BC-EmbedEq,gestational diabetes,recall,1.0
+BC-EmbedEq,gestational diabetes,f1,1.0
+BC-EmbedEq,gestational diabetes,accuracy,1.0
+BC-EmbedEq,gestational diabetes,specificity,1.0
+BC-EmbedEq,gestational diabetes,kappa,1.0
+BC-Final,gestational diabetes,precision,1.0
+BC-Final,gestational diabetes,recall,1.0
+BC-Final,gestational diabetes,f1,1.0
+BC-Final,gestational diabetes,accuracy,1.0
+BC-Final,gestational diabetes,specificity,1.0
+BC-Final,gestational diabetes,kappa,1.0
+gpt,gestational diabetes,precision,1.0
+gpt,gestational diabetes,recall,0.8
+gpt,gestational diabetes,f1,0.888888888888889
+gpt,gestational diabetes,accuracy,0.99800796812749
+gpt,gestational diabetes,specificity,1.0
+gpt,gestational diabetes,kappa,0.8878963823135326
+grok,gestational diabetes,precision,1.0
+grok,gestational diabetes,recall,1.0
+grok,gestational diabetes,f1,1.0
+grok,gestational diabetes,accuracy,1.0
+grok,gestational diabetes,specificity,1.0
+grok,gestational diabetes,kappa,1.0
+gemini,gestational diabetes,precision,1.0
+gemini,gestational diabetes,recall,0.8
+gemini,gestational diabetes,f1,0.888888888888889
+gemini,gestational diabetes,accuracy,0.99800796812749
+gemini,gestational diabetes,specificity,1.0
+gemini,gestational diabetes,kappa,0.8878963823135326
+llama,gestational diabetes,precision,1.0
+llama,gestational diabetes,recall,0.6
+llama,gestational diabetes,f1,0.7499999999999999
+llama,gestational diabetes,accuracy,0.9960159362549801
+llama,gestational diabetes,specificity,1.0
+llama,gestational diabetes,kappa,0.7481184144505767
+BC-FuzzyEq,neonatal jaundice,precision,1.0
+BC-FuzzyEq,neonatal jaundice,recall,0.1111111111111111
+BC-FuzzyEq,neonatal jaundice,f1,0.19999999999999998
+BC-FuzzyEq,neonatal jaundice,accuracy,0.9840637450199203
+BC-FuzzyEq,neonatal jaundice,specificity,1.0
+BC-FuzzyEq,neonatal jaundice,kappa,0.19712115153938284
+BC-Curated,neonatal jaundice,precision,1.0
+BC-Curated,neonatal jaundice,recall,0.5555555555555556
+BC-Curated,neonatal jaundice,f1,0.7142857142857143
+BC-Curated,neonatal jaundice,accuracy,0.9920318725099602
+BC-Curated,neonatal jaundice,specificity,1.0
+BC-Curated,neonatal jaundice,kappa,0.7105794176996257
+BC-EmbedEq,neonatal jaundice,precision,1.0
+BC-EmbedEq,neonatal jaundice,recall,0.4444444444444444
+BC-EmbedEq,neonatal jaundice,f1,0.6153846153846153
+BC-EmbedEq,neonatal jaundice,accuracy,0.9900398406374502
+BC-EmbedEq,neonatal jaundice,specificity,1.0
+BC-EmbedEq,neonatal jaundice,kappa,0.6110938952587538
+BC-Final,neonatal jaundice,precision,1.0
+BC-Final,neonatal jaundice,recall,0.5555555555555556
+BC-Final,neonatal jaundice,f1,0.7142857142857143
+BC-Final,neonatal jaundice,accuracy,0.9920318725099602
+BC-Final,neonatal jaundice,specificity,1.0
+BC-Final,neonatal jaundice,kappa,0.7105794176996257
+gpt,neonatal jaundice,precision,1.0
+gpt,neonatal jaundice,recall,0.4444444444444444
+gpt,neonatal jaundice,f1,0.6153846153846153
+gpt,neonatal jaundice,accuracy,0.9900398406374502
+gpt,neonatal jaundice,specificity,1.0
+gpt,neonatal jaundice,kappa,0.6110938952587538
+grok,neonatal jaundice,precision,1.0
+grok,neonatal jaundice,recall,0.3333333333333333
+grok,neonatal jaundice,f1,0.5
+grok,neonatal jaundice,accuracy,0.9880478087649402
+grok,neonatal jaundice,specificity,1.0
+grok,neonatal jaundice,kappa,0.4954773869346735
+gemini,neonatal jaundice,precision,0.45
+gemini,neonatal jaundice,recall,1.0
+gemini,neonatal jaundice,f1,0.6206896551724138
+gemini,neonatal jaundice,accuracy,0.9780876494023905
+gemini,neonatal jaundice,specificity,0.9776876267748479
+gemini,neonatal jaundice,kappa,0.611071981969292
+llama,neonatal jaundice,precision,1.0
+llama,neonatal jaundice,recall,0.7777777777777778
+llama,neonatal jaundice,f1,0.8750000000000001
+llama,neonatal jaundice,accuracy,0.9960159362549801
+llama,neonatal jaundice,specificity,1.0
+llama,neonatal jaundice,kappa,0.8730078421452061
+BC-FuzzyEq,down syndrome,precision,1.0
+BC-FuzzyEq,down syndrome,recall,0.17647058823529413
+BC-FuzzyEq,down syndrome,f1,0.3
+BC-FuzzyEq,down syndrome,accuracy,0.9442231075697212
+BC-FuzzyEq,down syndrome,specificity,1.0
+BC-FuzzyEq,down syndrome,kappa,0.2854819032126883
+BC-Curated,down syndrome,precision,1.0
+BC-Curated,down syndrome,recall,0.20588235294117646
+BC-Curated,down syndrome,f1,0.34146341463414637
+BC-Curated,down syndrome,accuracy,0.9462151394422311
+BC-Curated,down syndrome,specificity,1.0
+BC-Curated,down syndrome,kappa,0.3258728737690247
+BC-EmbedEq,down syndrome,precision,1.0
+BC-EmbedEq,down syndrome,recall,0.8823529411764706
+BC-EmbedEq,down syndrome,f1,0.9375
+BC-EmbedEq,down syndrome,accuracy,0.9920318725099602
+BC-EmbedEq,down syndrome,specificity,1.0
+BC-EmbedEq,down syndrome,kappa,0.9332624302047329
+BC-Final,down syndrome,precision,1.0
+BC-Final,down syndrome,recall,0.9117647058823529
+BC-Final,down syndrome,f1,0.9538461538461539
+BC-Final,down syndrome,accuracy,0.9940239043824701
+BC-Final,down syndrome,specificity,1.0
+BC-Final,down syndrome,kappa,0.9506585413799883
+gpt,down syndrome,precision,1.0
+gpt,down syndrome,recall,0.2647058823529412
+gpt,down syndrome,f1,0.4186046511627907
+gpt,down syndrome,accuracy,0.950199203187251
+gpt,down syndrome,specificity,1.0
+gpt,down syndrome,kappa,0.40164012587012515
+grok,down syndrome,precision,1.0
+grok,down syndrome,recall,0.14705882352941177
+grok,down syndrome,f1,0.25641025641025644
+grok,down syndrome,accuracy,0.9422310756972112
+grok,down syndrome,specificity,1.0
+grok,down syndrome,kappa,0.24326853103233276
+gemini,down syndrome,precision,1.0
+gemini,down syndrome,recall,0.4117647058823529
+gemini,down syndrome,f1,0.5833333333333334
+gemini,down syndrome,accuracy,0.9601593625498008
+gemini,down syndrome,specificity,1.0
+gemini,down syndrome,kappa,0.566194262011753
+llama,down syndrome,precision,1.0
+llama,down syndrome,recall,0.47058823529411764
+llama,down syndrome,f1,0.6399999999999999
+llama,down syndrome,accuracy,0.9641434262948207
+llama,down syndrome,specificity,1.0
+llama,down syndrome,kappa,0.6236881559220394
+BC-FuzzyEq,fever,precision,1.0
+BC-FuzzyEq,fever,recall,0.36363636363636365
+BC-FuzzyEq,fever,f1,0.5333333333333333
+BC-FuzzyEq,fever,accuracy,0.9860557768924303
+BC-FuzzyEq,fever,specificity,1.0
+BC-FuzzyEq,fever,kappa,0.5278151034668104
+BC-Curated,fever,precision,1.0
+BC-Curated,fever,recall,0.2727272727272727
+BC-Curated,fever,f1,0.42857142857142855
+BC-Curated,fever,accuracy,0.9840637450199203
+BC-Curated,fever,specificity,1.0
+BC-Curated,fever,kappa,0.4231542660155132
+BC-EmbedEq,fever,precision,0.4
+BC-EmbedEq,fever,recall,0.7272727272727273
+BC-EmbedEq,fever,f1,0.5161290322580645
+BC-EmbedEq,fever,accuracy,0.9701195219123506
+BC-EmbedEq,fever,specificity,0.9755600814663951
+BC-EmbedEq,fever,kappa,0.5020499933871183
+BC-Final,fever,precision,0.4
+BC-Final,fever,recall,0.7272727272727273
+BC-Final,fever,f1,0.5161290322580645
+BC-Final,fever,accuracy,0.9701195219123506
+BC-Final,fever,specificity,0.9755600814663951
+BC-Final,fever,kappa,0.5020499933871183
+gpt,fever,precision,1.0
+gpt,fever,recall,0.36363636363636365
+gpt,fever,f1,0.5333333333333333
+gpt,fever,accuracy,0.9860557768924303
+gpt,fever,specificity,1.0
+gpt,fever,kappa,0.5278151034668104
+grok,fever,precision,1.0
+grok,fever,recall,0.45454545454545453
+grok,fever,f1,0.625
+grok,fever,accuracy,0.9880478087649402
+grok,fever,specificity,1.0
+grok,fever,kappa,0.6197929815703109
+gemini,fever,precision,1.0
+gemini,fever,recall,0.6363636363636364
+gemini,fever,f1,0.7777777777777778
+gemini,fever,accuracy,0.9920318725099602
+gemini,fever,specificity,1.0
+gemini,fever,kappa,0.7739247917135783
+llama,fever,precision,1.0
+llama,fever,recall,0.5454545454545454
+llama,fever,f1,0.7058823529411764
+llama,fever,accuracy,0.9900398406374502
+llama,fever,specificity,1.0
+llama,fever,kappa,0.7012616043799099
+BC-FuzzyEq,covid-19,precision,1.0
+BC-FuzzyEq,covid-19,recall,0.058823529411764705
+BC-FuzzyEq,covid-19,f1,0.1111111111111111
+BC-FuzzyEq,covid-19,accuracy,0.9681274900398407
+BC-FuzzyEq,covid-19,specificity,1.0
+BC-FuzzyEq,covid-19,kappa,0.10775383248167125
+BC-Curated,covid-19,precision,1.0
+BC-Curated,covid-19,recall,0.11764705882352941
+BC-Curated,covid-19,f1,0.21052631578947367
+BC-Curated,covid-19,accuracy,0.9701195219123506
+BC-Curated,covid-19,specificity,1.0
+BC-Curated,covid-19,kappa,0.20485744456177488
+BC-EmbedEq,covid-19,precision,1.0
+BC-EmbedEq,covid-19,recall,0.9411764705882353
+BC-EmbedEq,covid-19,f1,0.9696969696969697
+BC-EmbedEq,covid-19,accuracy,0.99800796812749
+BC-EmbedEq,covid-19,specificity,1.0
+BC-EmbedEq,covid-19,kappa,0.9686680813880915
+BC-Final,covid-19,precision,1.0
+BC-Final,covid-19,recall,0.9411764705882353
+BC-Final,covid-19,f1,0.9696969696969697
+BC-Final,covid-19,accuracy,0.99800796812749
+BC-Final,covid-19,specificity,1.0
+BC-Final,covid-19,kappa,0.9686680813880915
+gpt,covid-19,precision,1.0
+gpt,covid-19,recall,0.4117647058823529
+gpt,covid-19,f1,0.5833333333333334
+gpt,covid-19,accuracy,0.9800796812749004
+gpt,covid-19,specificity,1.0
+gpt,covid-19,kappa,0.57493649449619
+grok,covid-19,precision,1.0
+grok,covid-19,recall,0.6470588235294118
+grok,covid-19,f1,0.7857142857142858
+grok,covid-19,accuracy,0.9880478087649402
+grok,covid-19,specificity,1.0
+grok,covid-19,kappa,0.779856746089753
+gemini,covid-19,precision,0.09565217391304348
+gemini,covid-19,recall,0.6470588235294118
+gemini,covid-19,f1,0.16666666666666669
+gemini,covid-19,accuracy,0.7808764940239044
+gemini,covid-19,specificity,0.7855670103092783
+gemini,covid-19,kappa,0.1144112647143727
+llama,covid-19,precision,1.0
+llama,covid-19,recall,0.7058823529411765
+llama,covid-19,f1,0.8275862068965517
+llama,covid-19,accuracy,0.9900398406374502
+llama,covid-19,specificity,1.0
+llama,covid-19,kappa,0.8226148409893994

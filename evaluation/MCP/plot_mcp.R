@@ -1,0 +1,295 @@
+# Install packages if missing
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ggplot2, dplyr, tidyr, patchwork, scales, ggtext, grid, extrafont, readxl, colormap, stringr)
+
+# 1. FONT & DATA SETUP ---------------------------------------------------------
+loadfonts(device = "pdf", quiet = TRUE)
+
+# Load data
+df <- read_excel("~/abhi/biochirp/evaluation/MCP/result_mcp.xlsx")
+
+# Force numeric & Handle NAs
+df$Count <- suppressWarnings(as.numeric(as.character(df$Count)))
+df$Latency <- suppressWarnings(as.numeric(as.character(df$Latency)))
+df$Count[is.na(df$Count)] <- 0
+
+# Data Cleaning
+df <- df %>%
+  filter(!is.na(Model) & Model != "") %>%
+  mutate(
+    Error = ifelse(is.na(Error) | Error == "", "Pass", trimws(Error)),
+    Status = case_when(
+      Error == "Pass" ~ "Pass",
+      grepl("Partial", Error, ignore.case = TRUE) ~ "Partial",
+      TRUE ~ "Fail"
+    ),
+    Model = ifelse(tolower(Model) == "biochirp", "BioChirp", Model),
+    Provider = case_when(
+      Model %in% c("Haiku 3.5", "Sonnet 4.5") ~ "Claude",
+      Model == "BioChirp" ~ "BioChirp",
+      TRUE ~ "OpenAI"
+    ),
+    Type = ifelse(is.na(Type), "Unknown", Type),
+    # Assign Concept Group for Sorting
+    Concept = case_when(
+      grepl("CML", Question) ~ "CML",
+      grepl("aspirin", Question, ignore.case = TRUE) ~ "Aspirin",
+      grepl("TP53", Question, ignore.case = TRUE) ~ "TP53",
+      TRUE ~ "Other"
+    ),
+    Q_Label = case_when(
+      grepl("CML complete", Question) ~ "CML\n(all)",
+      grepl("CML top", Question) ~ "CML\n(top)",
+      grepl("treated with aspirin", Question) & grepl("Top", Question) ~ "Aspirin\n(top)",
+      grepl("treated with aspirin", Question) & grepl("All", Question) ~ "Aspirin\n(all)",
+      grepl("associated with TP53", Question) & grepl("Top", Question) ~ "TP53\n(top)",
+      grepl("associated with TP53", Question) & grepl("All", Question) ~ "TP53\n(all)",
+      TRUE ~ Question
+    )
+  )
+
+# BioChirp Baseline Data
+biochirp_data <- data.frame(
+  Question = unique(df$Question),
+  Model = "BioChirp",
+  Run = 1,
+  Error = "Pass",
+  Count = c(4916, 4916, 363, 363, 3258, 3258),
+  Status = "Pass",
+  Provider = "BioChirp",
+  Q_Label = c("CML\n(all)", "CML\n(top)", "Aspirin\n(top)", "Aspirin\n(all)", "TP53\n(top)", "TP53\n(all)"),
+  Concept = c("CML", "CML", "Aspirin", "Aspirin", "TP53", "TP53"),
+  Latency = NA, Type = "N/A", stringsAsFactors = FALSE
+)
+
+# Merge
+common_cols <- c("Question", "Model", "Run", "Error", "Count", "Status", "Provider", "Q_Label", "Latency", "Type", "Concept")
+df_all <- bind_rows(df %>% select(all_of(common_cols)), biochirp_data %>% select(all_of(common_cols)))
+df_all <- df_all %>% filter(!is.na(Model))
+
+# 2. STYLE DEFINITIONS ---------------------------------------------------------
+
+# Palette for Panel B, C, F (Standard Monochromatic)
+cols_provider_mono <- c(BioChirp = "#5BBCBF", Claude = "#404040", OpenAI = "#D9D9D9")
+cols_status_mono   <- c(Pass = "#000000", Partial = "#737373", Fail = "#E5E5E5")
+
+# Palette for Panel D, E (High Contrast Qualitative)
+cols_model_nature <- c(
+  "BioChirp"     = "#5BBCBF",  # Vivid Green
+  "gpt-4.1-nano" = "#F0E442",  # Bright Yellow
+  "gpt-4o-mini"  = "#CC79A7",  # Pink/Purple
+  "gpt-4.1-mini" = "#D55E00",  # Vermillion
+  "gpt-5-nano"   = "#E69F00",  # Orange
+  "gpt-5-mini"   = "#0072B2",  # Blue
+  "Haiku 3.5"    = "#56B4E9",  # Sky Blue
+  "Sonnet 4.5"   = "#009E73"   # Teal
+)
+
+# Vector Theme (No Grids)
+theme_vector <- function() {
+  theme_minimal(base_size = 7, base_family = "Arial") +
+    theme(
+      text = element_text(family = "Arial"),
+      plot.title = element_text(face = "bold", size = 8, margin = margin(b = 4), color = "#333333"),
+      axis.title = element_text(size = 7, color = "#333333"),
+      axis.text = element_text(size = 7, color = "#333333"),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 6, color = "#333333"),
+      legend.key.size = unit(0.3, "cm"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(linewidth = 0.3, color = "#333333"),
+      axis.ticks = element_line(linewidth = 0.3, color = "#333333"),
+      # Facet Specifics
+      strip.background = element_blank(),
+      strip.text = element_text(size = 7, color = "#333333"),
+      panel.spacing = unit(0.1, "cm")
+    )
+}
+
+# 3. PLOTS ---------------------------------------------------------------------
+
+# (a) Success Rate
+df_success <- df_all %>% 
+  group_by(Model, Provider) %>% 
+  summarise(Rate = sum(Status == "Pass") / n() * 100, .groups = 'drop') %>%
+  arrange(Rate, Model == "BioChirp") %>%
+  mutate(Model = factor(Model, levels = unique(Model)))
+
+grey_palette <- colorRampPalette(c("#E0E0E0", "#252525"))(101)
+df_success$BarColor <- sapply(1:nrow(df_success), function(i) {
+  if (df_success$Model[i] == "BioChirp") return("#5BBCBF")
+  idx <- round(df_success$Rate[i]) + 1
+  return(grey_palette[idx])
+})
+
+p_a <- ggplot(df_success, aes(x = Model, y = Rate)) +
+  geom_bar(stat = "identity", width = 0.7, fill = df_success$BarColor, color = NA) +
+  geom_text(aes(label = sprintf("%.0f%%", Rate)), hjust = -0.2, size = 2, family = "Arial") +
+  coord_flip() + scale_y_continuous(limits = c(0, 115), expand = c(0,0)) +
+  labs(title = "a  Success rate across all queries", y = "Success rate (%)", x = NULL) +
+  theme_vector()
+
+# (b) Run Outcome
+df_outcome <- df %>% filter(!is.na(Model)) %>%
+  group_by(Model, Status) %>% summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Model) %>% mutate(Percent = Count / sum(Count) * 100)
+
+p_b <- ggplot(df_outcome, aes(x = Model, y = Percent, fill = factor(Status, levels = c("Fail", "Partial", "Pass")))) +
+  geom_bar(stat = "identity", width = 0.7, color = NA) +
+  scale_fill_manual(values = cols_status_mono) +
+  labs(title = "b  Run outcome distribution (MCP)", y = "Proportion of runs (%)", x = NULL) +
+  theme_vector() + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top", legend.margin = margin(0,0,0,0))
+
+# (c) Provider Success [GROUPED BY CONCEPT]
+df_provider_q <- df_all %>% group_by(Provider, Q_Label, Concept) %>% summarise(Rate = sum(Status == "Pass") / n() * 100, .groups = 'drop')
+
+# 1. Sort Questions: Concept Order -> Median Rate of Question
+q_order_c <- df_provider_q %>%
+  mutate(Concept = factor(Concept, levels = c("CML", "Aspirin", "TP53"))) %>% # Force Concept Order
+  group_by(Q_Label, Concept) %>% 
+  summarise(M = median(Rate), .groups = "drop") %>% 
+  arrange(Concept, M) %>% 
+  pull(Q_Label)
+
+# 2. Sort Bars Internal: Rate -> BioChirp Last
+df_provider_q <- df_provider_q %>%
+  mutate(Q_Label = factor(Q_Label, levels = q_order_c)) %>%
+  arrange(Q_Label, Rate, Provider == "BioChirp") %>% 
+  mutate(unique_id = factor(paste(Provider, Q_Label), levels = paste(Provider, Q_Label)))
+
+p_c <- ggplot(df_provider_q, aes(x = unique_id, y = Rate, fill = Provider)) +
+  geom_bar(stat = "identity", width = 0.9, color = NA) +
+  geom_text(aes(label = round(Rate)), 
+            vjust = 0.5, hjust = -0.2, angle = 90, size = 1.8, family = "Arial") +
+  scale_fill_manual(values = cols_provider_mono) +
+  scale_y_continuous(limits = c(0, 130), expand = c(0,0)) + 
+  facet_grid(~Q_Label, scales = "free_x", switch = "x") +
+  labs(title = "c  Provider success rate per query", y = "Success rate (%)", x = NULL) +
+  theme_vector() + 
+  theme(legend.position = "top", legend.margin = margin(0,0,0,0),
+        axis.text.x = element_blank(), axis.ticks.x = element_blank(), strip.placement = "outside")
+
+# (d) Data Completeness [GROUPED BY CONCEPT]
+df_max_count <- df_all %>% filter(Status == "Pass") %>%
+  group_by(Model, Q_Label, Provider, Concept) %>% 
+  summarise(MaxCount = max(Count, na.rm = TRUE), .groups = 'drop') %>%
+  mutate(MaxCount = ifelse(MaxCount < 1, 1, MaxCount))
+
+# 1. Sort Questions: Concept Order -> Median Yield of Question
+q_order_d <- df_max_count %>%
+  mutate(Concept = factor(Concept, levels = c("CML", "Aspirin", "TP53"))) %>% # Force Concept Order
+  group_by(Q_Label, Concept) %>% 
+  summarise(M = median(MaxCount), .groups = "drop") %>% 
+  arrange(Concept, M) %>% 
+  pull(Q_Label)
+
+# 2. Sort Bars Internal: MaxCount -> BioChirp Last
+df_max_count <- df_max_count %>%
+  mutate(Q_Label = factor(Q_Label, levels = q_order_d)) %>%
+  arrange(Q_Label, MaxCount, Model == "BioChirp") %>%
+  mutate(unique_id = factor(paste(Model, Q_Label), levels = paste(Model, Q_Label)))
+
+p_d <- ggplot(df_max_count, aes(x = unique_id, y = MaxCount, fill = Model)) +
+  geom_bar(stat = "identity", width = 0.9, color = NA) +
+  geom_text(aes(label = format(MaxCount, big.mark=",", scientific=FALSE)), 
+            vjust = 0.5, hjust = -0.2, angle = 90, size = 1.5, family = "Arial") +
+  scale_y_log10(labels = trans_format("log10", math_format(10^.x)), 
+                expand = expansion(mult = c(0, 0.25))) + 
+  scale_fill_manual(values = cols_model_nature) +
+  facet_grid(~Q_Label, scales = "free_x", switch = "x") +
+  labs(title = "d  Data completeness (log scale)", y = "Records retrieved", x = NULL) +
+  theme_vector() + 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.ticks.x = element_blank(), strip.placement = "outside")
+
+# (e) Reproducibility
+df_runs <- df %>% filter(!is.na(Model)) %>%
+  select(Question, Model, Run, Count) %>% group_by(Question, Model, Run) %>%
+  summarise(Count = max(Count, na.rm=TRUE), .groups="drop") %>%
+  pivot_wider(names_from = Run, values_from = Count, names_prefix = "Run") %>%
+  mutate(Run1 = ifelse(is.na(Run1) | Run1 < 1, 0.5, Run1), Run2 = ifelse(is.na(Run2) | Run2 < 1, 0.5, Run2))
+
+p_e <- ggplot(df_runs, aes(x = Run1, y = Run2, color = Model)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "#999999") +
+  geom_point(size = 1.8, alpha = 0.8) +
+  annotate("point", x = 4916, y = 4916, color = cols_model_nature["BioChirp"], shape = 18, size = 4) +
+  annotate("text", x = 500, y = 8000, label = "BioChirp (Perfect)", color = cols_model_nature["BioChirp"], size = 2.5, fontface = "bold", family = "Arial") +
+  scale_x_log10(labels = trans_format("log10", math_format(10^.x))) + scale_y_log10(labels = trans_format("log10", math_format(10^.x))) +
+  scale_color_manual(values = cols_model_nature) +
+  labs(title = "e  Reproducibility: Run 1 vs Run 2", x = "Run 1 Records", y = "Run 2 Records") +
+  theme_vector() + theme(legend.position = "right")
+
+# (f) Failures
+df_errors <- df %>% filter(Status == "Fail" & !is.na(Model)) %>% group_by(Provider, Error) %>% summarise(Count = n(), .groups = 'drop')
+p_f <- ggplot(df_errors, aes(x = Error, y = Count, fill = Provider)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7, color = NA) +
+  geom_text(aes(label = Count), position = position_dodge(width = 0.7), vjust = -0.5, size = 2, family = "Arial") +
+  scale_fill_manual(values = cols_provider_mono) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) + 
+  labs(title = "f  MCP failure modes by provider", y = "Failed runs", x = NULL) +
+  annotate("text", x = 2.5, y = max(df_errors$Count), label = "BioChirp: 0 Errors", color = cols_provider_mono["BioChirp"], size = 2.5, fontface="bold", family="Arial") +
+  theme_vector() + theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+# (g) Latency [HUE = AGENTIC vs CHAT, X = MODEL]
+df_lat <- df %>%
+  filter(!is.na(Latency) & !is.na(Model)) %>%
+  mutate(
+    Workflow = case_when(
+      Provider == "OpenAI" & Type == "Agentic" ~ "Agentic",
+      Provider == "OpenAI" & Type == "ChatEndPoint" ~ "Chat Endpoint",
+      Model == "BioChirp" ~ "BioChirp",
+      TRUE ~ "Standard" 
+    )
+  )
+
+lat_medians <- df_lat %>% group_by(Model) %>% summarise(m = median(Latency, na.rm=TRUE)) %>% arrange(m)
+df_lat$Model <- factor(df_lat$Model, levels = lat_medians$Model)
+
+cols_latency <- c(
+  "Agentic"       = "#984EA3",  
+  "Chat Endpoint" = "#377EB8",  
+  "Standard"      = "#999999",  
+  "BioChirp"      = "#5BBCBF"   
+)
+
+p_g <- ggplot(df_lat, aes(x = Model, y = Latency, fill = Workflow)) +
+  geom_boxplot(outlier.size = 0.5, linewidth = 0.2, alpha = 0.8) +
+  scale_fill_manual(values = cols_latency) +
+  coord_flip() + 
+  labs(title = "g  Query latency distribution", y = "Latency (s)", x = NULL) +
+  theme_vector() + 
+  theme(legend.position = "right", legend.key.size = unit(0.3, "cm"))
+
+# (h) Vector Heatmap
+df_heatmap <- df_all %>% 
+  group_by(Model, Q_Label) %>%
+  summarise(
+    MaxCount = max(Count, na.rm = TRUE), 
+    Status = ifelse(all(Status == "Fail"), "Fail", "Pass"), 
+    .groups = 'drop'
+  ) %>%
+  mutate(
+    LogCount = ifelse(MaxCount > 0, log10(MaxCount + 1), 0), 
+    Label = ifelse(Status == "Fail", "✗", format(MaxCount, big.mark=","))
+  )
+
+model_medians <- df_heatmap %>% group_by(Model) %>% summarise(MedianYield = median(MaxCount, na.rm = TRUE)) %>% arrange(MedianYield)
+df_heatmap$Model <- factor(df_heatmap$Model, levels = model_medians$Model)
+
+p_h <- ggplot(df_heatmap, aes(x = Model, y = Q_Label, fill = LogCount)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = Label, color = LogCount > 2.5), size = 2, family = "Arial", fontface = "bold") +
+  scale_fill_gradientn(colors = c("#ffffe5", "#f7fcb9", "#addd8e", "#41ab5d", "#005a32"), name = "Log Yield") +
+  
+  scale_color_manual(values = c("#333333", "white"), guide = "none") +
+  labs(title = "h  Best records retrieved (Heatmap)", x = NULL, y = NULL) +
+  theme_vector() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+
+# 4. EXPORT --------------------------------------------------------------------
+layout <- (p_a + p_b) / (p_c + p_d) / (p_e + p_f) / (p_g + p_h + plot_layout(widths = c(1, 1.8)))
+final_plot <- layout + plot_annotation(title = 'BioChirp vs MCP — Comparative Performance Analysis', 
+                                       theme = theme(plot.title = element_text(size = 12, face = "bold", family = "Arial", color = "#333333"),
+                                                     plot.subtitle = element_text(size = 8, family = "Arial", color = "#666666"), plot.margin = margin(15, 15, 15, 15, "mm")))
+
+ggsave("BioChirp_vs_MCP_Final_Concepts_Ordered.pdf", plot = final_plot, width = 210, height = 297, units = "mm", device = cairo_pdf)
