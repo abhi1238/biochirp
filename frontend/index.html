@@ -78,7 +78,6 @@
       <nav class="hidden md:flex items-center gap-2">
         <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#features">Features</a>
         <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#domains">What it Answers</a>
-        <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#how">How it works</a>
         <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="#services">Services</a>
         <a class="px-3 py-1.5 rounded-lg text-sm hover:bg-[--hover] border border-[--border]" href="/help">Help</a>
       </nav>
@@ -107,17 +106,19 @@
             BioChirp unifies LLM reasoning with curated biomedical datasets (Therapeutic Target Database, Comparative Toxicogenomics Database, HCDT) and real-time web research. Every answer includes citations, provenance, and structured fields like biomarker, pathway, approval status, and gene association.
           </p>
           <div class="mt-6 flex flex-wrap gap-3">
-            <a href="#features" class="px-4 py-2 rounded-xl border border-[--border] hover:bg-[--hover]">See Features</a>
-            <a href="#domains" class="px-4 py-2 rounded-xl border border-[--border] hover:bg-[--hover]">What it Answers</a>
-            <a id="openOpenTargetBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-white shadow-glow cursor-pointer">Talk with OpenTarget</a>
-            <a id="openTTDBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-fuchsia-500 hover:from-pink-400 hover:to-fuchsia-400 text-white shadow-glow cursor-pointer">Talk with TTD</a>
-            <a id="openCTDBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white shadow-glow cursor-pointer">Talk with CTD</a>
-            <a id="openHCDTBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 text-white shadow-glow cursor-pointer">Talk with HCDT</a>
+            <a id="openOpenTargetBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-white shadow-glow cursor-pointer">Talk with Open Targets Platform</a>
+            <a id="openTTDBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-fuchsia-500 hover:from-pink-400 hover:to-fuchsia-400 text-white shadow-glow cursor-pointer">Talk with Therapeutic Target Database</a>
+            <a id="openCTDBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white shadow-glow cursor-pointer">Talk with Comparative Toxicogenomics Database</a>
+            <a id="openHCDTBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 text-white shadow-glow cursor-pointer">Talk with Highly Confident Drug-Target Database</a>
           </div>
 
           <div class="mt-6 flex flex-wrap gap-2">
             <span class="chip px-2.5 py-1 rounded-full text-xs"> ✅ Auditability</span>
             <span class="chip px-2.5 py-1 rounded-full text-xs"> 🗄️🤖 Database-GPT</span>
+
+            <a href="https://platform.opentargets.org/" target="_blank" rel="noopener" class="chip px-2.5 py-1 rounded-full text-xs">
+              🧬 Open Targets Platform
+            </a>
 
             <a href="https://ttd.idrblab.cn/" target="_blank" rel="noopener" class="chip px-2.5 py-1 rounded-full text-xs">
               🎯 Therapeutic Target Database
@@ -138,7 +139,27 @@
 
         <!-- Hero media -->
         <div class="card rounded-2xl p-5 md:p-6 shadow-glow" style="max-width: 1200px; max-height: 800px;">
-          <img src="/assets/brand/biochirp_demo.gif" alt="Orchestration flow animation" style="width: 99%; height: 99%; object-fit: contain;" />
+          <video
+            id="heroDemoVideo"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            style="width: 99%; height: 99%; object-fit: contain;"
+          >
+            <source id="heroDemoSource" src="/assets/brand/biochirp_demo1.mp4" type="video/mp4" />
+          </video>
+          <img
+            id="heroDemoFallbackImg"
+            src="/assets/brand/biochirp_demo.gif"
+            alt="Orchestration flow animation"
+            class="hidden"
+            style="width: 99%; height: 99%; object-fit: contain;"
+          />
+          <p id="heroMediaFallback" class="hidden mt-3 text-sm text-[--muted]">
+            Video preview could not be loaded in this browser. Showing GIF fallback.
+          </p>
         </div>
       </div>
     </div>
@@ -225,10 +246,6 @@
         <div class="card rounded-2xl p-5 card-hover"><h4 class="font-semibold mb-1">Pathway</h4><p class="text-sm text-[--muted]">Member genes, drugs acting on it, disease connections.</p></div>
         <div class="card rounded-2xl p-5 card-hover"><h4 class="font-semibold mb-1">Approval Status</h4><p class="text-sm text-[--muted]">Investigational/approved etc.</p></div>
       </div>
-      <div class="mt-6">
-        <div class="text-sm text-[--muted] mb-2">Try a one-click query</div>
-        <div class="flex flex-wrap gap-2" id="examples"></div>
-      </div>
     </div>
   </section>
 
@@ -239,6 +256,11 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div class="text-sm text-[--muted]">Powered by curated knowledge bases</div>
           <div class="flex items-center gap-6 opacity-90">
+            <div class="flex items-center gap-2">
+              <a href="https://platform.opentargets.org/" target="_blank" rel="noopener" class="chip px-2.5 py-1 rounded-full text-xs">
+                🧬 Open Targets Platform
+              </a>
+            </div>
             <div class="flex items-center gap-2">
               <a href="https://ttd.idrblab.cn/" target="_blank" rel="noopener" class="chip px-2.5 py-1 rounded-full text-xs">
                 🎯 Therapeutic Target Database
@@ -325,12 +347,6 @@
         issues: "https://github.com/abhi1238/biochirp/issues",
         email:  "abhishekh@iiitd.ac.in"
       },
-      examples: [
-        { label: "List PARP inhibitors used to treat ovarian cancer.", q: "List PARP inhibitors used to treat ovarian cancer." },
-        { label: "What are the pathway associated with fever", q: "What are the pathway associated with fever" },
-        { label: "List pathways associated with EGFR", q: "List pathways associated with EGFR" },
-        { label: "Provide biomarkers relevant to ADHD.", q: "Provide biomarkers relevant to ADHD." }
-      ],
       services: [
         { key:"interpreter", name:"Interpreter", desc:"Normalize queries and extract key biomedical concepts.",
           color:"from-bio-500 to-plum",
@@ -418,6 +434,63 @@
       window.open(url, '_blank', 'noopener');
     }
 
+    function initHeroMediaFallback() {
+      const video = document.getElementById('heroDemoVideo');
+      const source = document.getElementById('heroDemoSource');
+      const fallbackImg = document.getElementById('heroDemoFallbackImg');
+      const fallbackMsg = document.getElementById('heroMediaFallback');
+      if (!video || !fallbackImg || !fallbackMsg) return;
+
+      let settled = false;
+      let timeoutId = null;
+
+      const markReady = () => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+      };
+
+      const showFallback = () => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        video.classList.add('hidden');
+        fallbackImg.classList.remove('hidden');
+        fallbackMsg.classList.remove('hidden');
+      };
+
+      // Treat media as healthy once it is decodable, even if autoplay is blocked.
+      video.addEventListener('loadedmetadata', markReady, { once: true });
+      video.addEventListener('loadeddata', markReady, { once: true });
+      video.addEventListener('canplay', markReady, { once: true });
+      video.addEventListener('timeupdate', () => {
+        if (video.currentTime > 0.1) markReady();
+      });
+      video.addEventListener('error', showFallback, { once: true });
+      if (source) source.addEventListener('error', showFallback, { once: true });
+
+      // Try autoplay, but don't fallback just because autoplay is blocked.
+      try {
+        const maybePromise = video.play();
+        if (maybePromise && typeof maybePromise.catch === 'function') {
+          maybePromise.catch(() => {
+            // Browser blocked autoplay. Keep video visible and wait for user interaction.
+          });
+        }
+      } catch {
+        // Ignore autoplay exceptions; fallback is handled only for true media failures.
+      }
+
+      timeoutId = setTimeout(() => {
+        const noSource = video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE;
+        const decodeError = Boolean(video.error);
+        const neverLoaded = video.readyState === 0;
+        if (noSource || decodeError || neverLoaded) {
+          showFallback();
+        }
+      }, 8000);
+    }
+
     // Keep content below fixed header (dynamic padding)
     function padForHeader() {
       const header = document.querySelector('header');
@@ -457,22 +530,6 @@
     document.getElementById('openHCDTBtn')?.addEventListener('click', () => {
       window.location.href = CONFIG.hcdtChatUrl;
     });
-
-    // Example chips
-    function renderExamples() {
-      const box = document.getElementById('examples');
-      CONFIG.examples.forEach(ex => {
-        const a = document.createElement('a');
-        a.className = 'chip px-3 py-1.5 rounded-full text-sm hover:bg-[--hover]';
-        a.textContent = ex.label;
-        a.href = `${CONFIG.chatUrl}?q=${encodeURIComponent(ex.q)}`;
-        a.addEventListener('click', (e) => {
-          e.preventDefault();
-          window.location.href = `${CONFIG.chatUrl}?q=${encodeURIComponent(ex.q)}`;
-        });
-        box.appendChild(a);
-      });
-    }
 
     // Service cards
     function renderCards() {
@@ -551,9 +608,9 @@
 
     // Init
     function init(){
-      renderExamples();
       renderCards();
       padForHeader();
+      initHeroMediaFallback();
       checkStatus();
       document.getElementById('year').textContent = new Date().getFullYear();
 

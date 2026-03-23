@@ -455,7 +455,7 @@ async def orchestrator_ws(websocket: WebSocket):
         new_text: str,
         tool_id: str,
         tool_name: str,
-        chunk_size: int = 256,
+        chunk_size: int = 32,
         min_delay: float = 0.05,
     ):
         """Stream text in chunks to client."""
@@ -539,8 +539,10 @@ async def orchestrator_ws(websocket: WebSocket):
         instructions=prompt_md,
         # tools=[web, readme, interpreter, hcdt],
         model=ORCHESTRATOR_MODEL_NAME,
+        tools=[web, readme, interpreter, hcdt, WebSearchTool()],
 
-        tools=[memory_tool, web, readme, interpreter, hcdt, WebSearchTool()],
+
+        # tools=[memory_tool, web, readme, interpreter, hcdt, WebSearchTool()],
 
     )
 
@@ -738,7 +740,7 @@ async def orchestrator_ws(websocket: WebSocket):
                                         new_text=msg,
                                         tool_id=tool_info["tool_id"],
                                         tool_name=tool_info["name"],
-                                        chunk_size=256,
+                                        chunk_size=32,
                                         min_delay=0.05,
                                     )
 
@@ -794,7 +796,7 @@ async def orchestrator_ws(websocket: WebSocket):
                                         new_text=text,
                                         tool_id="orchestrator",
                                         tool_name="orchestrator",
-                                        chunk_size=256,
+                                        chunk_size=32,
                                         min_delay=0.05,
                                     )
                                 continue

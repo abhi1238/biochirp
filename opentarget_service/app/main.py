@@ -435,7 +435,7 @@ async def opentarget_ws(websocket: WebSocket):
         new_text: str,
         tool_id: str,
         tool_name: str,
-        chunk_size: int = 5120,
+        chunk_size: int = 32,
         min_delay: float = 0.05,
     ):
         if not new_text:
@@ -697,7 +697,7 @@ async def opentarget_ws(websocket: WebSocket):
                                     new_text=msg,
                                     tool_id=tool_info["tool_id"],
                                     tool_name=tool_info["name"],
-                                    chunk_size=5120,
+                                    chunk_size=32,
                                     min_delay=0.05,
                                 )
 
@@ -749,7 +749,7 @@ async def opentarget_ws(websocket: WebSocket):
                                     new_text=text,
                                     tool_id="orchestrator",
                                     tool_name="orchestrator",
-                                    chunk_size=5120,
+                                    chunk_size=32,
                                     min_delay=0.05,
                                 )
                             continue

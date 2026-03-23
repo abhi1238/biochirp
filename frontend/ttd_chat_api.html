@@ -540,6 +540,73 @@
   const aliasToPrimary = new Map();  // aliasId -> primaryId
   const nameKey = (n)=> String(n||'tool').trim().toLowerCase();
   const canonicalId = (raw)=> aliasToPrimary.get(raw) || raw || 'tool';
+  let orchVisibleStreamed = false;
+  let fauxOrchTimer = null;
+  const FAUX_ORCH_CHARS_PER_TICK = 24;
+  const FAUX_ORCH_TICK_MS = 18;
+
+  function stopFauxOrchStream(){
+    if (fauxOrchTimer) {
+      clearInterval(fauxOrchTimer);
+      fauxOrchTimer = null;
+    }
+  }
+
+  function appendCursor(bubble){
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    cursor.style.display = 'inline-block';
+    cursor.style.width = '2px';
+    cursor.style.height = '1em';
+    cursor.style.verticalAlign = 'text-bottom';
+    cursor.style.background = 'var(--accent)';
+    cursor.style.marginLeft = '2px';
+    cursor.style.animation = 'blink 1s infinite';
+    bubble.appendChild(cursor);
+  }
+
+  function renderOrchBubbleText(bubble, text, withCursor=false){
+    if (typeof setMarkdown === 'function') {
+      setMarkdown(bubble, text || '');
+    } else {
+      bubble.innerHTML = marked.parse(text || '');
+    }
+    if (withCursor) appendCursor(bubble);
+    bubble.querySelectorAll('pre code').forEach(c => hljs.highlightElement(c));
+  }
+
+  function fakeStreamOrchFromFullText(fullText){
+    stopFauxOrchStream();
+    if (!currentAssistantMessage) currentAssistantMessage = createAssistant();
+    const bubble = mainBubble(currentAssistantMessage);
+    const text = String(fullText || '');
+    if (!text) {
+      renderOrchBubbleText(bubble, '', false);
+      orchestratorBuf = '';
+      orchVisibleStreamed = false;
+      orchestratorDone = true;
+      maybeFinishStreaming();
+      return;
+    }
+
+    let idx = 0;
+    bubble.textContent = '';
+    fauxOrchTimer = setInterval(() => {
+      idx = Math.min(text.length, idx + FAUX_ORCH_CHARS_PER_TICK);
+      bubble.textContent = text.slice(0, idx);
+      appendCursor(bubble);
+      scrollEnd();
+      if (idx >= text.length) {
+        stopFauxOrchStream();
+        renderOrchBubbleText(bubble, text, false);
+        orchestratorBuf = '';
+        orchVisibleStreamed = false;
+        orchestratorDone = true;
+        maybeFinishStreaming();
+        scrollEnd();
+      }
+    }, FAUX_ORCH_TICK_MS);
+  }
 
   const activeSessionId = 'sess_' + Math.random().toString(36).slice(2,10);
 
@@ -676,8 +743,10 @@
 </div>
         </div>
       </div>`;
+    stopFauxOrchStream();
     currentAssistantMessage=null; currentToolCards.clear(); orchestratorBuf='';
     toolBuffers.clear(); toolCount=0; suppressOrchStream=false;
+    orchVisibleStreamed=false;
     orchestratorDone=false; isStreaming=false;
     toolStartTimes.clear(); toolElapsed.clear();
     const last = mc.querySelector('.message-bubble');
@@ -794,23 +863,29 @@
     const maybe = sanitizeOrchestrator(text);
     if (!maybe) return;
 
+    stopFauxOrchStream();
     orchestratorBuf += maybe;
     if (suppressOrchStream) return;
+    orchVisibleStreamed = true;
 
     if (!currentAssistantMessage) currentAssistantMessage = createAssistant();
     const bubble = mainBubble(currentAssistantMessage);
-    bubble.innerHTML = marked.parse(orchestratorBuf) +
-      `<span style="display:inline-block;width:2px;height:1em;background:var(--accent);margin-left:2px;animation:blink 1s infinite"></span>`;
-    bubble.querySelectorAll('pre code').forEach(c => hljs.highlightElement(c));
+    renderOrchBubbleText(bubble, orchestratorBuf, true);
     scrollEnd();
   }
   function onOrchFinal(text){
-    const cleaned = sanitizeOrchestrator(text);
+    const cleaned = sanitizeOrchestrator(text || '');
+    const finalText = cleaned || orchestratorBuf || '';
     if (!currentAssistantMessage) currentAssistantMessage = createAssistant();
+    if (!orchVisibleStreamed && finalText) {
+      fakeStreamOrchFromFullText(finalText);
+      return;
+    }
+    stopFauxOrchStream();
     const bubble = mainBubble(currentAssistantMessage);
-    bubble.innerHTML = marked.parse(cleaned || orchestratorBuf || '');
-    bubble.querySelectorAll('pre code').forEach(c=>hljs.highlightElement(c));
+    renderOrchBubbleText(bubble, finalText, false);
     orchestratorBuf = '';
+    orchVisibleStreamed = false;
     orchestratorDone = true;
     maybeFinishStreaming();
     scrollEnd();
@@ -1345,12 +1420,14 @@
   }
 
   function kickOffStream(){
+    stopFauxOrchStream();
     orchestratorDone=false;
     startStreaming();
     currentAssistantMessage=null; currentToolCards.clear();
     orchestratorBuf=''; toolBuffers.clear(); toolCount=0;
     pendingUI.clear();
     suppressOrchStream=false;
+    orchVisibleStreamed=false;
     toolStartTimes.clear(); toolElapsed.clear();
   }
 

@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BioChirp — Help & Documentation</title>
+
+  <!-- Tailwind CDN -->
+  <link rel="preconnect" href="https://cdn.tailwindcss.com">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ["Inter","ui-sans-serif","system-ui","Segoe UI","Roboto","Helvetica","Arial","sans-serif"],
+          },
+          colors: {
+            bio: {50:'#EDF8FF',100:'#D7F0FF',200:'#ADE2FF',300:'#7CD0FF',400:'#4EBBFF',500:'#1FA4FF',600:'#147DCC',700:'#0E5EA0',800:'#0A4476',900:'#082F53'},
+            leaf:'#22C55E',
+            plum:'#A78BFA',
+            amber:'#F59E0B'
+          },
+          boxShadow:{
+            glow:'0 0 0 2px rgba(31,164,255,.25), 0 12px 40px rgba(0,0,0,.35)'
+          },
+          animation:{ gradient:'gradient 16s ease infinite' },
+          keyframes:{
+            gradient:{
+              '0%,100%':{backgroundPosition:'0% 50%'},
+              '50%':{backgroundPosition:'100% 50%'}
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root[data-theme="dark"]  {
+      --bg:#070A15;
+      --card:#0B1222;
+      --muted:#9FB0C4;
+      --text:#E6F2FF;
+      --border:rgba(255,255,255,.10);
+      --hover:rgba(255,255,255,.06);
+    }
+    :root[data-theme="light"] {
+      --bg:#EEF3FF;
+      --card:#FFFFFF;
+      --muted:#4B5563;
+      --text:#0B1624;
+      --border:rgba(15,23,42,.10);
+      --hover:rgba(15,23,42,.04);
+    }
+
+    html,body{height:100%}
+
+    body{
+      font-size:15px;
+      line-height:1.6;
+    }
+    @media (min-width:768px){
+      body{ font-size:16px; }
+    }
+    .text-sm{
+      font-size:0.95rem;
+      line-height:1.6;
+    }
+    .text-xs{
+      font-size:0.8rem;
+      line-height:1.5;
+    }
+
+    .gradient-bg{
+      background:
+        radial-gradient(circle at 10% 20%, rgba(79,70,229,.16) 0%, transparent 50%),
+        radial-gradient(circle at 90% 0%,  rgba(34,197,94,.14) 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(167,139,250,.12) 0%, transparent 55%);
+      background-size:200% 200%;
+      animation:gradient 18s ease infinite;
+    }
+    @media (prefers-reduced-motion: reduce){
+      .gradient-bg{ animation:none !important; }
+    }
+
+    .dna-bg{
+      position:absolute;
+      inset:0;
+      opacity:.08;
+      pointer-events:none;
+      z-index:-1;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      box-shadow:0 18px 45px rgba(15,23,42,.08);
+    }
+
+    .card-hover{
+      transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+    .card-hover:hover{
+      transform: translateY(-3px);
+      box-shadow:0 20px 55px rgba(15,23,42,.18);
+      border-color:rgba(79,70,229,.45);
+    }
+
+    .chip{
+      background:linear-gradient(135deg, rgba(31,164,255,.16), rgba(167,139,250,.16));
+      border:1px solid var(--border);
+    }
+
+    .btn{ transition: transform .15s ease }
+    .btn:active{ transform: translateY(1px) scale(.99) }
+
+    .status-dot{ width:10px; height:10px; border-radius:9999px }
+
+    .link-ghost{
+      border:1px solid var(--border);
+      padding:.5rem .75rem;
+      border-radius:.5rem;
+    }
+    .link-ghost:hover{ background:var(--hover) }
+
+    .cv{
+      content-visibility:auto;
+      contain-intrinsic-size:800px 1200px;
+    }
+    @media (max-width:768px){
+      .cv{ contain-intrinsic-size:1200px 1600px }
+    }
+
+    .prose-block code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+      background: rgba(15,23,42,.07);
+      padding: 0.12rem 0.3rem;
+      border-radius: 0.25rem;
+    }
+    :root[data-theme="dark"] .prose-block code{
+      background: rgba(15,23,42,.7);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    .nav-link.active {
+      background: rgba(31,164,255,.1);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .arch-step {
+      position: relative;
+      padding-left: 2rem;
+    }
+    .arch-step::before {
+      content: '';
+      position: absolute;
+      left: 0.65rem;
+      top: 1.75rem;
+      bottom: -0.5rem;
+      width: 2px;
+      background: linear-gradient(to bottom, rgba(31,164,255,.4), rgba(167,139,250,.2));
+    }
+    .arch-step:last-child::before {
+      display: none;
+    }
+    .arch-step .step-dot {
+      position: absolute;
+      left: 0.25rem;
+      top: 0.45rem;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+      border: 2px solid rgba(31,164,255,.6);
+      background: var(--card);
+    }
+    .arch-step .step-dot.deterministic {
+      background: #22C55E;
+      border-color: #16A34A;
+    }
+  </style>
+</head>
+
+<body class="min-h-full font-display text-[--text] bg-[--bg] gradient-bg">
+
+  <svg class="dna-bg" viewBox="0 0 1200 600" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="helix" x1="0" x2="1">
+        <stop offset="0%" stop-color="#1FA4FF"/>
+        <stop offset="100%" stop-color="#A78BFA"/>
+      </linearGradient>
+    </defs>
+    <g fill="none" stroke="url(#helix)" stroke-width="2">
+      <path d="M100,100 C300,20 500,20 700,100 S1100,180 1200,100"/>
+      <path d="M100,500 C300,580 500,580 700,500 S1100,420 1200,500"/>
+      <path d="M400,60 V 540" opacity=".4"/>
+      <path d="M800,60 V 540" opacity=".4"/>
+    </g>
+  </svg>
+
+  <!-- HEADER -->
+  <header class="fixed top-0 inset-x-0 z-40 backdrop-blur bg-[--bg]/80 border-b border-[--border]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+      <a class="flex items-center gap-3" href="/">
+        <div class="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-glow">
+          <img src="/assets/brand/logo.svg" alt="BioChirp logo" class="h-7 w-7 object-contain"/>
+        </div>
+        <div>
+          <div class="text-xl font-semibold tracking-tight">BioChirp</div>
+          <div class="text-xs text-[--muted] -mt-0.5">Deterministic Biomedical Retrieval</div>
+        </div>
+      </a>
+      <div class="flex items-center gap-2">
+        <button id="themeToggle" class="p-2 rounded-lg border border-[--border] hover:bg-[--hover]" title="Toggle theme">
+          <svg id="iconDark" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+          <svg id="iconLight" class="w-5 h-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="cv">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
+      <div class="grid lg:grid-cols-[260px,minmax(0,1fr)] gap-8">
+
+        <!-- LEFT NAV -->
+        <aside class="hidden lg:block">
+          <div class="card rounded-2xl p-4 sticky top-24 text-sm">
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="font-semibold text-sm">Help Index</h2>
+              <span class="text-[0.7rem] px-2 py-0.5 rounded-full bg-bio-500/10 border border-bio-500/40 text-bio-700">
+                v1.0
+              </span>
+            </div>
+            <nav id="helpNav" class="space-y-1 text-[--muted]">
+              <a href="#overview"      class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">1. Overview</a>
+              <a href="#architecture"  class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">2. How it works</a>
+              <a href="#databases"     class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">3. Data sources</a>
+              <a href="#quickstart"    class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">4. Getting started</a>
+              <a href="#questions"     class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">5. Writing queries</a>
+              <a href="#answers"       class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">6. Reading outputs</a>
+              <a href="#entity"        class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">7. Name matching</a>
+              <a href="#reproducibility" class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">8. Consistency &amp; coverage</a>
+              <a href="#limits"        class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">9. Boundaries</a>
+              <a href="#troubleshooting" class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">10. Troubleshooting</a>
+              <a href="#faq"           class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">11. FAQ</a>
+              <a href="#contact"       class="nav-link block px-2 py-1 rounded hover:bg-[--hover]">12. Contact</a>
+            </nav>
+          </div>
+        </aside>
+
+        <!-- RIGHT CONTENT -->
+        <section class="space-y-8">
+
+          <!-- ============================================================ -->
+          <!-- 1. OVERVIEW -->
+          <!-- ============================================================ -->
+          <section id="overview" class="card rounded-2xl p-6 md:p-8">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div class="max-w-2xl">
+                <h1 class="text-2xl md:text-3xl font-bold mb-2">
+                  BioChirp Help & Documentation
+                </h1>
+                <p class="text-[--muted]">
+                  BioChirp lets you ask plain-language questions about drugs, genes, diseases, pathways and biomarkers and receive back full, structured tables drawn directly from established biomedical repositories. Unlike chat-based tools that may drop rows, ignore alternative spellings or give different answers each time, BioChirp hands the actual data-fetching work to rule-based algorithms while reserving AI only for understanding what you asked. This guide walks you through every aspect of the platform.
+                </p>
+              </div>
+              <div class="flex flex-col items-end gap-2 text-xs text-[--muted]">
+                <div class="flex items-center gap-2">
+                  <span class="h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                  <span>Core services: Online</span>
+                </div>
+                <div>Last updated: <span id="lastUpdated"></span></div>
+              </div>
+            </div>
+
+            <div class="mt-6 grid md:grid-cols-3 gap-4 text-sm">
+              <div class="rounded-xl border border-bio-500/40 bg-bio-500/5 p-4">
+                <h3 class="font-semibold mb-1 text-bio-800">What BioChirp does</h3>
+                <p class="text-[--muted]">
+                  Pulls relationships between drugs, targets, genes, diseases, pathways and biomarkers out of four well-known reference databases and hands you every matching record as a downloadable table&mdash;nothing skipped, nothing summarised away.
+                </p>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/50 p-4">
+                <h3 class="font-semibold mb-1">Who benefits most</h3>
+                <p class="text-[--muted]">
+                  Bench scientists, bioinformaticians, pharmacologists and graduate students who want an exhaustive view of known associations rather than the handful of examples a chatbot might recite from memory. If your downstream pipeline depends on a complete catalogue of associations, BioChirp is built for that use case.
+                </p>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/50 p-4">
+                <h3 class="font-semibold mb-1 text-amber-500">Safety notice</h3>
+                <p class="text-[--muted]">
+                  This platform is intended for research use only. It is not certified as a medical device and should never replace expert clinical judgement. Always verify important findings against original sources before acting on them.
+                </p>
+              </div>
+            </div>
+
+            <!-- Core principle callout -->
+            <div class="mt-5 rounded-xl border border-bio-500/60 bg-bio-500/5 p-4 text-sm">
+              <h3 class="font-semibold mb-1 text-bio-800">Guiding philosophy</h3>
+              <p class="text-[--muted]">
+                AI understands what you want; fixed-logic code fetches the data. Once your question has been translated into database-ready terms, every subsequent step&mdash;table selection, joining, filtering, deduplication&mdash;runs without any neural-network involvement. Asking the same question twice therefore returns the same rows, even though the plain-English explanation on top may read slightly differently each time.
+              </p>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 2. ARCHITECTURE -->
+          <!-- ============================================================ -->
+          <section id="architecture" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-2">2. How BioChirp works</h2>
+            <p class="text-[--muted] mb-5">
+              The platform is organised into four successive stages. The first two involve AI; the last two do not. That boundary is deliberate and is the main reason outputs stay stable across repeated runs.
+            </p>
+
+            <div class="space-y-5 text-sm">
+
+              <div class="arch-step">
+                <div class="step-dot"></div>
+                <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                  <h3 class="font-semibold text-[0.95rem] mb-1">
+                    <span class="text-bio-600">A.</span> Gateway
+                  </h3>
+                  <p class="text-[--muted]">
+                    Your question reaches BioChirp over a combined HTTP / WebSocket connection. At this point the system only manages routing and streams live progress indicators back to your browser&mdash;nothing about the biology is touched yet.
+                  </p>
+                </div>
+              </div>
+
+              <div class="arch-step">
+                <div class="step-dot"></div>
+                <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                  <h3 class="font-semibold text-[0.95rem] mb-1">
+                    <span class="text-bio-600">B.</span> Interpretation (AI-assisted)
+                  </h3>
+                  <p class="text-[--muted] mb-2">
+                    Four lightweight AI models from separate vendors read your question simultaneously. Each proposes an interpretation; a fifth &ldquo;judge&rdquo; model picks the best one or merges the strongest parts. Running several models in parallel guards against single-vendor quirks such as expanding an abbreviation incorrectly or misclassifying a gene name as a disease.
+                  </p>
+                  <p class="text-[--muted] mb-2">
+                    The winning interpretation is a structured record listing which biomedical fields your question mentions&mdash;for instance, <em>drug: (return all)</em> and <em>disease: tuberculosis</em>&mdash;together with any scope or filter constraints you specified. Abbreviations are expanded (TB&nbsp;&rarr;&nbsp;tuberculosis), and the system decides whether your question falls inside or outside the scope of the connected databases.
+                  </p>
+                  <div class="mt-2 p-3 rounded-lg bg-bio-500/5 border border-bio-500/20 text-xs text-[--muted]">
+                    <span class="font-semibold text-bio-800">Where AI stops:</span> From this point forward, every operation is carried out by conventional, rule-based code. This hard boundary is what makes the final table bit-for-bit repeatable.
+                  </div>
+                </div>
+              </div>
+
+              <div class="arch-step">
+                <div class="step-dot deterministic"></div>
+                <div class="rounded-xl border border-leaf/40 bg-leaf/5 p-4">
+                  <h3 class="font-semibold text-[0.95rem] mb-1">
+                    <span class="text-leaf">C.</span> Data retrieval (fully rule-based)
+                  </h3>
+                  <p class="text-[--muted] mb-2">
+                    BioChirp talks to its data sources in two ways. <span class="font-semibold">Open Targets</span> is reached through its public GraphQL endpoint at query time, with automatic pagination so no records are left behind. <span class="font-semibold">CTD, HCDT and TTD</span> live as pre-processed local files. For these offline sources a schema-graph planner figures out which tables need to be joined by modelling every table as a node and every declared foreign-key link as an edge, then walking the shortest path between the tables your question needs.
+                  </p>
+                  <p class="text-[--muted]">
+                    Because this planner follows strict graph-traversal rules rather than generating SQL on the fly, the same input always triggers the same table selections, the same join order and the same output columns. No neural network is consulted at any point during this stage.
+                  </p>
+                </div>
+              </div>
+
+              <div class="arch-step">
+                <div class="step-dot"></div>
+                <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                  <h3 class="font-semibold text-[0.95rem] mb-1">
+                    <span class="text-bio-600">D.</span> Summary &amp; delivery
+                  </h3>
+                  <p class="text-[--muted]">
+                    An AI model writes a short human-friendly narrative from a snapshot of the result table (by default the first 50 rows; you can change this). The narrative sits above the table for convenience, but the downloadable CSV underneath is the authoritative output. Nothing in this last step can alter, reorder or remove rows from the structured data.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Graph planner callout -->
+            <div class="mt-6 rounded-xl border border-leaf/60 bg-leaf/5 p-4 text-sm">
+              <h3 class="font-semibold mb-2 text-green-800">Schema-graph planning in detail</h3>
+              <p class="text-[--muted] mb-2">
+                Every offline database (CTD, HCDT, TTD) is stored as a collection of &ldquo;node tables&rdquo; (one per entity type: drug, gene, disease, pathway, biomarker) and &ldquo;edge tables&rdquo; (one per relationship type, e.g.&nbsp;drug&ndash;gene). These tables and their foreign-key links form an undirected graph. When your question involves concepts that span more than one table, the planner runs a shortest-path search on this graph to find the fewest tables that connect everything together, then chains them into a fixed join tree.
+              </p>
+              <p class="text-[--muted]">
+                Take the question &ldquo;drugs for TB.&rdquo; The system maps &ldquo;drug&rdquo; and &ldquo;disease&rdquo; to their respective node tables, discovers they are linked through a drug&ndash;disease edge table, and builds a three-table join tree. Disease rows are filtered to tuberculosis and its known sub-types before the join runs, keeping intermediate result sets small. Only joins that pass a foreign-key validation check are executed; anything that would produce an unconstrained cross-product is rejected outright.
+              </p>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 3. DATABASES -->
+          <!-- ============================================================ -->
+          <section id="databases" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">3. Data sources</h2>
+            <p class="text-[--muted] mb-4">
+              BioChirp currently draws on four widely used biomedical repositories. One is consulted live over the internet; the other three ship as pre-processed local copies.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+
+              <div class="rounded-xl border border-bio-500/40 bg-bio-500/5 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-bio-500"></span>
+                    Open Targets (live)
+                  </span>
+                </h3>
+                <p class="text-[--muted] mb-2">
+                  A large-scale genetics and genomics resource for drug-target identification. BioChirp queries it in real time through its GraphQL interface, paginating until every matching record has been collected.
+                </p>
+                <p class="text-[--muted] text-xs">
+                  For disease queries the system also walks the disease ontology hierarchy, pulling in child terms automatically. A search for a broad condition therefore picks up associations catalogued under specific sub-types as well.
+                </p>
+                <p class="mt-2">
+                  <a href="https://platform.opentargets.org/" target="_blank" rel="noopener" class="text-bio-600 text-xs hover:underline">platform.opentargets.org &rarr;</a>
+                </p>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                    CTD (offline)
+                  </span>
+                </h3>
+                <p class="text-[--muted] mb-2">
+                  The Comparative Toxicogenomics Database catalogues how chemicals interact with genes and how those interactions relate to diseases. BioChirp stores its chemical&ndash;gene, chemical&ndash;disease, gene&ndash;disease, gene&ndash;pathway and disease&ndash;pathway relationships locally.
+                </p>
+                <p class="mt-2">
+                  <a href="https://ctdbase.org/" target="_blank" rel="noopener" class="text-bio-600 text-xs hover:underline">ctdbase.org &rarr;</a>
+                </p>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-plum"></span>
+                    HCDT (offline)
+                  </span>
+                </h3>
+                <p class="text-[--muted] mb-2">
+                  The Highly Confident Drug&ndash;Target Database focuses on experimentally verified compound&ndash;target pairs. It covers drug&ndash;gene, drug&ndash;disease, drug&ndash;pathway and pathway&ndash;gene links, each backed by direct experimental evidence.
+                </p>
+                <p class="mt-2">
+                  <a href="http://hainmu-biobigdata.com/hcdt2/" target="_blank" rel="noopener" class="text-bio-600 text-xs hover:underline">hainmu-biobigdata.com/hcdt2 &rarr;</a>
+                </p>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-leaf"></span>
+                    TTD (offline)
+                  </span>
+                </h3>
+                <p class="text-[--muted] mb-2">
+                  The Therapeutic Target Database provides target druggability profiles, drug&ndash;target&ndash;disease mappings, mechanism-of-action annotations, regulatory approval statuses and biomarker&ndash;disease links.
+                </p>
+                <p class="mt-2">
+                  <a href="https://idrblab.org/ttd" target="_blank" rel="noopener" class="text-bio-600 text-xs hover:underline">idrblab.org/ttd &rarr;</a>
+                </p>
+              </div>
+
+            </div>
+
+            <!-- Supported fields -->
+            <div class="mt-5 rounded-xl border border-[--border] bg-[--bg]/60 p-4 text-sm">
+              <h3 class="font-semibold mb-2 text-[0.95rem]">Entity types you can query</h3>
+              <p class="text-[--muted] mb-2">
+                Your question can reference any combination of the following fields. BioChirp will map them onto the right tables automatically.
+              </p>
+              <div class="flex flex-wrap gap-2 text-xs">
+                <span class="chip px-3 py-1 rounded-full">Drug / Chemical</span>
+                <span class="chip px-3 py-1 rounded-full">Gene / Target</span>
+                <span class="chip px-3 py-1 rounded-full">Disease</span>
+                <span class="chip px-3 py-1 rounded-full">Pathway</span>
+                <span class="chip px-3 py-1 rounded-full">Biomarker</span>
+                <span class="chip px-3 py-1 rounded-full">Mechanism of action</span>
+                <span class="chip px-3 py-1 rounded-full">Approval status</span>
+              </div>
+            </div>
+
+            <!-- Web fallback -->
+            <div class="mt-4 rounded-xl border border-[--border] bg-[--bg]/60 p-4 text-sm">
+              <h3 class="font-semibold mb-2 text-[0.95rem]">When your question falls outside these databases</h3>
+              <p class="text-[--muted]">
+                If BioChirp determines that none of its connected repositories can answer your question, it will redirect to a targeted biomedical web search. Results from this fallback route are always clearly marked so you can distinguish them from curated database outputs.
+              </p>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 4. QUICK START -->
+          <!-- ============================================================ -->
+          <section id="quickstart" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-2">4. Getting started</h2>
+            <p class="text-[--muted] mb-4">
+              You can go from a blank chat window to a complete, downloadable results table in under a minute.
+            </p>
+
+            <ol class="list-decimal pl-5 space-y-3 text-sm">
+              <li>
+                <span class="font-semibold">Open the chat</span> from the main navigation bar.
+              </li>
+              <li>
+                <span class="font-semibold">Type a biomedical question</span> that mentions at least one entity type (drug, gene, disease, pathway or biomarker) together with the relationship you want to explore. Adding a specific constraint&mdash;a disease name, an approval status, a mechanism&mdash;helps the system narrow down results.
+              </li>
+              <li>
+                <span class="font-semibold">Press send.</span> Progress indicators will light up as BioChirp moves through interpretation, name matching, data retrieval and summarisation.
+              </li>
+              <li>
+                <span class="font-semibold">Inspect the output.</span> You will see a short narrative explaining what the system did, followed by a preview of the association table. Expand the collapsible tool-level panels to see exactly what happened at each step.
+              </li>
+              <li>
+                <span class="font-semibold">Download the CSV.</span> The full, untruncated table is available for download so you can feed it into your own scripts, enrichment tools or visualisation software.
+              </li>
+            </ol>
+
+            <div class="mt-5 grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4 prose-block">
+                <h3 class="font-semibold mb-1 text-[0.95rem]">Good starting questions</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li><code>Which drugs are prescribed for tuberculosis?</code></li>
+                  <li><code>List the genes linked to chronic myeloid leukemia</code></li>
+                  <li><code>What diseases does aspirin treat?</code></li>
+                  <li><code>Show me pathways involving TP53</code></li>
+                  <li><code>Which compounds act on EGFR?</code></li>
+                  <li><code>What molecular targets does imatinib bind?</code></li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4 prose-block">
+                <h3 class="font-semibold mb-1 text-[0.95rem]">Questions that may not work well</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Purely clinical scenarios with no specific drug, gene or disease name (&ldquo;How should I manage this patient?&rdquo;)</li>
+                  <li>Requests for molecular formats (SMILES, InChI), 3-D structures or sequence data not held in the supported databases</li>
+                  <li>Clinical trial logistics, regulatory filing questions, or insurance coverage queries</li>
+                  <li>Anything that does not map onto at least one of the supported fields listed above</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 5. WRITING QUERIES -->
+          <!-- ============================================================ -->
+          <section id="questions" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">5. Writing effective queries</h2>
+            <p class="text-[--muted] mb-4">
+              The clearer you are about which entity type you want back and which entity you are constraining on, the sharper your results will be.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4 prose-block">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Be direct about what you want</h3>
+                <p class="text-[--muted] mb-2">
+                  Phrases like &ldquo;list drugs&rdquo;, &ldquo;find genes&rdquo;, &ldquo;show pathways&rdquo; or &ldquo;which diseases&rdquo; tell the system what the output columns should be.
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li><code>List drug&ndash;target pairs for HER2-positive breast cancer</code></li>
+                  <li><code>Show pathways that TNF participates in</code></li>
+                  <li><code>Which diseases have been linked to BRCA1?</code></li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4 prose-block">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Abbreviations, brand names &amp; aliases are fine</h3>
+                <p class="text-[--muted] mb-2">
+                  The name-matching engine is designed to handle everyday biomedical shorthand. All of the following resolve correctly:
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li><code>TB</code> &rarr; tuberculosis (plus subtypes such as pulmonary TB, meningeal TB)</li>
+                  <li><code>CML</code> &rarr; chronic myeloid leukemia / chronic myelogenous leukemia</li>
+                  <li><code>Vazalore</code> &rarr; aspirin (brand-to-generic mapping)</li>
+                  <li><code>ERBB1</code> &rarr; EGFR (gene alias lookup)</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-xl border border-bio-500/60 bg-bio-500/5 p-4 text-xs text-[--muted]">
+              <h3 class="font-semibold mb-1 text-bio-800">Behind the scenes: the multi-model interpreter</h3>
+              <p class="mb-1">
+                Your free-text question is parsed into a structured record with slots for <code class="prose-block">drug_name</code>, <code class="prose-block">target_name</code>, <code class="prose-block">disease_name</code>, <code class="prose-block">pathway_name</code>, <code class="prose-block">biomarker_name</code> and <code class="prose-block">approval_status</code>. Each slot gets one of three labels: &ldquo;not relevant,&rdquo; &ldquo;return all matches&rdquo; or &ldquo;constrained to a specific term.&rdquo;
+              </p>
+              <p>
+                When a question does not map onto any database field, the system reroutes it to a web-based literature lookup rather than attempting an incomplete database search.
+              </p>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 6. READING OUTPUTS -->
+          <!-- ============================================================ -->
+          <section id="answers" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">6. Reading BioChirp outputs</h2>
+            <p class="text-[--muted] mb-4">
+              Every answer has two layers: a short narrative on top and a structured table below. The table is the definitive result; the narrative is a convenience aid produced by an AI summariser.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm prose-block">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Narrative section</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Tells you how BioChirp understood your question, which entities were recognised and which repositories were consulted.</li>
+                  <li>Reports the total row count and flags any deduplication that was performed.</li>
+                  <li>Highlights known gaps or caveats rather than glossing over them.</li>
+                  <li>May include direct links to the originating database pages.</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Association table</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Fixed column headers (e.g.&nbsp;<code>drug_id</code>, <code>drug_name</code>, <code>disease_id</code>, <code>disease_name</code>, <code>indication_name</code>).</li>
+                  <li>A scrollable preview appears in the chat; the full dataset is available via the CSV download button.</li>
+                  <li>Row counts and wall-clock retrieval times are displayed for transparency.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mt-5 grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Step-by-step transparency</h3>
+                <p class="text-[--muted]">
+                  Each internal operation (interpretation, name matching, database query) is surfaced as a collapsible panel showing elapsed time and a digest of what went in and came out. If you ever need to debug or audit a result, these panels let you trace the entire journey from raw question to final table.
+                </p>
+              </div>
+              <div class="rounded-xl border border-bio-500/60 bg-bio-500/5 p-4">
+                <h3 class="font-semibold mb-2 text-bio-800">Data provenance</h3>
+                <p class="text-[--muted]">
+                  Every row in the output carries the canonical identifier assigned by its source database. The summariser cannot add, remove or reorder rows; the CSV you download is always the unmodified output of the rule-based pipeline.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 7. ENTITY RESOLUTION / NAME MATCHING -->
+          <!-- ============================================================ -->
+          <section id="entity" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">7. How name matching works</h2>
+            <p class="text-[--muted] mb-4">
+              A drug may be listed under its brand name in one database and its generic name in another. A gene can have half a dozen aliases. A disease might appear under an ICD code, an ontology term or a colloquial name. Getting all of these to resolve to the right database entries is critical for returning a complete result set. BioChirp tackles this with three parallel strategies.
+            </p>
+
+            <div class="grid md:grid-cols-3 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Approximate string matching</h3>
+                <p class="text-[--muted]">
+                  Catches typos, punctuation differences, reordered tokens and minor spelling variants. Four different string-similarity measures run in parallel, and any candidate scoring above 90 (on a 0&ndash;100 scale) is kept for further vetting.
+                </p>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Embedding-based search</h3>
+                <p class="text-[--muted]">
+                  Three biomedical text-embedding models encode your query term and compare it against pre-indexed vocabularies. A data-driven &ldquo;knee point&rdquo; in the similarity curve sets the cutoff for each query, avoiding a one-size-fits-all threshold that would be too strict for some terms and too lax for others.
+                </p>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Curated alias &amp; ontology lookup</h3>
+                <p class="text-[--muted]">
+                  Draws on established nomenclature services (PubChem, ChEMBL, HGNC, UniProt, Disease Ontology, EBI OLS and others) to pull in known aliases, trade names and ontology children. Gene-family queries are expanded to their individual members so that a family-level term returns all constituent genes in the database.
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-xl border border-plum/40 bg-plum/5 p-4 text-sm">
+              <h3 class="font-semibold mb-2" style="color:#7C3AED">Dual-judge false-positive filter</h3>
+              <p class="text-[--muted]">
+                Because the three strategies above are tuned for high recall, they inevitably propose some wrong matches (e.g.&nbsp;&ldquo;nitroaspirin&rdquo; for an &ldquo;aspirin&rdquo; query). To weed these out, two independent AI evaluators from different vendors score every candidate in parallel. Only names approved by both pass through immediately; contested names go to a third tie-breaking model. This voting scheme keeps precision high without sacrificing the broad recall of the upstream strategies.
+              </p>
+            </div>
+
+            <!-- Open Targets specific -->
+            <div class="mt-4 rounded-xl border border-bio-500/40 bg-bio-500/5 p-4 text-sm">
+              <h3 class="font-semibold mb-2 text-bio-800">Open Targets&ndash;specific behaviour</h3>
+              <p class="text-[--muted]">
+                When querying Open Targets, entity names are resolved against that platform&rsquo;s own search index, and the top-scoring hit is selected in a fixed, repeatable way. Disease queries additionally traverse the Experimental Factor Ontology (EFO) hierarchy downward, automatically pulling in associations stored under narrower child terms. A search for &ldquo;tuberculosis,&rdquo; for example, also retrieves records filed under pulmonary tuberculosis, meningeal tuberculosis and other sub-types.
+              </p>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 8. REPRODUCIBILITY -->
+          <!-- ============================================================ -->
+          <section id="reproducibility" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">8. Consistency &amp; coverage</h2>
+            <p class="text-[--muted] mb-4">
+              Returning the same answer to the same question is non-negotiable for any tool that feeds into a research pipeline. Here is what you can expect from BioChirp.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-leaf/40 bg-leaf/5 p-4">
+                <h3 class="font-semibold mb-2 text-green-800">Fully stable across runs</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Schema-graph planning, table selection and join order</li>
+                  <li>Row-level filtering and deduplication logic</li>
+                  <li>Open Targets API pagination, sorting and ID selection</li>
+                  <li>Column names, row content and CSV file layout</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">May show minor variation</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Wording of the plain-English summary (written by an AI model)</li>
+                  <li>Occasionally, the embedding-based name matcher may surface a slightly different set of candidates; the dual-judge filter dampens this effect</li>
+                  <li>Web-fallback content for out-of-scope questions</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-xl border border-bio-500/60 bg-bio-500/5 p-4 text-sm">
+              <h3 class="font-semibold mb-2 text-bio-800">How BioChirp compares on coverage</h3>
+              <p class="text-[--muted]">
+                In internal benchmarking on 70 diverse questions&mdash;each posed five times to nine different systems&mdash;BioChirp&rsquo;s structured back-ends achieved perfect run-to-run agreement (Jaccard index&nbsp;=&nbsp;1.0), while general-purpose chat models fluctuated considerably. The Open Targets connector alone returned a median of roughly 580 associations per question; comparable chat-model answers typically contained fewer than 10 entries. Curated databases captured almost everything the chat models produced, but the reverse was far from true.
+              </p>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 9. SCOPE & LIMITATIONS -->
+          <!-- ============================================================ -->
+          <section id="limits" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">9. Boundaries &amp; known limitations</h2>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">What BioChirp can do</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Retrieve drug&ndash;target, drug&ndash;disease, gene&ndash;disease, gene&ndash;pathway, disease&ndash;pathway and biomarker&ndash;disease associations across four databases</li>
+                  <li>Return mechanism-of-action labels and approval statuses (from TTD)</li>
+                  <li>Expand disease queries to include ontology child terms (via Open Targets)</li>
+                  <li>Resolve abbreviations, brand names, gene aliases and close misspellings</li>
+                  <li>Break down gene-family names into their constituent individual genes</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">What it cannot (yet) do</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Results are only as comprehensive as the underlying repositories; very new indications or experimental compounds may not appear</li>
+                  <li>Offline snapshots (CTD, HCDT, TTD) are refreshed periodically, not in real time</li>
+                  <li>Highly ambiguous terms that map plausibly to more than one canonical ID can still trip up the resolver</li>
+                  <li>Molecular structure formats, sequence data, clinical-trial logistics and regulatory filings are outside the supported schema</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-xl border border-amber-400/50 bg-amber-50/50 p-4 text-sm">
+              <h3 class="font-semibold mb-2 text-amber-700">A note on conflicting records</h3>
+              <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                <li>BioChirp reports what each database contains without editorial triage. If two sources disagree, both entries appear in the output.</li>
+                <li>Thin evidence or unexpectedly few results are flagged in the narrative rather than hidden.</li>
+                <li>For high-stakes decisions, always consult the original data provider or peer-reviewed literature.</li>
+              </ul>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 10. TROUBLESHOOTING -->
+          <!-- ============================================================ -->
+          <section id="troubleshooting" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">10. Troubleshooting</h2>
+            <p class="text-[--muted] mb-4">
+              Something not working as expected? The collapsible tool panels in each response are your first diagnostic tool. Below are the most common situations.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm prose-block">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">&ldquo;Out of scope&rdquo; or &ldquo;invalid query&rdquo;</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>The interpreter could not find any drug, gene, disease, pathway or biomarker mention to act on.</li>
+                  <li>Add at least one concrete entity and a relationship, e.g.&nbsp;<code>drugs targeting JAK2 in myelofibrosis</code>.</li>
+                  <li>Narrative-only clinical questions without named entities will be routed to web search instead.</li>
+                </ul>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">&ldquo;No matching records&rdquo;</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>The databases genuinely may not catalogue that combination (e.g.&nbsp;a newly approved therapy).</li>
+                  <li>Try broader wording&mdash;a parent disease term instead of a rare sub-type.</li>
+                  <li>Check the tool panels to see whether the name matcher found the right canonical ID.</li>
+                </ul>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Timeouts or service errors</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>The Open Targets API or one of the internal micro-services may be temporarily unreachable.</li>
+                  <li>Wait a couple of minutes and try again. If the problem persists, note the error text and timestamp and file a report.</li>
+                </ul>
+              </div>
+
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Results look wrong or surprising</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Expand the tool panels to check the interpreter&rsquo;s parsed output and the resolver&rsquo;s chosen canonical IDs.</li>
+                  <li>Run the same question again&mdash;if the table changes, the issue is in name matching; if it stays the same, the data source itself may contain the unexpected entry.</li>
+                  <li>Verify individual rows against the originating database at its own website.</li>
+                  <li>Open a GitHub issue with the query, the output and what you expected.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 11. FAQ -->
+          <!-- ============================================================ -->
+          <section id="faq" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">11. Frequently asked questions</h2>
+
+            <div class="space-y-4 text-sm text-[--muted]">
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  How does BioChirp differ from general-purpose chatbots like ChatGPT or Claude?
+                </summary>
+                <p class="mt-2">
+                  Chatbots rely on their training corpus to recall biomedical facts, which means they can miss records, confuse alternative names and give different answers on different days. BioChirp flips that arrangement: AI handles only the &ldquo;what did the user mean?&rdquo; step, while hard-coded logic fetches every qualifying row from established databases. The structured table is never authored by an AI, so it cannot hallucinate entries or silently leave rows out.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  How does BioChirp compare to MCP-style agentic retrieval?
+                </summary>
+                <p class="mt-2">
+                  Agentic setups that route tool calls through an AI planner can hit payload limits, run into invocation timeouts or let the model choose a sub-optimal call sequence. In head-to-head tests on exhaustive biomedical queries, none of the tested agent-based configurations managed to return a full result set, whereas BioChirp&rsquo;s fixed-logic pipeline delivered every record for every query.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Can I use short-hand, brand names or gene nicknames?
+                </summary>
+                <p class="mt-2">
+                  Absolutely. The name-matching engine runs three parallel resolution strategies (approximate string comparison, embedding similarity and curated alias lists) followed by a dual-judge AI filter. This means brand names such as &ldquo;Vazalore&rdquo; map to aspirin, gene aliases such as &ldquo;ERBB1&rdquo; map to EGFR, and common abbreviations such as &ldquo;CML&rdquo; expand to both &ldquo;chronic myeloid leukemia&rdquo; and &ldquo;chronic myelogenous leukemia.&rdquo;
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Why does the summary text change slightly between runs while the table stays the same?
+                </summary>
+                <p class="mt-2">
+                  The table is assembled by rule-based code and is therefore identical on every run (given the same database snapshot). The human-readable summary, by contrast, is written by an AI model that may phrase things a little differently each time. For any quantitative or downstream use, rely on the CSV, not the narrative.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Which databases are included?
+                </summary>
+                <p class="mt-2">
+                  Four: Open Targets (queried live), CTD, HCDT and TTD (stored locally as pre-processed snapshots). If none of these can answer your question the system falls back to a biomedical web search, with results clearly labelled as web-sourced.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  What prevents BioChirp from making up associations?
+                </summary>
+                <p class="mt-2">
+                  AI participation ends after the interpretation and name-matching stages. Every association in the output table is read directly from a curated database through rule-based joins. If no qualifying rows exist, BioChirp returns &ldquo;no result&rdquo; instead of inventing plausible-sounding entries.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  How fresh is the data?
+                </summary>
+                <p class="mt-2">
+                  Open Targets is queried in real time, so it reflects whatever version the platform currently serves. CTD, HCDT and TTD are held as periodic snapshots that are refreshed when major upstream releases become available. Snapshot dates are noted in the system and any significant changes will be communicated.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Can I download and reuse the output?
+                </summary>
+                <p class="mt-2">
+                  Yes. Every in-scope query produces a CSV that you can feed straight into R, Python, Excel or any other tool. Column headers and identifier formats are stable across runs, so automated pipelines can depend on them. If you publish work that uses BioChirp data, please cite the associated paper.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Does BioChirp store my queries or personal information?
+                </summary>
+                <p class="mt-2">
+                  No login is required and no personally identifiable data is collected. Queries are processed in real time and are not stored for profiling, advertising or user tracking.
+                </p>
+              </details>
+
+              <details class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <summary class="font-semibold text-[--text] cursor-pointer">
+                  Is the code open source?
+                </summary>
+                <p class="mt-2">
+                  Yes. Application code, prompt templates, schema definitions, pre-processing scripts, benchmark setups and analysis notebooks are all available on GitHub at <a href="https://github.com/abhi1238/biochirp" target="_blank" rel="noopener" class="text-bio-600 hover:underline">github.com/abhi1238/biochirp</a>.
+                </p>
+              </details>
+
+            </div>
+          </section>
+
+          <!-- ============================================================ -->
+          <!-- 12. CONTACT -->
+          <!-- ============================================================ -->
+          <section id="contact" class="card rounded-2xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-semibold mb-3">12. Contact & support</h2>
+
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">Reasons to get in touch</h3>
+                <ul class="list-disc pl-4 space-y-1 text-[--muted]">
+                  <li>Repeated errors or service outages you cannot resolve by retrying.</li>
+                  <li>Output that clearly contradicts what the original database shows.</li>
+                  <li>Feature ideas, user-interface feedback or roadmap questions.</li>
+                  <li>Concerns about data accuracy, naming errors or potential misinterpretation of evidence.</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-[--border] bg-[--bg]/60 p-4">
+                <h3 class="font-semibold mb-2 text-[0.95rem]">How to reach us</h3>
+                <div class="mb-3 text-xs text-[--muted] space-y-1">
+                  <p><span class="font-semibold">Email:</span> <a href="mailto:abhishekh@iiitd.ac.in" class="text-bio-600 hover:underline">abhishekh@iiitd.ac.in</a>, <a href="mailto:debarka@iiitd.ac.in" class="text-bio-600 hover:underline">debarka@iiitd.ac.in</a></p>
+                  <p>
+                    <span class="font-semibold">GitHub:</span>
+                    <a href="https://github.com/abhi1238/biochirp/issues" target="_blank" rel="noopener" class="link-ghost inline-block ml-1">
+                      Open an issue
+                    </a>
+                  </p>
+                </div>
+                <p class="text-[--muted] text-xs">
+                  When filing a report please include: the exact query, approximate time, a screenshot if possible, and whether the problem reproduces on a second attempt.
+                </p>
+              </div>
+            </div>
+
+            <!-- Citation -->
+            <!-- <div class="mt-5 rounded-xl border border-bio-500/60 bg-bio-500/5 p-4 text-sm">
+              <h3 class="font-semibold mb-2 text-bio-800">Citing BioChirp</h3>
+              <p class="text-[--muted] mb-2">
+                If BioChirp contributes to your research, please reference the accompanying publication:
+              </p>
+              <p class="text-[--muted] text-xs bg-[--bg]/80 rounded-lg p-3 border border-[--border] font-mono leading-relaxed">
+                Halder, A., Singh, M., Kesarwani, R. et al. Deterministic retrieval recovers biomedical associations lost by language models. <em>Nat. Methods</em> (2026).
+              </p>
+            </div> -->
+
+            <p class="mt-5 text-[0.75rem] text-[--muted]">
+              <span class="font-semibold">Reminder:</span> BioChirp is a research aid, not a clinical decision-support system.
+              For medical emergencies, contact local emergency services immediately.
+            </p>
+          </section>
+
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-[--border]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-[--muted] flex flex-col md:flex-row items-center justify-between gap-2">
+      <div>
+        &copy; <span id="year"></span> BioChirp &middot; IIIT-Delhi
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/" class="link-ghost">Home</a>
+        <a href="https://github.com/abhi1238/biochirp" target="_blank" rel="noopener" class="link-ghost">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('themeToggle')?.addEventListener('click', () => {
+      const root = document.documentElement;
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      document.getElementById('iconDark')?.classList.toggle('hidden', !isDark);
+      document.getElementById('iconLight')?.classList.toggle('hidden', isDark);
+    });
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const luEl = document.getElementById('lastUpdated');
+    if (luEl) luEl.textContent = new Date().toISOString().slice(0,10);
+
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          navLinks.forEach(link => {
+            link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id);
+          });
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    sections.forEach(s => observer.observe(s));
+  </script>
+</body>
+</html>
