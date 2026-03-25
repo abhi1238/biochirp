@@ -36,7 +36,7 @@ logger = logging.getLogger("uvicorn.error")
 # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # stdout_handler.setFormatter(formatter)
 
-MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))  # fallback to 60s
+MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))  # fallback to 120s
 # Use environment variable for service URL to avoid hardcoding
 TAVILY_SERVICE_URL = os.getenv("TAVILY_SERVICE_URL", "http://biochirp_tavily_tool:8008/tavily")
 

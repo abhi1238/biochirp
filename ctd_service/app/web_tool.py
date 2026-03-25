@@ -27,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger("uvicorn.error")
 
 
-MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))  # fallback to 60s if not set
+MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))  # fallback to 120s if not set
 
 @function_tool(
     name_override="web",

@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 # Configuration
 TOOL_NAME = "web"
-MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))
+MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))
 WEB_TOOL_URL = os.getenv("WEB_TOOL_URL", "http://biochirp_web_tool:8006/web")
 
 logger = logging.getLogger(__name__)

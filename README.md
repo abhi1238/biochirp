@@ -1,206 +1,123 @@
 # BioChirp
 
-BioChirp is a database-first biomedical AI platform for structured biological question answering.
-It combines curated local biomedical databases, graph-based query planning, identifier-aware entity resolution, and controlled LLM orchestration.
+BioChirp is a database-first biomedical QA system that prioritizes deterministic retrieval over free-form generation.
+It combines curated biomedical databases (`TTD`, `CTD`, `HCDT`), schema-grounded query planning, entity resolution, and controlled LLM summarization.
 
-- Live: https://biochirp.iiitd.edu.in
-- Issue tracker: https://github.com/abhi1238/biochirp/issues
+- Live demo: https://biochirp.iiitd.edu.in
+- Issues: https://github.com/abhi1238/biochirp/issues
 
-## Table of Contents
+## Reviewer Quick Path (Prepared Artifacts)
 
-- [What BioChirp Solves](#what-biochirp-solves)
-- [System Overview](#system-overview)
-- [Repository Structure](#repository-structure)
-- [Prerequisites](#prerequisites)
-- [Required Data Artifacts](#required-data-artifacts)
-- [Google Drive Bundle Layout](#google-drive-bundle-layout)
-- [Quick Start (Local)](#quick-start-local)
-- [Service Endpoints](#service-endpoints)
-- [Customization](#customization)
-- [Graph-Based Planner Details](#graph-based-planner-details)
-- [Evaluation and Reproducibility](#evaluation-and-reproducibility)
-- [Troubleshooting](#troubleshooting)
-- [Security Notes](#security-notes)
-- [License and Citation](#license-and-citation)
+If you already have prepared parquet + Qdrant storage, this is the shortest reproducible run:
 
-## What BioChirp Solves
-
-General-purpose chat LLMs are strong at language but weak at schema-constrained biomedical retrieval.
-BioChirp addresses this by making retrieval deterministic and auditable:
-
-- Retrieval first, summarization second.
-- Schema-aware joins across curated databases (`TTD`, `CTD`, `HCDT`).
-- Online retrieval path for `OpenTargets` with entity grounding and pagination.
-- Streaming WebSocket responses with tool-level events and table previews.
-
-## System Overview
-
-BioChirp runs as Dockerized FastAPI microservices on a shared network.
-
-Primary flow:
-
-1. Query arrives at orchestrator (`/chat`) or source-specific chat service.
-2. Interpreter extracts intent and field constraints.
-3. Expand-and-match pipeline resolves entities via synonym expansion + fuzzy + semantic + LLM filtering.
-4. Planner generates a graph-based table join plan from schema foreign keys.
-5. DB services execute deterministic retrieval from local Parquet snapshots.
-6. Optional OpenTargets/web tools are used for online scope.
-7. Final response is streamed with table preview + downloadable CSV path.
-
-## Repository Structure
-
-```text
-biochirp/
-├── app/
-│   ├── tools/                     # Interpreter/planner/fuzzy/semantic/db tools
-│   ├── services/                  # Shared service logic (semantic/synonym, etc.)
-│   └── utils/                     # Shared dataframe and helper utilities
-├── orchestrator_service/          # Main orchestrator WebSocket service
-├── opentarget_service/            # OpenTargets orchestrated service
-├── ttd_service/                   # TTD chat service
-├── ctd_service/                   # CTD chat service
-├── hcdt_service/                  # HCDT chat service
-├── config/                        # Schema, guardrails, settings
-├── database/                      # Local curated DB snapshots
-├── resources/
-│   ├── prompts/
-│   ├── values/
-│   └── embeddings/
-├── evaluation/                    # Benchmark and robustness analyses
-├── frontend/                      # Static HTML clients
-├── docker-compose.yml
-└── README.md
+```bash
+git clone https://github.com/abhi1238/biochirp.git
+cd biochirp
+cp .env.example .env
+# fill API keys in .env
+docker network create --driver bridge --subnet 172.35.0.0/16 semantic_net || true
+docker run -d --name bioc_qdrant --network semantic_net -p 6333:6333 -p 6334:6334 \
+  -v "$(pwd)/qdrant_storage:/qdrant/storage" qdrant/qdrant:latest
+docker compose up --build -d
+curl -fsS http://localhost:8028/health && echo "TTD chat ready"
+curl -fsS http://localhost:8031/health && echo "CTD chat ready"
+curl -fsS http://localhost:8029/health && echo "HCDT chat ready"
+curl -fsS http://localhost:8026/health && echo "OpenTargets ready"
 ```
 
-## Prerequisites
+## Who This README Is For
+
+This guide is for anyone who wants to:
+
+1. clone the repository,
+2. prepare required data artifacts,
+3. run all services with Docker,
+4. validate that the system is working reproducibly.
+
+## Reproducible Local Setup (Step by Step)
+
+## 0) Prerequisites
 
 - Docker Engine 24+
 - Docker Compose v2
 - Linux/macOS shell
-- Jupyter Notebook (only for first-time embedding ingest)
+- `curl`
+- Jupyter (only if you need first-time embedding ingest)
 
-Recommended hardware (practical):
+Recommended hardware:
 
-- RAM: 64 GB+ (CTD and semantic services are memory-heavy)
+- RAM: 64 GB+ (semantic and CTD paths are memory-heavy)
 - CPU: 12+ cores
-- GPU optional (some services request GPU in compose; can run CPU-only with small compose edits)
+- GPU: optional (some services request GPU reservations; see Troubleshooting for CPU-only hosts)
 
-## Required Data Artifacts
-
-BioChirp expects the following local artifacts:
-
-1. **Curated database snapshots** under:
-   - `database/ttd/`
-   - `database/ctd/`
-   - `database/hcdt/`
-
-2. **Concept value dictionary**:
-   - `resources/values/concept_values_by_db_and_field.pkl`
-
-3. **Embedding pickle for first-time Qdrant ingest**:
-   - `resources/embeddings/biochirp_embeddings.pkl`
-
-4. **Qdrant storage snapshot** (optional, but allows immediate startup without ingest):
-   - `qdrant_storage/`
-
-Project data bundle used by this repo:
-https://drive.google.com/drive/folders/1E6RmupO3Oa3tUFRzZAB-ueUTZkZnpKgU?usp=sharing
-
-## Google Drive Bundle Layout
-
-To make setup reproducible and fast, publish a single versioned archive in Drive:
-
-1. `biochirp_data_bundle_vYYYYMMDD.tar.gz`
-2. `biochirp_data_bundle_vYYYYMMDD.tar.gz.sha256`
-
-Put these paths inside the archive (relative to repo root after extract):
-
-- `database/ttd/`
-- `database/ctd/`
-- `database/hcdt/`
-- `resources/values/concept_values_by_db_and_field.pkl`
-- Include at least one of:
-  - `resources/embeddings/biochirp_embeddings.pkl` (for first-time ingest flow)
-  - `qdrant_storage/` (for immediate run, skip ingest)
-
-### Maintainer: create bundle before upload
-
-Option A (smaller bundle, requires Step 6 ingest):
-
-```bash
-tar -czf biochirp_data_bundle_vYYYYMMDD.tar.gz \
-  database/ttd \
-  database/ctd \
-  database/hcdt \
-  resources/values/concept_values_by_db_and_field.pkl \
-  resources/embeddings/biochirp_embeddings.pkl
-
-sha256sum biochirp_data_bundle_vYYYYMMDD.tar.gz > biochirp_data_bundle_vYYYYMMDD.tar.gz.sha256
-```
-
-Option B (larger bundle, immediate run without Step 6 ingest):
-
-```bash
-tar -czf biochirp_data_bundle_vYYYYMMDD.tar.gz \
-  database/ttd \
-  database/ctd \
-  database/hcdt \
-  resources/values/concept_values_by_db_and_field.pkl \
-  qdrant_storage
-
-sha256sum biochirp_data_bundle_vYYYYMMDD.tar.gz > biochirp_data_bundle_vYYYYMMDD.tar.gz.sha256
-```
-
-### User: download and verify
-
-```bash
-python -m pip install --user gdown
-gdown --fuzzy "<DRIVE_LINK_TO_TAR_GZ>" -O biochirp_data_bundle.tar.gz
-gdown --fuzzy "<DRIVE_LINK_TO_SHA256>" -O biochirp_data_bundle.tar.gz.sha256
-sha256sum -c biochirp_data_bundle.tar.gz.sha256
-tar -xzf biochirp_data_bundle.tar.gz
-```
-
-## Quick Start (Local)
-
-### 1) Clone
+## 1) Clone
 
 ```bash
 git clone https://github.com/abhi1238/biochirp.git
 cd biochirp
 ```
 
-### 2) Download data bundle (required)
-
-If you have a published data bundle link:
-
-```bash
-python -m pip install --user gdown
-gdown --fuzzy "<DRIVE_LINK_TO_TAR_GZ>" -O biochirp_data_bundle.tar.gz
-tar -xzf biochirp_data_bundle.tar.gz
-```
-
-### 3) Configure environment
-
-Create a local env file from template:
+## 2) Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your keys and model names.
+Edit `.env` with real API keys and model names.
 
-### 4) Create Docker network (required by compose)
+At minimum, set provider keys for the models you actually use (default template uses OpenAI models).
 
-`docker-compose.yml` uses an **external** network named `semantic_net`.
+## 3) Prepare data artifacts
+
+BioChirp requires these artifacts under repo root:
+
+- `database/ttd/*.parquet`
+- `database/ctd/*.parquet`
+- `database/hcdt/*.parquet`
+- `resources/values/concept_values_by_db_and_field.pkl`
+- Qdrant data via either:
+  - `qdrant_storage/` snapshot (recommended), or
+  - `resources/embeddings/biochirp_embeddings.pkl` + ingest notebook
+
+### Option A (recommended): use prepared data bundle
+
+Download/extract your project bundle into repo root so paths above exist.
+
+### Option B: preprocess databases from raw files
+
+If you do not have prepared parquet snapshots, run preprocessing notebooks:
+
+- `database/ttd/preprocess.ipynb`
+- `database/ctd/preprocess.ipynb`
+- `database/hcdt/preprocess.ipynb`
+
+These should generate parquet files in `database/{ttd,ctd,hcdt}/`.
+
+### Verify artifact presence
 
 ```bash
-docker network create --driver bridge --subnet 172.35.0.0/16 semantic_net
+# concept dictionary
+test -f resources/values/concept_values_by_db_and_field.pkl && echo "values pickle: OK"
+
+# expected parquet counts (current repo snapshot)
+echo "ttd parquet count: $(find database/ttd -maxdepth 1 -name '*.parquet' | wc -l)"   # expected: 10
+echo "ctd parquet count: $(find database/ctd -maxdepth 1 -name '*.parquet' | wc -l)"   # expected: 9
+echo "hcdt parquet count: $(find database/hcdt -maxdepth 1 -name '*.parquet' | wc -l)" # expected: 8
+
+# qdrant source (at least one path should exist)
+[ -d qdrant_storage ] && echo "qdrant_storage: OK" || echo "qdrant_storage missing"
+[ -f resources/embeddings/biochirp_embeddings.pkl ] && echo "embeddings pickle: OK" || echo "embeddings pickle missing"
 ```
 
-If it already exists, Docker will report it and continue.
+## 4) Create Docker network required by compose
 
-### 5) Start Qdrant on the same network
+`docker-compose.yml` uses an external network named `semantic_net`.
+
+```bash
+docker network create --driver bridge --subnet 172.35.0.0/16 semantic_net || true
+```
+
+## 5) Start Qdrant on `semantic_net`
 
 ```bash
 docker run -d \
@@ -211,223 +128,144 @@ docker run -d \
   qdrant/qdrant:latest
 ```
 
-### 6) Ingest embeddings into Qdrant (first-time only)
+Health check:
+
+```bash
+curl -fsS http://localhost:6333/readyz && echo "Qdrant: OK"
+```
+
+## 6) Ingest embeddings (first-time only)
+
+Skip this step if your `qdrant_storage/` already contains loaded collections.
 
 Use either notebook:
 
-- `qdrant_without_text_index.ipynb`
+- `qdrant.ipynb`
 - `qdrant_ingest.ipynb`
 
 Set Qdrant URL to `http://localhost:6333` and run all cells.
-If your data bundle already includes `qdrant_storage/`, you can skip this step.
 
-### 7) Launch BioChirp services
+## 7) Launch BioChirp services
 
 ```bash
 docker compose up --build -d
 ```
 
-### 8) Verify health
+## 8) Validate service health
+
+### Chat-facing services
 
 ```bash
-curl http://localhost:8010/health
-curl http://localhost:8026/health
-curl http://localhost:8028/health
-curl http://localhost:8031/health
-curl http://localhost:8029/health
+curl -fsS http://localhost:8028/health && echo "TTD chat: OK"
+curl -fsS http://localhost:8031/health && echo "CTD chat: OK"
+curl -fsS http://localhost:8029/health && echo "HCDT chat: OK"
+curl -fsS http://localhost:8026/health && echo "OpenTargets: OK"
 ```
 
-### 9) View logs
+### Core internal services
 
 ```bash
-docker compose logs -f --tail=200
+curl -fsS http://localhost:8011/health && echo "Planner: OK"
+curl -fsS http://localhost:8009/health && echo "Expand+Match: OK"
+curl -fsS http://localhost:8015/health && echo "Semantic: OK"
 ```
 
-## Service Endpoints
+## 9) Use WebSocket endpoints
 
-### WebSocket chat endpoints
-
-- Main orchestrator: `ws://localhost:8010/chat`
-- OpenTargets chat: `ws://localhost:8026/opentarget`
 - TTD chat: `ws://localhost:8028/ttd_chat`
 - CTD chat: `ws://localhost:8031/ctd_chat`
 - HCDT chat: `ws://localhost:8029/hcdt_chat`
+- OpenTargets chat: `ws://localhost:8026/opentarget`
 
-### HTTP endpoints
-
-- Health: `GET /health` on each service
-- Download (CSV):
-  - Orchestrator: `GET http://localhost:8010/download?path=<file>`
-  - OpenTargets: `GET http://localhost:8026/download?path=<file>`
-- Share snapshot:
-  - `POST /share` and `GET /s/{share_id}` on orchestrator and DB chat services
-
-### Tool service ports (from compose)
-
-| Service | Port |
-|---|---:|
-| interpreter | 8005 |
-| web | 8006 |
-| readme | 8007 |
-| tavily | 8008 |
-| expand_and_match_db | 8009 |
-| orchestrator | 8010 |
-| planner | 8011 |
-| ttd tool | 8012 |
-| fuzzy | 8013 |
-| synonyms expander | 8014 |
-| semantic filter | 8015 |
-| ctd tool | 8016 |
-| llm member filter | 8017 |
-| hcdt tool | 8018 |
-| opentarget service | 8026 |
-| ttd chat service | 8028 |
-| hcdt chat service | 8029 |
-| ctd chat service | 8031 |
-| unrestricted synonym expander | 8032 |
-
-### WebSocket payload example
-
-Send:
+Payload format:
 
 ```json
 {"user_input": "What drugs are used to treat rickets?"}
 ```
 
-Keepalive (optional):
+Optional keepalive:
 
 ```json
 {"type": "ping"}
 ```
 
-Common emitted event types:
+Common emitted events include `tool_called`, `tool_result`, `delta`, `*_table`, `final`, `error`.
 
-- `user_ack`
-- `tool_called`
-- `tool_result`
-- `delta`
-- `ttd_table` / `ctd_table` / `hcdt_table`
-- `heartbeat`
-- `final`
-- `error`
+## 10) Output artifacts
 
-## Customization
+- Preview rows are streamed via WebSocket.
+- Full result tables are written to `results/` and can be downloaded via each chat service `/download` endpoint.
 
-All primary knobs are in `.env`.
+## Current Runtime Topology
 
-### Model/provider configuration
+This compose setup exposes domain chat services directly (`ttd_chat`, `ctd_chat`, `hcdt_chat`, `opentarget`).
+A separate top-level orchestrator service (`8010`) is present in codebase but commented out in the current `docker-compose.yml`.
 
-- `OPENAI_API_KEY`
-- `GROQ_API_KEY`
-- `GEMINI_API_KEY`
-- `GROK_KEY` (some components also accept `GROK_API_KEY`)
-- `TAVILY_API_KEY`
+## Planner Behavior (Code-Aligned)
 
-Model selectors:
+Planner code: `app/tools/planner/app/graph.py`
 
-- `INTERPRETER_MODEL_NAME`
-- `INTERPRETER_AGENT_SCHEMA_MAPPER_MODEL_NAME`
-- `ORCHESTRATOR_MODEL_NAME`
-- `SUMMARIZER_MODEL_NAME`
-- `WEB_MODEL_NAME`
-- `LLM_FILTER_MODEL_NAME`
-- `SEMANTIC_MATCHING_MODEL_NAME`
+Current behavior:
 
-### Planner and routing controls
+1. strict concept-to-table mapping (fails on missing/ambiguous concepts),
+2. Steiner connection of terminal tables using NetworkX (Mehlhorn),
+3. deterministic BFS extraction for parent-child join order,
+4. schema-validated join key emission.
 
-- `AGENT_TIMEOUT_SEC`
-- `ROUTE_TIMEOUT_SEC`
-- `MAX_TIMEOUT`
-- `OPENAI_HTTP_TIMEOUT`
-- `WEB_TIMEOUT_SEC`
-- `WEB_TOOL_TIMEOUT`
+Execution engine (`app/utils/dataframe_filtering.py`) then applies filters, executes strict joins, checks join-explosion thresholds, projects requested columns, and deduplicates output.
 
-Graph planner controls:
+## Reproducibility Checklist
 
-- `USE_GREEDY_ALGORITHM`
-- `MAX_COMBINATIONS`
-- `MAX_TABLES_IN_COVERAGE`
-- `STEINER_TIMEOUT_SECONDS`
+Before reporting results, confirm:
 
-### Matching controls
+- same git commit hash,
+- same `.env` model configuration,
+- same database parquet snapshot,
+- same Qdrant contents,
+- same Docker image rebuild state,
+- same planner/runtime flags.
 
-- `FUZZY_SCORE_CUT_SCORE`
-- `USE_KNEE_CUT_OFF`
-- `KNEE_CUT_OFF`
-
-### Preview controls
-
-- `HEAD_VIEW_ROW_COUNT`
-- `OT_PREVIEW_ROWS`
-
-## Graph-Based Planner Details
-
-Planner implementation: `app/tools/planner/app/graph.py`
-
-The planner builds a minimal connected table cover for requested concepts over schema FK topology:
-
-1. Build table graph from `foreign_keys_by_db`.
-2. Map requested concept columns to candidate tables.
-3. Find connected cover using greedy or exhaustive strategy.
-4. Construct spanning tree and explicit join pairs (`left_on`, `right_on`).
-5. Return ordered table plan + parent map + per-table concept columns.
-
-This design keeps join logic deterministic and auditable.
-
-## Evaluation and Reproducibility
-
-- Benchmarks and robustness analyses: `evaluation/`
-- Methods details: `docs/METHODS.md`
-- Reproducibility package guidance: `docs/REPRODUCIBILITY.md`
+Note: output row *content* should match under fixed environment; row *order* may vary unless explicitly sorted downstream.
 
 ## Troubleshooting
 
 ### `network semantic_net not found`
 
-Create it manually:
-
 ```bash
 docker network create --driver bridge --subnet 172.35.0.0/16 semantic_net
 ```
 
-### Qdrant connection failures in semantic service
+### Qdrant connection failures
 
-- Ensure container is named `bioc_qdrant`.
+- Ensure container name is `bioc_qdrant`.
 - Ensure it is attached to `semantic_net`.
-- Ensure ports `6333`/`6334` are exposed.
+- Ensure `6333/6334` ports are reachable.
 
-### GPU reservation errors on CPU-only host
+### CPU-only machine and GPU reservation errors
 
-In `docker-compose.yml`, remove `deploy.resources.reservations.devices` sections for services that request NVIDIA GPU (notably semantic/opentarget services).
+Some services request NVIDIA devices in `docker-compose.yml`.
+For CPU-only hosts, remove `deploy.resources.reservations.devices` blocks for those services.
 
-### Very slow startup
-
-First startup loads large models/resources. Use:
+### Slow first startup
 
 ```bash
 docker compose logs -f --tail=200
 ```
 
-### Frontend points to production URLs
+### Frontend points to production host
 
-`frontend/*.html` pages use hardcoded host values (e.g., `biochirp.iiitd.edu.in`).
-For local use, change host constants to `localhost:<port>` in the corresponding HTML/JS.
+`frontend/*.html` may contain production host constants. For local testing, replace them with `localhost:<port>`.
 
-## Security Notes
+## Security
 
-- Never commit real API keys.
-- Keep `.env` local and use `.env.example` for templates.
-- Rotate keys immediately if exposed.
-- Review logs before sharing (`docker compose logs`) because tool traces may include sensitive query text.
+- Do not commit real API keys.
+- Keep `.env` local; use `.env.example` as template only.
+- Review logs before sharing (queries and tool traces may contain sensitive text).
 
-## License and Citation
+## License
 
-- License: MIT (`LICENSE`)
-- If you use BioChirp in research, cite the project repository and the manuscript/preprint once available.
+MIT (`LICENSE`)
 
----
+## Citation
 
-For method-level manuscript documentation, use:
-
-- `docs/METHODS.md`
-- `docs/REPRODUCIBILITY.md`
+If BioChirp is used in research, cite this repository and associated manuscript/preprint.

@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 # Configuration
 TOOL_NAME = "tavily"
-MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))
+MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))
 TAVILY_SERVICE_URL = os.getenv("TAVILY_SERVICE_URL", "http://biochirp_tavily_tool:8008/tavily")
 
 # Get logger (assuming logging is configured in main.py)

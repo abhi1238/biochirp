@@ -23,7 +23,7 @@ logging.basicConfig(
 log = logging.getLogger("uvicorn.error")
 
 API_URL = f"http://biochirp_{SERVICE_NAME}_tool:8016/{SERVICE_NAME}"
-TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))
+TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))
 
 @function_tool(
     name_override=SERVICE_NAME,

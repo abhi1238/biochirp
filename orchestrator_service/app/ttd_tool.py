@@ -19,7 +19,7 @@ logger = logging.getLogger("uvicorn.error")
 
 
 API_URL = f"http://biochirp_{SERVICE_NAME}_tool:8012/{SERVICE_NAME}"
-TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))
+TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)

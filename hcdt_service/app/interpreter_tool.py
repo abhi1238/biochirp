@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 # Configuration
 TOOL_NAME = "interpreter"
-MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))
+MAX_TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))
 INTERPRETER_SERVICE_URL = os.getenv(
     "INTERPRETER_SERVICE_URL",
     "http://biochirp_interpreter_tool:8005/interpreter"

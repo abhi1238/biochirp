@@ -19,7 +19,7 @@ from pydantic import ValidationError
 SERVICE_NAME = "hcdt"
 HCDT_PORT = os.getenv("HCDT_TOOL_PORT", "8018")
 API_URL = f"http://biochirp_{SERVICE_NAME}_tool:{HCDT_PORT}/{SERVICE_NAME}"
-TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))
+TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))
 
 # Get logger (assuming logging configured in main.py)
 logger = logging.getLogger(__name__)

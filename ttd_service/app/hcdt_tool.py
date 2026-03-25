@@ -24,7 +24,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # f"http://biochirp_ctd_tool:8016/{tool}"
 API_URL = f"http://biochirp_{SERVICE_NAME}_tool:8018/{SERVICE_NAME}"
-TIMEOUT = float(os.getenv("MAX_TIMEOUT", "60"))
+TIMEOUT = float(os.getenv("MAX_TIMEOUT", "120"))
 
 @function_tool(
     name_override=SERVICE_NAME,
