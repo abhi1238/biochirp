@@ -1,5 +1,5 @@
 .env
-database
+# database
 gui
 rough.md
 qdrant_storage
