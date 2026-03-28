@@ -14,27 +14,6 @@ query ($chemblId: String!, $cursor: String, $size: Int) {
 }
 """
 
-# OpenTargets API v26.03+: Drug.knownDrugs moved to Drug.indications
-DRUG_INDICATIONS_QUERY_V26 = """
-query ($chemblId: String!) {
-  drug(chemblId: $chemblId) {
-    indications {
-      count
-      rows {
-        id
-        maxClinicalStage
-        disease { id name }
-        clinicalReports {
-          trialOverallStatus
-          trialPhase
-          clinicalStage
-        }
-      }
-    }
-  }
-}
-"""
-
 DRUG_MOA_QUERY = """
 query ($chemblId: String!) {
   drug(chemblId: $chemblId) {
@@ -44,41 +23,6 @@ query ($chemblId: String!) {
         targetName
         targets { id approvedSymbol approvedName }
         references { source }
-      }
-    }
-  }
-}
-"""
-
-# OpenTargets API v26.03+: Target.knownDrugs moved to Target.drugAndClinicalCandidates
-TARGET_DRUGS_QUERY_V26 = """
-query ($id: String!) {
-  target(ensemblId: $id) {
-    drugAndClinicalCandidates {
-      count
-      rows {
-        id
-        maxClinicalStage
-        drug {
-          id
-          name
-          mechanismsOfAction {
-            rows {
-              actionType
-              mechanismOfAction
-              targets { id }
-            }
-          }
-        }
-        diseases {
-          diseaseFromSource
-          disease { id name }
-        }
-        clinicalReports {
-          trialOverallStatus
-          trialPhase
-          clinicalStage
-        }
       }
     }
   }
@@ -164,38 +108,6 @@ query ($efoId: String!, $freeTextQuery: String, $cursor: String, $size: Int) {
           id
           approvedSymbol
           approvedName
-        }
-      }
-    }
-  }
-}
-"""
-
-# OpenTargets API v26.03+: Disease.knownDrugs moved to Disease.drugAndClinicalCandidates
-DISEASE_DRUG_AND_CLINICAL_CANDIDATES_QUERY_V26 = """
-query ($efoId: String!) {
-  disease(efoId: $efoId) {
-    id
-    name
-    drugAndClinicalCandidates {
-      count
-      rows {
-        id
-        maxClinicalStage
-        drug {
-          id
-          name
-          drugType
-          mechanismsOfAction {
-            rows {
-              mechanismOfAction
-            }
-          }
-        }
-        clinicalReports {
-          trialOverallStatus
-          trialPhase
-          clinicalStage
         }
       }
     }

@@ -47,22 +47,6 @@ async def _cache_set(key: str, value: Any) -> None:
         _CACHE[key] = (time.monotonic() + _CACHE_TTL_S, value)
 
 
-def _is_missing_field_error(exc: Exception, field: str, type_name: str) -> bool:
-    msg_parts = [str(exc)]
-    resp = getattr(exc, "response", None)
-    if resp is not None:
-        try:
-            msg_parts.append(resp.text or "")
-        except Exception:
-            pass
-    msg = " ".join(msg_parts)
-    return (
-        "Cannot query field" in msg
-        and f"'{field}'" in msg
-        and f"type '{type_name}'" in msg
-    )
-
-
 async def get_disease_and_descendant_synonyms(disease_name: str):
     cache_key = _cache_key("disease_desc_syn", disease_name)
     cached = await _cache_get(cache_key)
@@ -484,35 +468,18 @@ async def get_drug_description(drug_name: str) -> Optional[str]:
 
         chembl_id = best_hit["id"]
 
-        description_query_v26 = """
+        description_query = """
         query DrugDesc($chemblId: String!) {
           drug(chemblId: $chemblId) {
             name
             description
             drugType
-            maximumClinicalStage
+            maximumClinicalTrialPhase
           }
         }
         """
 
-        try:
-            drug_data = (await _ot.run(description_query_v26, {"chemblId": chembl_id})).get("drug")
-        except Exception as e:
-            # Backward compatibility with older schema naming.
-            if not _is_missing_field_error(e, "maximumClinicalStage", "Drug"):
-                raise
-            description_query_legacy = """
-            query DrugDesc($chemblId: String!) {
-              drug(chemblId: $chemblId) {
-                name
-                description
-                drugType
-                maximumClinicalTrialPhase
-              }
-            }
-            """
-            drug_data = (await _ot.run(description_query_legacy, {"chemblId": chembl_id})).get("drug")
-
+        drug_data = (await _ot.run(description_query, {"chemblId": chembl_id})).get("drug")
         if not drug_data:
             return None
 

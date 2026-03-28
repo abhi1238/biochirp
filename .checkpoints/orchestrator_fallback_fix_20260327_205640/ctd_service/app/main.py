@@ -15,37 +15,70 @@ from typing import Optional
 from contextlib import suppress
 from pathlib import Path
 from agents import Agent, Runner, function_tool, WebSearchTool
-from langchain.memory import ConversationBufferMemory
-from .uvicorn_logger import setup_logger
-from .client import close_all_open_targets_clients
-from .http_client import close_http_client
+
 import pandas as pd
 import redis.asyncio as redis
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from .resolvers import interpreter
+from langchain.memory import ConversationBufferMemory
+
 from agents import Agent, Runner, ModelSettings, ItemHelpers
-from .utility_target import target_tool
-from .utility_drug import drug_tool
-from .utility_disease import disease_tool
-from .readme import readme_tool
-from agents.exceptions import MaxTurnsExceeded
-# from config.guardrail import ShareIn, ShareOut
-from agents import Agent, ModelSettings
 
-base_logger = logging.getLogger("uvicorn.error")
-logger = base_logger.getChild("opentargets.orchestrator")
+# ----- Project-specific imports -----
+from app.web_tool import web
+from app.interpreter_tool import interpreter
+from app.readme_tool import readme
+from app.tavily_tool import tavily
+from app.ttd_tool import ttd
+from app.ctd_tool import ctd
+from app.hcdt_tool import hcdt
+from app.memory_tool import memory_tool
+from app.router_tool import router_tool
 
+from config.guardrail import ShareIn, ShareOut
 
 
 MAX_SHARE_HTML_BYTES = int(os.environ.get("MAX_SHARE_HTML_BYTES", str(5 * 1024 * 1024)))  # 5MB
 HEARTBEAT_INTERVAL = float(os.environ.get("WS_HEARTBEAT_INTERVAL", "15.0"))
 ORCHESTRATOR_MODEL_NAME = os.environ.get("ORCHESTRATOR_MODEL_NAME", "gpt-4.1-mini")
+ORCHESTRATOR_TIMEOUT_SEC = float(os.environ.get("ORCHESTRATOR_TIMEOUT_SEC", "60"))
 
 # =========================
 # Basic helpers
 # =========================
+def _new_share_id(raw_hint: Optional[str] = None) -> str:
+    seed = f"{time.time()}:{uuid.uuid4().hex}:{raw_hint or ''}".encode()
+    return hashlib.sha1(seed).hexdigest()[:10]
+
+
+def _esc_srcdoc(html: str) -> str:
+    return (
+        html.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("'", "&#39;")
+    )
+
+
+def _sanitize_html_for_storage(html: str) -> str:
+    # Strip <script> blocks
+    html = re.sub(
+        r"<\s*script\b[^>]*>.*?<\s*/\s*script\s*>",
+        "",
+        html,
+        flags=re.I | re.S,
+    )
+    # Strip inline event handlers: onclick=..., onload=..., etc.
+    html = re.sub(
+        r"\son[a-zA-Z]+\s*=\s*([\"']).*?\1",
+        "",
+        html,
+        flags=re.I | re.S,
+    )
+    return html
+
+
 def _infer_columns_from_rows(rows):
     cols, seen = [], set()
     for r in rows or []:
@@ -55,6 +88,7 @@ def _infer_columns_from_rows(rows):
                     seen.add(k)
                     cols.append(str(k))
     return cols
+
 
 def _rows_to_csv(rows, columns):
     buf = io.StringIO()
@@ -91,11 +125,19 @@ def _build_legacy_table_payload(
 # =========================
 # App & Config
 # =========================
+
 app = FastAPI(
-    title="OpenTarget Service",
+    title="Comparative Toxicogenomics Database Orchestrator",
     version="1.0.0",
-    description="API for Orchestrator Service",
+    description=(
+        "Orchestration API for structured querying and integration of the "
+        "Comparative Toxicogenomics Database (CTD), enabling evidence-based "
+        "retrieval of chemical–gene interactions, gene–disease associations, "
+        "pathways, and mechanistic toxicogenomic insights."
+    ),
 )
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -112,7 +154,10 @@ SAFE_BASE_URL = os.environ.get("SAFE_BASE_URL", "")
 SHARE_TTL_SECONDS = int(os.environ.get("SHARE_TTL_SECONDS", "86400"))  # 24h default
 POSTRUN_PUBLISH_TABLES = True
 
-with open("/app/resources/prompts/opentarget_orchestrator.md", "r", encoding="utf-8") as f:
+# with open("/app/resources/prompts/agent_orchestrator.md", "r", encoding="utf-8") as f:
+#     prompt_md = f.read()
+
+with open("/app/resources/prompts/agent_orchestrator.md", "r", encoding="utf-8") as f:
     prompt_md = f.read()
 
 class ConnectionIdFilter(logging.Filter):
@@ -122,6 +167,22 @@ class ConnectionIdFilter(logging.Filter):
             record.connection_id = "-"
         return True
 
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("output.log", mode="a"),
+    ],
+    format="%(asctime)s %(levelname)s: %(message)s"
+)
+
+
+
+logger = logging.getLogger("uvicorn.error")
 
 # ---------- Lazy, robust Redis ----------
 redis_client: Optional[redis.Redis] = None
@@ -168,16 +229,6 @@ async def shutdown():
         logger.info("Redis client closed", extra={"connection_id": "shutdown"})
     except Exception:
         pass
-    try:
-        await close_all_open_targets_clients()
-        logger.info("OpenTargets clients closed", extra={"connection_id": "shutdown"})
-    except Exception:
-        pass
-    try:
-        await close_http_client()
-        logger.info("HTTP client closed", extra={"connection_id": "shutdown"})
-    except Exception:
-        pass
 
 
 # =========================
@@ -198,21 +249,113 @@ async def health():
         ok = False
     return {"status": "ok" if ok else "degraded", "redis": ok}
 
+
 @app.get("/download")
-def download(path: str):
-    file_path = (RESULTS_ROOT / path).resolve()
-
-    # Safety check (important)
-    if not str(file_path).startswith(str(RESULTS_ROOT)):
-        raise HTTPException(status_code=400, detail="Invalid path")
-
-    if not file_path.exists():
+def download_file(path: str = Query(...)):
+    p = Path(path).resolve()
+    if not str(p).startswith(str(RESULTS_ROOT)) or not p.is_file():
         raise HTTPException(status_code=404, detail="File not found")
-
     return FileResponse(
-        file_path,
-        filename=file_path.name,
-        media_type="text/csv",
+        str(p),
+        media_type="text/csv; charset=utf-8",
+        filename=p.name,
+        headers={"Content-Disposition": f'attachment; filename="{p.name}"'},
+    )
+
+
+@app.post("/share", response_model=ShareOut)
+async def create_share(payload: ShareIn, request: Request):
+    try:
+        if not payload.html or len(payload.html) < 100:
+            raise HTTPException(status_code=400, detail="Snapshot HTML is too short.")
+
+        html_bytes = payload.html.encode("utf-8", errors="ignore")
+        if len(html_bytes) > MAX_SHARE_HTML_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"Snapshot too large ({len(html_bytes)} bytes). "
+                    "Increase client_max_body_size / MAX_SHARE_HTML_BYTES."
+                ),
+            )
+
+        r = await get_redis()
+
+        # Tolerate older ShareIn without .unsafe
+        unsafe = bool(getattr(payload, "unsafe", False))
+
+        # Sanitize unless explicitly unsafe
+        body = payload.html if unsafe else _sanitize_html_for_storage(payload.html)
+
+        share_id = _new_share_id(getattr(payload, "title", None))
+        key = f"share:{share_id}"
+        blob = json.dumps({"unsafe": unsafe, "html": body})
+
+        ok = await r.setex(key, SHARE_TTL_SECONDS, blob)
+        if not ok:
+            logger.error(
+                "Redis setex returned falsy for key=%s", key, extra={"connection_id": "share"}
+            )
+            raise HTTPException(status_code=500, detail="Failed to persist snapshot.")
+
+        url = f"{SAFE_BASE_URL}/s/{share_id}" if SAFE_BASE_URL else f"/s/{share_id}"
+        logger.info(
+            "Share created id=%s size=%dB ip=%s ua=%s",
+            share_id,
+            len(blob.encode("utf-8")),
+            request.client.host if request.client else "?",
+            request.headers.get("user-agent"),
+            extra={"connection_id": share_id},
+        )
+        return ShareOut(id=share_id, url=url, expires_in_seconds=SHARE_TTL_SECONDS)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unhandled /share error", extra={"connection_id": "share"})
+        raise HTTPException(
+            status_code=500,
+            detail=f"Share failed: {type(e).__name__}: {e}",
+        )
+
+
+@app.get("/s/{share_id}", response_class=HTMLResponse)
+async def get_share(share_id: str):
+    r = await get_redis()
+    raw = await r.get(f"share:{share_id}")
+    if not raw:
+        raise HTTPException(status_code=404, detail="Snapshot not found or expired.")
+    try:
+        stored = json.loads(raw)
+    except Exception:
+        stored = {"unsafe": False, "html": raw}
+    html = stored.get("html", "")
+    unsafe = bool(stored.get("unsafe"))
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+    }
+    if not unsafe:
+        return HTMLResponse(
+            content=html,
+            media_type="text/html; charset=utf-8",
+            headers=headers,
+        )
+    viewer = f"""<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shared snapshot</title>
+<style>html,body,iframe{{margin:0;padding:0;height:100%;width:100%}}body{{background:#0B1222}}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox"
+        srcdoc='{_esc_srcdoc(html)}'></iframe>
+</body></html>"""
+    return HTMLResponse(
+        content=viewer,
+        media_type="text/html; charset=utf-8",
+        headers=headers,
     )
 
 
@@ -245,7 +388,7 @@ def is_orchestrator_metadata(text: str, tool_name: str = None) -> bool:
     except json.JSONDecodeError:
         return any(
             p in text.lower()
-            for p in ['inputquery', 'parsed_value', '"tool":"target_tool', '"tool":"disease_tool', '"tool":"drug_tool']
+            for p in ['inputquery', 'parsed_value', '"tool":"ttd', '"tool":"ctd', '"tool":"hcdt']
         )
 
 
@@ -318,7 +461,7 @@ async def publish_table_records_legacy(
     rows,
     *,
     columns=None,
-    event_type: str = "disease_tool_table",  # "ctd_table" / "hcdt_table"
+    event_type: str = "ttd_table",  # "ctd_table" / "hcdt_table"
     csv_name: str = "results.csv",
     csv_path: str = None,
     limit_rows: int = 1000,
@@ -347,7 +490,7 @@ async def publish_table_records_legacy(
 # =========================
 # Immediate publish from tool output (for ttd/ctd/hcdt)
 # =========================
-SUPPORTED_TABLE_TOOLS = {"disease_tool", "target_tool", "drug_tool"}
+SUPPORTED_TABLE_TOOLS = {"ttd", "ctd", "hcdt"}
 
 
 async def publish_table_from_output(
@@ -390,15 +533,12 @@ async def publish_table_from_output(
 # =========================
 # WebSocket Orchestrator
 # =========================
-@app.websocket("/opentarget")
-async def opentarget_ws(websocket: WebSocket):
+@app.websocket("/ctd_chat")
+async def orchestrator_ws(websocket: WebSocket):
     MAX_ROW_TO_DISPLAY = 50
 
     pid = os.getpid()
     connection_id = f"ws-{pid}-{int(time.time())}-{uuid.uuid4().hex[:8]}"
-
-    logger.warning(f"[Initialized connection]:{connection_id}")
-
 
     try:
         ua = websocket.headers.get("user-agent")
@@ -415,9 +555,6 @@ async def opentarget_ws(websocket: WebSocket):
         pass
 
     await websocket.accept()
-
-
-    logger.warning(f"[Initialized connection 1]:{connection_id}")
 
     # Single writer guard for WebSocket
     send_lock = asyncio.Lock()
@@ -469,7 +606,6 @@ async def opentarget_ws(websocket: WebSocket):
                 break
 
     # Pub/Sub relay uses a live client
-    logger.warning(f"[Initialized connection 2]:{connection_id}")
     r = await get_redis()
     pubsub = r.pubsub()
     await pubsub.subscribe(connection_id)
@@ -482,7 +618,7 @@ async def opentarget_ws(websocket: WebSocket):
                 raw_payload = msg["data"]
                 try:
                     parsed = json.loads(raw_payload)
-                    if parsed.get("type") in {"disease_tool_table", "target_tool_table", "drug_tool_table"}:
+                    if parsed.get("type") in {"ttd_table", "ctd_table", "hcdt_table"}:
                         logger.info(
                             "Forwarding DB event: %s (conn=%s)",
                             parsed["type"],
@@ -509,26 +645,16 @@ async def opentarget_ws(websocket: WebSocket):
     orchestrator = Agent(
         name="Orchestrator",
         instructions=prompt_md,
-        tools=[
-                interpreter,
-                disease_tool,
-                drug_tool,
-                target_tool,
-                readme_tool,
-                WebSearchTool()],
+        tools=[web, readme, interpreter, ctd, WebSearchTool()],
 
-        # tools=[memory_tool, web, readme, interpreter, tavily, ttd, ctd, hcdt, router_tool],
-        model="gpt-4.1-mini",
-        # max_turns=20
-    #     model_settings=ModelSettings(
-    #     max_turns=10
-    # ),
-
+        # tools=[memory_tool, web, readme, interpreter, tavily, ctd, router_tool],
+        # tools=[web, readme, interpreter, ctd],
+        model=ORCHESTRATOR_MODEL_NAME,
+        # model_settings=ModelSettings(tool_choice="memory_tool"),
     )
 
     try:
         while True:
-            logger.warning(f"[Initialized connection 3]:{connection_id}")
             # Receive a message from client
             try:
                 raw = await websocket.receive_text()
@@ -572,14 +698,9 @@ async def opentarget_ws(websocket: WebSocket):
             # (kept as string to match existing Runner.run_streamed behavior)
             input_data = (
                 f"user_input: {user_input} | "
-                # f"last_5_pairs: {last5_pairs} | "
+                f"last_5_pairs: {last5_pairs} | "
                 f"connection_id: {connection_id}"
             )
-
-            
-
-
-            logger.warning(f"[input_data]:{input_data}")
 # json.dumps(input_payload)
             # stream = Runner.run_streamed(orchestrator, input=input_data)
             input_data = {
@@ -587,25 +708,19 @@ async def opentarget_ws(websocket: WebSocket):
                 "last_5_pairs": last5_pairs,
                 "connection_id": connection_id,
             }
-            stream = Runner.run_streamed(orchestrator, input=json.dumps(input_data), max_turns = 20)
-            # stream = await Runner.run(orchestrator, input=json.dumps(input_data))
-
+            stream = Runner.run_streamed(orchestrator, input=json.dumps(input_data))
 
             memory.chat_memory.add_user_message(user_input)
 
             tool_registry = {}
             tool_counter = 0
             active_tools = set()
+            timed_out = False
             orchestrator_text_emitted = False
             fallback_orchestrator_text: Optional[str] = None
             last_tool_text: Optional[str] = None
 
-            def new_tool_id(runner_item_id: str, tool_name: str) -> str:
-                nonlocal tool_counter
-                tool_counter += 1
-                return f"tool-{tool_counter}_{runner_item_id}_{tool_name.replace(' ', '_')}"
-
-            try:
+            async def _consume_stream():
                 async for event in stream.stream_events():
                     etype = getattr(event, "type", None)
 
@@ -616,10 +731,6 @@ async def opentarget_ws(websocket: WebSocket):
                         and hasattr(event.data, "delta")
                     ):
                         continue
-
-                    if etype == "run_error":
-                        if "max_turns" in str(event.error).lower():
-                            raise MaxTurnsExceeded(str(event.error))
 
                     if etype == "run_item_stream_event" and hasattr(event, "item"):
                         item = event.item
@@ -707,7 +818,18 @@ async def opentarget_ws(websocket: WebSocket):
 
                             # Publish table events if applicable
                             try:
-                                tool_key = (tool_info["name"] or "").strip().lower()
+                                # tool_key = (tool_info["name"] or "").strip().lower()
+                                tool_name_l = (tool_info["name"] or "").lower()
+
+                                if "ttd" in tool_name_l:
+                                    tool_key = "ttd"
+                                elif "ctd" in tool_name_l:
+                                    tool_key = "ctd"
+                                elif "hcdt" in tool_name_l:
+                                    tool_key = "hcdt"
+                                else:
+                                    tool_key = None
+
                                 if tool_key in SUPPORTED_TABLE_TOOLS and isinstance(output, dict):
                                     await publish_table_from_output(
                                         output=output,
@@ -759,10 +881,36 @@ async def opentarget_ws(websocket: WebSocket):
                                 )
                             continue
 
+            def new_tool_id(runner_item_id: str, tool_name: str) -> str:
+                nonlocal tool_counter
+                tool_counter += 1
+                return f"tool-{tool_counter}_{runner_item_id}_{tool_name.replace(' ', '_')}"
+
+            try:
+                try:
+                    await asyncio.wait_for(
+                        _consume_stream(),
+                        timeout=ORCHESTRATOR_TIMEOUT_SEC,
+                    )
+                except asyncio.TimeoutError:
+                    timed_out = True
+                    logger.error(
+                        "[ws:%s] run timed out after %ss",
+                        pid,
+                        ORCHESTRATOR_TIMEOUT_SEC,
+                        extra={"connection_id": connection_id},
+                    )
+                    await ws_send(
+                        {
+                            "type": "error",
+                            "message": f"Timeout after {ORCHESTRATOR_TIMEOUT_SEC:.0f}s",
+                        }
+                    )
+
                 # After the run: check for CSVs for any DB we didn't publish yet
-                if POSTRUN_PUBLISH_TABLES:
+                if POSTRUN_PUBLISH_TABLES and not timed_out:
                     try:
-                        for which in ("drug_tool", "disease_tool", "target_tool"):
+                        for which in ("ttd", "ctd", "hcdt"):
                             if which in published_table_tools:
                                 continue
                             tmp_csv = RESULTS_ROOT / f"{which}_{connection_id}.csv"
@@ -773,8 +921,6 @@ async def opentarget_ws(websocket: WebSocket):
                             final_path = (RESULTS_ROOT / final_name).resolve()
                             df = pd.read_csv(tmp_csv, dtype=str)
                             df.to_csv(final_path, index=False)
-
-      
 
                             await publish_table_records_legacy(
                                 connection_id=connection_id,
@@ -795,7 +941,7 @@ async def opentarget_ws(websocket: WebSocket):
 
                 # Fallback summary: emit one final orchestrator message even if
                 # the model ended without a message_output_item.
-                if not orchestrator_text_emitted:
+                if not timed_out and not orchestrator_text_emitted:
                     stream_final_output = getattr(stream, "final_output", None)
                     if stream_final_output is not None:
                         fallback_orchestrator_text = _extract_display_text(
@@ -834,7 +980,7 @@ async def opentarget_ws(websocket: WebSocket):
                         {
                             "type": "tool_result",
                             "tool_id": tool_id,
-                            "ok": True,
+                            "ok": not timed_out,
                         }
                     )
 
@@ -883,4 +1029,4 @@ async def opentarget_ws(websocket: WebSocket):
 
 
 # Accept *both* /chat and /chat/ to avoid trailing-slash 403s on WS handshakes.
-app.add_api_websocket_route("/opentarget/", opentarget_ws)
+app.add_api_websocket_route("/ctd_chat/", orchestrator_ws)

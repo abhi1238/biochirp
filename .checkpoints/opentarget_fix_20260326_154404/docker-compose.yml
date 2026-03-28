@@ -848,7 +848,7 @@ services:
 
 
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8026/health', timeout=5)\" || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8026/health || exit 1"]
       start_period: 30s
     deploy:
       resources:

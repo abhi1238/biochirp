@@ -39,7 +39,7 @@ from app.memory_tool import memory_tool
 MAX_SHARE_HTML_BYTES = int(os.environ.get("MAX_SHARE_HTML_BYTES", str(5 * 1024 * 1024)))
 HEARTBEAT_INTERVAL = float(os.environ.get("WS_HEARTBEAT_INTERVAL", "15.0"))
 ORCHESTRATOR_MODEL_NAME = os.environ.get("ORCHESTRATOR_MODEL_NAME", "gpt-4.1-mini")
-ORCHESTRATOR_TIMEOUT_SEC = float(os.environ.get("ORCHESTRATOR_TIMEOUT_SEC", "120"))
+ORCHESTRATOR_TIMEOUT_SEC = float(os.environ.get("ORCHESTRATOR_TIMEOUT_SEC", "60"))
 RESULTS_ROOT = Path(os.environ.get("RESULTS_ROOT", "/app/results")).resolve()
 REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))

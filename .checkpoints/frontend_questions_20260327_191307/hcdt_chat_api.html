@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
 <title>BioChirp - Biological Research AI (Chat)</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
@@ -10,12 +12,14 @@
 <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
 
 <style>
-  :root[data-theme="light"]{
+  :root[data-theme="dark"]{
     --bg0:#070A15; --bg1:#0B1222; --bg2:#0E1626; --bg3:#121C2E;
     --card:#0F1828; --txt:#EAF2FF; --mut:#9FB0C4;
     --brd:rgba(255,255,255,.10); --hover:rgba(255,255,255,.06);
     --accent:#1FA4FF; --accent2:#A78BFA; --ok:#00E38C; --err:#ff6b6b;
     --shadow:0 18px 55px rgba(0,0,0,.45);
+    --tool-font: "Times New Roman", Times, serif;
+    --tool-font-size: 15px;
   }
   :root[data-theme="light"]{
     --bg0:#F6FAFF; --bg1:#FFFFFF; --bg2:#FFFFFF; --bg3:#F4F7FB;
@@ -23,6 +27,8 @@
     --brd:rgba(0,0,0,.10); --hover:rgba(0,0,0,.04);
     --accent:#1FA4FF; --accent2:#6D50FF; --ok:#0FB27A; --err:#E25050;
     --shadow:0 18px 55px rgba(17,24,39,.14);
+    --tool-font: "Times New Roman", Times, serif;
+    --tool-font-size: 15px;
   }
   :root{ --chat-max: 1200px; }
 
@@ -68,6 +74,16 @@
     background:var(--hover); border-color:color-mix(in oklab,var(--accent) 30%,var(--brd));
   }
   .reconnect:active,.theme-btn:active{ transform:translateY(1px) }
+  .doc-btn{
+    padding:6px 10px;border-radius:10px;border:1px solid var(--brd);
+    background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:background .15s ease, transform .06s ease, border-color .15s ease;
+  }
+  .doc-btn:hover{
+    background:var(--hover); border-color:color-mix(in oklab,var(--accent) 30%,var(--brd));
+  }
+  .doc-btn:active{ transform:translateY(1px) }
 
   .quick-asks{
     max-width: var(--chat-max);
@@ -119,12 +135,7 @@
   }
   .message-content{flex:1; display:flex; flex-direction:column; gap:8px; min-width:0}
   .timestamp{font-size:11px; color:var(--mut)}
-  /* .message-bubble{
-    position:relative; padding:12px 14px; border-radius:16px;
-    background:var(--card); border:1px solid var(--brd);
-    line-height:1.6; font-size:15px; overflow-wrap:anywhere;
-    box-shadow:var(--shadow);
-  } */
+
 
     .message-bubble{
     position:relative; padding:12px 14px; border-radius:16px;
@@ -161,8 +172,7 @@
     padding:2px 6px;border-radius:6px
   }
 
-  /* .tool-card{background:var(--card);border:1px solid var(--brd);border-radius:12px;overflow:hidden;margin-top:6px}
-   */
+
    .tool-card{
     background:var(--card);
     border:1px solid var(--brd);
@@ -193,13 +203,17 @@
   /* .tool-output{padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;white-space:pre-line;word-break:break-word} */
   .tool-output{
     padding:12px;
-    font-family:ui-monospace,Menlo,Consolas,monospace;
-    font-size:14px;
+    font-family:var(--tool-font);
+    font-size:var(--tool-font-size);
     max-width:100%;
     white-space:pre-wrap;      /* keep line breaks AND wrap */
     word-break:break-word;     /* break long tokens */
     overflow-wrap:anywhere;    /* extra safety for very long strings */
     overflow-x:auto;           /* scroll horizontally only if absolutely necessary */
+  }
+  .tool-output pre,
+  .tool-output code{
+    font-family:var(--tool-font);
   }
 
 
@@ -247,6 +261,18 @@
   #sendButton:not(:disabled):active{ transform:translateY(1px) scale(.98); box-shadow:0 8px 24px rgba(0,0,0,.4); }
 
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .cursor{
+    display:inline-block;
+    width:2px;
+    height:1em;
+    background:var(--accent);
+    margin-left:2px;
+    animation:blink 1s infinite;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+    .cursor{ animation:none !important; }
+  }
 
   @media (max-width: 920px){
     .message{max-width:100%}
@@ -313,83 +339,39 @@
 
 
   .tool-output .db-message {
-    font-family: inherit;
-    font-size: 13px;
+    font-family: var(--tool-font);
+    font-size: var(--tool-font-size);
     line-height: 1.5;
     white-space: pre-wrap;
   }
 
-
-  /* --- Responsive typography + spacing overrides --- */
-  :root{
-    --chat-max: min(1200px, 94vw);
-    --content-font: "Times New Roman", Times, serif;
-    --content-size: clamp(15px, 1.15vw, 18px);
-    --content-line: 1.7;
-    --tool-font: var(--content-font);
-    --tool-font-size: clamp(14px, 1.05vw, 17px);
+  .doc-overlay{
+    position:fixed; inset:0; z-index:50;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
   }
-
-  body{
-    font-size: clamp(14px, 1.05vw, 16px);
-    line-height: 1.6;
+  .doc-modal{
+    width:min(960px, 92vw); max-height:85vh; overflow:hidden;
+    background:var(--card); border:1px solid var(--brd);
+    border-radius:16px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column;
   }
-
-  .messages{
-    gap: clamp(10px, 1.2vw, 16px);
-    padding: clamp(12px, 1.6vw, 18px);
+  .doc-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--brd);
   }
-
-  .message-bubble{
-    font-family: var(--content-font);
-    font-size: var(--content-size);
-    line-height: var(--content-line);
+  .doc-title{ font-size:16px; font-weight:800; }
+  .doc-close{
+    border:1px solid var(--brd); background:var(--bg2); color:var(--txt);
+    border-radius:10px; padding:6px 10px; cursor:pointer;
   }
-
-  .message-bubble p,
-  .message-bubble li,
-  .tool-output p,
-  .tool-output li{
-    margin: 0 0 0.55em;
-    line-height: var(--content-line);
+  .doc-body{
+    padding:16px; overflow:auto; line-height:1.6; color:var(--txt);
   }
+  .doc-body h4{ margin:10px 0 6px; font-size:14px; }
+  .doc-body ul{ margin:6px 0 12px 16px; }
 
-  .tool-output{
-    font-family: var(--tool-font);
-    font-size: var(--tool-font-size);
-    line-height: var(--content-line);
-  }
-
-  .tool-output pre,
-  .tool-output code,
-  .message-bubble pre,
-  .message-bubble code{
-    font-family: var(--tool-font);
-    font-size: calc(var(--tool-font-size) - 1px);
-  }
-
-  .tool-name{
-    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: clamp(12px, 0.95vw, 14px);
-    letter-spacing: 0.01em;
-  }
-
-  @media (max-width: 1100px){
-    .quick-asks{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-  }
-
-  @media (max-width: 640px){
-    .quick-asks{ grid-template-columns: 1fr; }
-    .chat-header{ flex-direction: column; align-items: flex-start; gap: 8px; }
-    .status-wrap{ flex-wrap: wrap; }
-  }
-
-
-  /* Tighten tool output spacing (avoid double gaps from <p> + <br>) */
-  .tool-output { white-space: normal; }
-  .tool-output p { margin: 0 0 0.45em; }
-  .tool-output p:last-child { margin-bottom: 0; }
-  .tool-output .db-message { white-space: pre-line; }
 
 </style>
 </head>
@@ -399,115 +381,117 @@
     <header class="chat-header">
       <div class="leftHdr">
         <div class="chat-title">
-          Therapeutic Targets Database Chat Interface <small>• Evidence-Based Biological Intelligence</small>
+          Highly Confident Drug-Target Database Chat Interface <small>• Evidence-Based Biological Intelligence</small>
         </div>
       </div>
       <div class="status-wrap">
-        <button class="theme-btn" id="themeToggle">🌓 Theme</button>
-        <button class="reconnect" onclick="manualReconnect()">⟳ Reconnect</button>
+        <button class="doc-btn" id="docBtn" type="button">📘 Documentation</button>
+        <button class="theme-btn" id="themeToggle" type="button">🌓 Theme</button>
+        <button class="reconnect" id="reconnectBtn" type="button">⟳ Reconnect</button>
         <div class="connection-status">
           <div class="status-dot" id="statusDot"></div>
-          <span id="connectionStatus">Connecting…</span>
+          <span id="connectionStatus" aria-live="polite">Connecting…</span>
         </div>
       </div>
     </header>
 
-<!-- 
-    <div id="quickAsks" class="quick-asks" aria-label="Quick questions">
-  
-      <div class="qa-card" onclick="askPreset('What are the drugs for TB?')">💊 Drugs for TB?</div>
-
-      <div class="qa-card" onclick="askPreset('List the tyrosine kinase inhibitors (TKIs).')">🎯 List the TKI</div>
-
-      <div class="qa-card" onclick="askPreset('What genes are linked to multiple myeloma (MM)?')">🧬 Genes linked to MM</div>
-
-      <div class="qa-card" onclick="askPreset('What pathways and biomarkers are linked to ADHD?')">🧪 Pathways & biomarkers in ADHD</div>
-
-      <div class="qa-card" onclick="askPreset('Show drugs approved for Parkinson’s disease (PD) and their mechanisms of action.')">
-        🧪 Drugs approved for PD & their mechanisms
-      </div>
-
-      <div class="qa-card" onclick="askPreset('Which pathways are commonly altered in triple-negative breast cancer (TNBC)?')">
-        🧪 Pathways altered in TNBC
-      </div>
-
-        <div class="qa-card" onclick="askPreset('List drugs that target apoptosis pathways in cancer.')">
-          🧪 Drugs targeting apoptosis pathways in cancer
-        </div>
-
-        <div class="qa-card" onclick="askPreset('List drugs with approval status for autoimmune diseases.')">
-          🧪 Approved drugs for autoimmune diseases
-        </div>
-
-        <div class="qa-card" onclick="askPreset('List drugs for multiple sclerosis.')">
-          🧪 Drugs for multiple sclerosis
-        </div>
-
-        <div class="qa-card" onclick="askPreset('What genes are linked to type 2 diabetes progression?')">
-          🧬 Genes linked to type 2 diabetes
-        </div>
-
-        <div class="qa-card" onclick="askPreset('Which pathways are dysregulated in Alzheimer’s disease?')">
-          🧠 Pathways dysregulated in Alzheimer’s disease
-        </div>
-
-        <div class="qa-card" onclick="askPreset('What genes are strongly associated with rheumatoid arthritis (RA)?')">
-          🧬 Genes associated with RA
-        </div>
-
-  </div> -->
-
-<!-- 
-    <div id="quickAsks" class="quick-asks" aria-label="Quick questions">
-      <div class="qa-card" onclick="askPreset('What are the drugs for TB?')">💊 drugs for TB?</div>
-      <div class="qa-card" onclick="askPreset('List the TKI.')">🎯 List the TKI</div>
-      <div class="qa-card" onclick="askPreset('What are the genes linked to mm?')">🧬 Genes linked to mm</div>
-      <div class="qa-card" onclick="askPreset('What are the pathway and biomarker linked to adhd?')">🧪 Pathways & biomarkers in adhd</div>
-      <div class="qa-card" onclick="askPreset('Show drugs approved for pd and their mechanisms of action.')">🧪 drugs approved for pd and their mechanisms of action.</div>
-      <div class="qa-card" onclick="askPreset('Which pathways are commonly altered in TNBC?')">🧪 pathways altered in TNBC?</div>
-      <div class="qa-card" onclick="askPreset('List drugs that target apoptosis pathways in cancer.')">🧪 drugs targetting apoptosis pathways in cancer.</div>
-      <div class="qa-card" onclick="askPreset('List drugs with approval status for autoimmune diseases.')">🧪 List drugs with approval status for autoimmune diseases.</div>
-      <div class="qa-card" onclick="askPreset('List drugs for multiple sclerosis.')">🧪 drugs for multiple sclerosis</div>
-      <div class="qa-card" onclick="askPreset('What genes are linked to type 2 diabetes progression?')">🧪 genes are linked to type 2 diabetes</div>
-      <div class="qa-card" onclick="askPreset('Which pathways are dysregulated in Alzheimer’s disease?')">🧪 Pathways dysregulated in Alzheimer’s disease?</div>
-      <div class="qa-card" onclick="askPreset('What genes are strongly associated with ra?')">🧪 genes associated with ra?</div>
-
-
-
-
-
-    </div> -->
-
-    <section class="messages" id="messagesContainer"></section>
+    <section class="messages" id="messagesContainer" role="log" aria-live="polite" aria-relevant="additions"></section>
 
     <div class="composer-stack">
       <footer class="input-area">
         <div class="input-container">
           <div class="input-wrapper">
-            <textarea id="messageInput" placeholder="Ask about drugs, diseases, targets, genes, pathways, biomarkers, mechanisms of action, approval status, or anything biomedical…" rows="1"></textarea>
-          </div>
-          <button id="sendButton" title="Send" onclick="sendMessage()">➤</button>
+            <textarea id="messageInput" placeholder="Ask about drugs, diseases, genes pathways, and their associations..." rows="1" aria-label="Message input"></textarea>
+        </div>
+          <button id="sendButton" type="button" title="Send" aria-label="Send message">➤</button>
         </div>
       </footer>
 
       <div id="quickAsks" class="quick-asks" aria-label="Quick questions">
-        <button class="qa-card" type="button" data-question="What are the drugs for TB?">🦠 Drugs for TB</button>
-        <button class="qa-card" type="button" data-question="Which targets are linked to tuberculosis?">🎯 Targets linked to tuberculosis</button>
-        <button class="qa-card" type="button" data-question="Show drugs for Parkinson’s disease and their mechanisms of action.">💊 PD drugs & mechanisms</button>
-        <button class="qa-card" type="button" data-question="List drugs with approval status for autoimmune diseases.">✅ Autoimmune drugs with approval status</button>
-        <button class="qa-card" type="button" data-question="What biomarkers are linked to melanoma?">🧪 Biomarkers linked to melanoma</button>
-        <button class="qa-card" type="button" data-question="Which pathways are commonly altered in TNBC?">🎗️ TNBC pathway changes</button>
-        <button class="qa-card" type="button" data-question="List drugs for multiple sclerosis.">🧠 Drugs for multiple sclerosis</button>
-        <button class="qa-card" type="button" data-question="What genes are associated with RA?">🩺 Genes associated with RA</button>
+
+      <button class="qa-card" type="button" data-question="What are the drugs treated with tuberculosis?">🦠 Drugs for tuberculosis</button>
+
+      <button class="qa-card" type="button" data-question="Which genes are associated with melanoma?">🧬 Genes associated with melanoma</button>
+
+      <button class="qa-card" type="button" data-question="Which pathways are linked to TP53?">🧠 Pathways linked to TP53</button>
+
+      <button class="qa-card" type="button" data-question="Which diseases are treated with imatinib?">💊 Diseases linked to imatinib</button>
+
+      <button class="qa-card" type="button" data-question="Which drugs targets EGFR?">🎯 Drugs target to EGFR</button>
+
+      <button class="qa-card" type="button" data-question="Which pathways are associated with aspirin?">⚙️ Pathways linked to aspirin</button>
+
       </div>
     </div>
   </main>
 </div>
 
+<div class="doc-overlay" id="docOverlay" role="dialog" aria-modal="true" aria-labelledby="docTitle" aria-hidden="true">
+  <div class="doc-modal">
+    <div class="doc-header">
+      <div class="doc-title" id="docTitle">HCDT Documentation</div>
+      <button class="doc-close" id="docCloseBtn" type="button" aria-label="Close documentation">Close</button>
+    </div>
+    <div class="doc-body">
+      <h4>Data Source</h4>
+      <p>
+        The HCDT dataset is sourced from the official download portal:
+        <a href="http://hainmu-biobigdata.com/hcdt2/download.php" target="_blank" rel="noopener noreferrer">
+          HCDT Download Portal
+        </a>.
+      </p>
+
+      <h4>Files Used (Raw)</h4>
+      <ul>
+        <li><strong>DRUG.tsv</strong> (drug metadata; PubChem CID → <code>drug_id</code>)</li>
+        <li><strong>DRUG-GENE.tsv</strong> (drug–gene links)</li>
+        <li><strong>Drug-Disease.xlsx</strong> (drug–disease links)</li>
+        <li><strong>Drug-Pathway.xlsx</strong> (drug–pathway links)</li>
+        <li><strong>Pathway-Gene.xlsx</strong> (pathway–gene links)</li>
+      </ul>
+
+      <h4>Identifier Normalization</h4>
+      <ul>
+        <li><strong>Gene ID priority</strong>: <code>gene_id</code> → <code>entrez_id</code> → <code>ensembl_id</code></li>
+        <li><strong>Disease ID priority</strong>: <code>mesh_id</code> → <code>icd_11</code></li>
+        <li><strong>Pathway ID priority</strong>: <code>pathway_id</code> → <code>reactome_id</code> → <code>kegg_hsaid</code></li>
+        <li>Semicolon‑delimited names are trimmed to the first value for stable matching.</li>
+      </ul>
+
+      <h4>Derived Tables (Parquet)</h4>
+      <ul>
+        <li><strong>drug_master_table.parquet</strong>: <code>drug_id</code>, <code>drug_name</code></li>
+        <li><strong>gene_master_table.parquet</strong>: <code>gene_id</code>, <code>gene_name</code></li>
+        <li><strong>disease_master_table.parquet</strong>: <code>disease_id</code>, <code>disease_name</code></li>
+        <li><strong>pathway_master_table.parquet</strong>: <code>pathway_id</code>, <code>pathway_name</code></li>
+        <li><strong>drug_gene_association.parquet</strong>: <code>drug_id</code>, <code>gene_id</code></li>
+        <li><strong>drug_disease_association.parquet</strong>: <code>drug_id</code>, <code>disease_id</code></li>
+        <li><strong>drug_pathway_association.parquet</strong>: <code>drug_id</code>, <code>pathway_id</code></li>
+        <li><strong>pathway_gene_association.parquet</strong>: <code>gene_id</code>, <code>pathway_id</code></li>
+      </ul>
+
+      <h4>Supported Questions</h4>
+      <ul>
+        <li>“What drugs are associated with tuberculosis?”</li>
+        <li>“Which genes are linked to melanoma?”</li>
+        <li>“Show drugs and mechanisms of action for Parkinson’s disease.”</li>
+        <li>“List pathways linked to TP53.”</li>
+        <li>“Which diseases are associated with a given drug?”</li>
+      </ul>
+
+      <h4>Tips</h4>
+      <ul>
+        <li>Specify the entity type (drug, gene, disease, pathway) for higher precision.</li>
+        <li>Add filters like “approved”, “mechanism of action”, or “pathway”.</li>
+        <li>Ask for tables when you need structured output.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
 <script>
   // const WS_URL = 'wss://biochirp.iiitd.edu.in/chat';
-  const WS_URL = 'wss://biochirp.iiitd.edu.in/ttd_chat/';
-  // const WS_URL = 'ws://localhost:8028/ttd_chat'
+  const WS_URL = 'wss://biochirp.iiitd.edu.in/hcdt_chat/';
 
   marked.setOptions({
     gfm:true, breaks:true, mangle:false, headerIds:false,
@@ -515,6 +499,9 @@
   });
 
   let ws=null, pingInterval=null;
+  let reconnectAttempts=0, reconnectTimer=null;
+  const BACKOFF_BASE = 800;
+  const BACKOFF_MAX = 20000;
   let currentAssistantMessage=null;
   let currentToolCards=new Map();
   let toolBuffers=new Map();
@@ -628,20 +615,79 @@
     if (chat) chat.classList.toggle('empty-state', !!isEmpty);
     const qa = document.getElementById('quickAsks');
     if (qa) qa.style.display = isEmpty ? '' : 'none';
+    const mc = document.getElementById('messagesContainer');
+    if (mc) mc.setAttribute('aria-hidden', isEmpty ? 'true' : 'false');
   }
   function esc(s){
     const d=document.createElement('div');
     d.textContent=s==null?'':String(s);
     return d.innerHTML;
   }
+  function escapeHtml(s){
+    return esc(s);
+  }
+  function sanitizeHtml(html){
+    const allowedTags = new Set([
+      'p','br','hr','strong','em','b','i','u','del',
+      'code','pre','blockquote','ul','ol','li',
+      'table','thead','tbody','tr','th','td','caption',
+      'span','div','a','h1','h2','h3','h4','h5','h6'
+    ]);
+    const allowedAttrs = {
+      a: ['href','target','rel'],
+      code: ['class'],
+      pre: ['class'],
+      span: ['class'],
+      div: ['class'],
+      table: ['class'],
+      th: ['colspan','rowspan'],
+      td: ['colspan','rowspan'],
+      caption: ['class']
+    };
+    const doc = new DOMParser().parseFromString(html || '', 'text/html');
+    const nodes = [];
+    const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT);
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const el of nodes){
+      const tag = el.tagName.toLowerCase();
+      if (!allowedTags.has(tag)){
+        const text = doc.createTextNode(el.textContent || '');
+        el.replaceWith(text);
+        continue;
+      }
+      for (const attr of [...el.attributes]){
+        const name = attr.name.toLowerCase();
+        const allowed = (allowedAttrs[tag] || []).includes(name);
+        if (!allowed) el.removeAttribute(attr.name);
+      }
+      if (tag === 'a'){
+        const href = el.getAttribute('href') || '';
+        const safe = href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:');
+        if (!safe) el.removeAttribute('href');
+        el.setAttribute('target','_blank');
+        el.setAttribute('rel','noopener noreferrer');
+      }
+    }
+    return doc.body.innerHTML;
+  }
+  function renderMarkdown(text){
+    const raw = marked.parse(text || '');
+    return sanitizeHtml(raw);
+  }
+  function setMarkdown(el, text){
+    if (!el) return;
+    el.innerHTML = renderMarkdown(text);
+  }
 
   function disableInput(){
     document.getElementById('messageInput').disabled=true;
     document.getElementById('sendButton').disabled=true;
+    document.getElementById('messageInput').setAttribute('aria-disabled','true');
   }
   function enableInput(){
     document.getElementById('messageInput').disabled=false;
     document.getElementById('sendButton').disabled=false;
+    document.getElementById('messageInput').setAttribute('aria-disabled','false');
   }
 
   // function startStreaming(){ isStreaming=true; }
@@ -654,17 +700,35 @@
   function startStreaming(){
   isStreaming = true;
   disableInput();     // 🔒 lock input while answer is streaming
+  const mc = document.getElementById('messagesContainer');
+  if (mc) mc.setAttribute('aria-busy','true');
   }
 
   function maybeFinishStreaming(){
     if (orchestratorDone && toolCount === 0) {
       isStreaming = false;
       enableInput();    // 🔓 unlock input only after everything is finished
+      const mc = document.getElementById('messagesContainer');
+      if (mc) mc.setAttribute('aria-busy','false');
     }
   }
 
 
+  function clearReconnect(){
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer=null; }
+  }
+  function scheduleReconnect(){
+    if (reconnectTimer) return;
+    reconnectAttempts += 1;
+    const expo = Math.min(reconnectAttempts, 6);
+    const delay = Math.min(BACKOFF_MAX, BACKOFF_BASE * Math.pow(2, expo));
+    reconnectTimer = setTimeout(()=>{
+      reconnectTimer = null;
+      connect();
+    }, delay);
+  }
   function connect(){
+    clearReconnect();
     try{ ws && ws.close(); }catch{}
     disableInput();
     ws=new WebSocket(WS_URL);
@@ -678,6 +742,8 @@
       setStatus('Connected', true);
       startPing();
       enableInput();
+      reconnectAttempts = 0;
+      clearReconnect();
 
       // 🔽 NEW: send the question that came from index page
       if (initialQFromURL) {
@@ -701,11 +767,12 @@
     ws.onclose=()=>{
       setStatus('Disconnected',false);
       disableInput();
-      setTimeout(connect,1500);
+      scheduleReconnect();
     };
     ws.onerror=()=>{
       setStatus('Error',false);
       disableInput();
+      scheduleReconnect();
     };
     ws.onmessage=(e)=>{
       let d;
@@ -718,8 +785,12 @@
     connect();
     initTheme();
   });
+  window.addEventListener('beforeunload', ()=>{
+    try{ if (ws) ws.close(); }catch{}
+  });
   function manualReconnect(){
     try{ if(ws) ws.close(); }catch{}
+    reconnectAttempts = 0;
     connect();
   }
 
@@ -735,7 +806,7 @@
           <div class="timestamp">${nowStamp()}</div>
 
           
-          <div class="message-bubble">Welcome to **BioChirp**! BioChirp provides structured, evidence-driven answers to biomedical questions using curated information from the Therapeutic Targets Database (TTD), covering targets, drugs, diseases, mechanisms of action, and approval status.
+          <div class="message-bubble">Welcome to **BioChirp**! BioChirp provides structured, evidence-driven answers to biomedical questions using curated information from the Highly Confident Drug-Target Database (HCDT), covering genes, drugs, diseases, pathways.
 </div>
         </div>
       </div>`;
@@ -747,7 +818,7 @@
     toolStartTimes.clear(); toolElapsed.clear();
     const last = mc.querySelector('.message-bubble');
     if(last){
-      last.innerHTML = marked.parse(last.textContent);
+      setMarkdown(last, last.textContent);
       last.querySelectorAll('pre code').forEach(c=>hljs.highlightElement(c));
     }
     scrollEnd();
@@ -803,28 +874,72 @@
   }
 
   function createToolCard(id,name){
-    const c=document.createElement('div');
-    c.className=`tool-card ${toolClass(name)}`; c.dataset.toolId=id;
-    const icon = toolEmoji(name);
-    c.innerHTML=`<div class="tool-header" onclick="toggleCard(this)">
-        <div class="tool-info">
-          <div class="tool-icon">${icon}</div>
-          <div class="tool-name">${esc(name||'Tool')}</div>
-          <div class="tool-chips">
-            <div class="chip status running">Running…</div>
-            <div class="chip time" data-timechip>Time: —</div>
-          </div>
-        </div>
-        <div class="expand-icon">▾</div>
-      </div>
-      <div class="tool-body">
-        <div class="tool-output">Streaming…</div>
-      </div>`;
-    return c;
+    const card = document.createElement('div');
+    card.className = `tool-card ${toolClass(name)}`;
+    card.dataset.toolId = id;
+
+    const header = document.createElement('div');
+    header.className = 'tool-header';
+    header.setAttribute('role','button');
+    header.setAttribute('tabindex','0');
+    header.setAttribute('aria-expanded','false');
+    header.setAttribute('aria-expanded','false');
+    header.addEventListener('click', ()=>toggleCard(card));
+    header.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleCard(card);
+      }
+    });
+
+    const info = document.createElement('div');
+    info.className = 'tool-info';
+
+    const icon = document.createElement('div');
+    icon.className = 'tool-icon';
+    icon.textContent = toolEmoji(name);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'tool-name';
+    nameEl.textContent = name || 'Tool';
+
+    const chips = document.createElement('div');
+    chips.className = 'tool-chips';
+
+    const statusChip = document.createElement('div');
+    statusChip.className = 'chip status running';
+    statusChip.textContent = 'Running…';
+
+    const timeChip = document.createElement('div');
+    timeChip.className = 'chip time';
+    timeChip.setAttribute('data-timechip','');
+    timeChip.textContent = 'Time: —';
+
+    chips.append(statusChip, timeChip);
+    info.append(icon, nameEl, chips);
+
+    const expand = document.createElement('div');
+    expand.className = 'expand-icon';
+    expand.textContent = '▾';
+
+    header.append(info, expand);
+
+    const body = document.createElement('div');
+    body.className = 'tool-body';
+    const output = document.createElement('div');
+    output.className = 'tool-output';
+    output.textContent = 'Streaming…';
+    body.appendChild(output);
+
+    card.append(header, body);
+    return card;
   }
-  function toggleCard(h){
-    const c = h.closest('.tool-card');
+  function toggleCard(node){
+    const c = node?.classList?.contains('tool-card') ? node : node?.closest?.('.tool-card');
+    if (!c) return;
     c.classList.toggle('expanded');
+    const header = c.querySelector('.tool-header');
+    if (header) header.setAttribute('aria-expanded', c.classList.contains('expanded') ? 'true' : 'false');
     if (c.classList.contains('expanded')) c.dataset.userHold = '1';
   }
   function scheduleFlush(){
@@ -1039,11 +1154,30 @@
       const csv = toCSV(rows);
       const fname = (toolKey || 'table') + '.csv';
       card.dataset.csv = csv; card.dataset.csvFilename = fname;
-      outEl.innerHTML =
-        `<div style="display:flex;gap:8px;align-items:center;margin:4px 0 10px;justify-content:flex-end">
-          <button class="reconnect" onclick="copyCSVFromCard(this)">Copy CSV</button>
-          <button class="reconnect" onclick="downloadCSVFromCard(this)">Download CSV</button>
-        </div>` + tableHtml(rows,'Results');
+      outEl.innerHTML = '';
+      const toolbar = document.createElement('div');
+      toolbar.className = 'table-toolbar';
+      toolbar.style.justifyContent = 'flex-end';
+      const actions = document.createElement('div');
+      actions.className = 'table-actions';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'reconnect';
+      copyBtn.textContent = 'Copy CSV';
+      copyBtn.addEventListener('click', ()=>copyCSVFromCard(copyBtn));
+
+      const dlBtn = document.createElement('button');
+      dlBtn.type = 'button';
+      dlBtn.className = 'reconnect';
+      dlBtn.textContent = 'Download CSV';
+      dlBtn.addEventListener('click', ()=>downloadCSVFromCard(dlBtn));
+
+      actions.append(copyBtn, dlBtn);
+      toolbar.appendChild(actions);
+      outEl.appendChild(toolbar);
+      const frag = document.createRange().createContextualFragment(tableHtml(rows,'Results'));
+      outEl.appendChild(frag);
       return;
     }
 
@@ -1061,9 +1195,11 @@
     if (isTable) {
       outEl.innerHTML = tableHtml(table, 'Results');
     } else {
-      const text = obj ? JSON.stringify(obj, null, 2) : String(output || '');
-      // ✅ Render as Markdown/HTML instead of literal text
-      outEl.innerHTML = marked.parse(text);
+      const text = obj
+        ? '```json\n' + JSON.stringify(obj, null, 2) + '\n```'
+        : String(output || '');
+      // ✅ Render as sanitized Markdown/HTML instead of literal text
+      setMarkdown(outEl, text);
       outEl.querySelectorAll('pre code').forEach(c => hljs.highlightElement(c));
     }
   }
@@ -1108,49 +1244,99 @@
 
     const label = (ev && ev.row_count != null) ? ('rows: ' + ev.row_count) : 'Ready';
 
-    let downloadLink = '';
-    if (ev && ev.csv_path) {
+    const card = document.createElement('div');
+    card.className = 'tool-card table-card';
+
+    const header = document.createElement('div');
+    header.className = 'tool-header';
+    header.setAttribute('role','button');
+    header.setAttribute('tabindex','0');
+    header.addEventListener('click', ()=>toggleCard(card));
+    header.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleCard(card);
+      }
+    });
+
+    const info = document.createElement('div');
+    info.className = 'tool-info';
+    const icon = document.createElement('div');
+    icon.className = 'tool-icon';
+    icon.title = 'Table';
+    icon.textContent = '📊';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'tool-name';
+    nameEl.textContent = (ev && ev.type) || 'table';
+    const chips = document.createElement('div');
+    chips.className = 'tool-chips';
+    const status = document.createElement('div');
+    status.className = 'chip status completed';
+    status.textContent = label;
+    const timeChip = document.createElement('div');
+    timeChip.className = 'chip time';
+    timeChip.setAttribute('data-timechip','');
+    timeChip.textContent = 'Time: —';
+    chips.append(status, timeChip);
+    info.append(icon, nameEl, chips);
+
+    const expand = document.createElement('div');
+    expand.className = 'expand-icon';
+    expand.textContent = '▾';
+    header.append(info, expand);
+
+    const body = document.createElement('div');
+    body.className = 'tool-body';
+    const output = document.createElement('div');
+    output.className = 'tool-output';
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'table-toolbar';
+    const pager = document.createElement('div');
+    pager.className = 'pager';
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'pager-prev';
+    prevBtn.disabled = true;
+    prevBtn.textContent = '◀ Prev';
+    const pageLabel = document.createElement('span');
+    pageLabel.className = 'pager-label';
+    pageLabel.textContent = 'Page 1';
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'pager-next';
+    nextBtn.disabled = true;
+    nextBtn.textContent = 'Next ▶';
+    pager.append(prevBtn, pageLabel, nextBtn);
+
+    const actions = document.createElement('div');
+    actions.className = 'table-actions';
+    if (ev && ev.csv_path){
       const url = new URL(
         '/download?path=' + encodeURIComponent(ev.csv_path),
         window.location.origin
       ).toString();
-      downloadLink =
-        '<a class="reconnect" target="_blank" rel="noopener" href="' +
-        url +
-        '">📥 Download CSV</a>';
+      const link = document.createElement('a');
+      link.className = 'reconnect';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.href = url;
+      link.textContent = '📥 Download CSV';
+      actions.appendChild(link);
     }
 
-    const card = document.createElement('div');
-    card.className = 'tool-card table-card';
-    card.innerHTML =
-      '<div class="tool-header" onclick="toggleCard(this)">' +
-        '<div class="tool-info">' +
-          '<div class="tool-icon" title="Table">📊</div>' +
-          '<div class="tool-name">' + esc((ev && ev.type) || 'table') + '</div>' +
-          '<div class="tool-chips">' +
-            '<div class="chip status completed">' + esc(label) + '</div>' +
-            '<div class="chip time" data-timechip>Time: —</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="expand-icon">▾</div>' +
-      '</div>' +
-      '<div class="tool-body">' +
-        '<div class="tool-output">' +
-          '<div class="table-toolbar">' +
-            '<div class="pager">' +
-              '<button class="pager-prev" disabled>◀ Prev</button>' +
-              '<span class="pager-label">Page 1</span>' +
-              '<button class="pager-next" disabled>Next ▶</button>' +
-            '</div>' +
-            '<div class="table-actions">' + downloadLink + '</div>' +
-          '</div>' +
-          '<div class="table-preview" style="min-height:18px;color:var(--mut)">' +
-            ((ev && ev.csv_path) ? 'Loading…' : 'No CSV available') +
-          '</div>' +
-        '</div>' +
-      '</div>';
+    toolbar.append(pager, actions);
+    const preview = document.createElement('div');
+    preview.className = 'table-preview';
+    preview.style.minHeight = '18px';
+    preview.style.color = 'var(--mut)';
+    preview.textContent = (ev && ev.csv_path) ? 'Loading…' : 'No CSV available';
 
+    output.append(toolbar, preview);
+    body.appendChild(output);
+    card.append(header, body);
     mc.appendChild(card);
+
     card.classList.add('expanded');
     setTimeout(()=>{ if(!card.dataset.userHold) card.classList.remove('expanded'); }, 5000);
     scrollEnd();
@@ -1183,19 +1369,19 @@
         return;
       }
       card._preview = { rows, page:1, rpp:rowsPerPage||5, total:rows.length };
-      prevBtn.onclick = ()=>{
+      prevBtn.addEventListener('click', ()=>{
         if(card._preview.page>1){
           card._preview.page--;
           renderPreviewPage(card, labelEl, previewEl, prevBtn, nextBtn);
         }
-      };
-      nextBtn.onclick = ()=>{
+      });
+      nextBtn.addEventListener('click', ()=>{
         const totalPages = Math.ceil(card._preview.total / card._preview.rpp);
         if(card._preview.page<totalPages){
           card._preview.page++;
           renderPreviewPage(card, labelEl, previewEl, prevBtn, nextBtn);
         }
-      };
+      });
       renderPreviewPage(card, labelEl, previewEl, prevBtn, nextBtn);
       const timeChip = card.querySelector('[data-timechip]');
       if (timeChip) timeChip.textContent = 'Time: ' + fmtMs(performance.now() - tStart);
@@ -1316,7 +1502,7 @@
     const thead = `<thead><tr>${
       cols.map(k =>
         `<th style="position:sticky;top:0;background:var(--bg3);color:var(--txt);padding:10px 12px;border-bottom:1px solid var(--brd);text-align:left;font-size:13px">
-          ${k.replace(/_/g,' ')}
+          ${escapeHtml(k.replace(/_/g,' '))}
         </th>`
       ).join('')
     }</tr></thead>`;
@@ -1324,7 +1510,7 @@
     const tbody = arr.map(r => `<tr>${
       cols.map(c => {
         const v = r[c]==null ? '' : String(r[c]);
-        const safe = v.replace(/"/g,'&quot;');
+        const safe = escapeHtml(v);
         return `
           <td style="padding:9px 12px;border-bottom:1px solid var(--brd)">
             <div style="
@@ -1341,7 +1527,7 @@
 
     const cap = caption
       ? `<caption style="text-align:left;color:var(--accent);padding:8px 6px 6px;font-weight:800">
-          🔎 ${caption}
+          🔎 ${escapeHtml(caption)}
         </caption>`
       : '';
 
@@ -1358,9 +1544,25 @@
     const card = btn.closest('.tool-card');
     const csv = card?.dataset?.csv || '';
     if (!csv) return;
+    if (!navigator.clipboard) {
+      const ta = document.createElement('textarea');
+      ta.value = csv;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch {}
+      ta.remove();
+      btn.textContent='Copied!';
+      setTimeout(()=>btn.textContent='Copy CSV',900);
+      return;
+    }
     navigator.clipboard.writeText(csv).then(()=>{
       btn.textContent='Copied!';
       setTimeout(()=>btn.textContent='Copy CSV',900);
+    }).catch(()=>{
+      btn.textContent='Copy failed';
+      setTimeout(()=>btn.textContent='Copy CSV',1200);
     });
   }
   function downloadCSVFromCard(btn){
@@ -1380,13 +1582,10 @@
 
   const messageInput=document.getElementById('messageInput');
   const sendButton=document.getElementById('sendButton');
+  const reconnectBtn=document.getElementById('reconnectBtn');
   const quickAsks=document.getElementById('quickAsks');
-  messageInput.addEventListener('keydown',e=>{
-    if(e.key==='Enter' && !e.shiftKey){
-      e.preventDefault();
-      sendMessage();
-    }
-  });
+  if (sendButton) sendButton.addEventListener('click', sendMessage);
+  if (reconnectBtn) reconnectBtn.addEventListener('click', manualReconnect);
   if (quickAsks){
     quickAsks.addEventListener('click', (e)=>{
       const btn = e.target.closest('.qa-card');
@@ -1395,11 +1594,20 @@
       if (question.trim()) askPreset(question.trim());
     });
   }
+  messageInput.addEventListener('keydown',e=>{
+    if(e.key==='Enter' && !e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
   messageInput.addEventListener('input',function(){
     this.style.height='auto';
     this.style.height=Math.min(this.scrollHeight,150)+'px';
     const qa = document.getElementById('quickAsks');
-    if (qa && messageInput.value.trim().length) qa.style.display = 'none';
+    const chat = document.querySelector('.chat');
+    if (qa && chat?.classList.contains('empty-state')){
+      qa.style.display = messageInput.value.trim().length ? 'none' : '';
+    }
   });
 
   function addUser(text){
@@ -1464,6 +1672,57 @@
       try{ localStorage.setItem('biochirp_theme', next); }catch{}
     });
   }
+
+  const docBtn = document.getElementById('docBtn');
+  const docOverlay = document.getElementById('docOverlay');
+  const docCloseBtn = document.getElementById('docCloseBtn');
+  let lastFocusedEl = null;
+
+  function getFocusable(container){
+    return [...container.querySelectorAll('button,[href],input,textarea,select,[tabindex]:not([tabindex="-1"])')]
+      .filter(el=>!el.disabled && el.offsetParent !== null);
+  }
+  function openDocModal(){
+    if (!docOverlay) return;
+    lastFocusedEl = document.activeElement;
+    docOverlay.style.display='flex';
+    docOverlay.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+    const focusables = getFocusable(docOverlay);
+    if (focusables[0]) focusables[0].focus();
+  }
+  function closeDocModal(){
+    if (!docOverlay) return;
+    docOverlay.style.display='none';
+    docOverlay.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+    if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') lastFocusedEl.focus();
+  }
+
+  if (docBtn) docBtn.addEventListener('click', openDocModal);
+  if (docCloseBtn) docCloseBtn.addEventListener('click', closeDocModal);
+  if (docOverlay) {
+    docOverlay.addEventListener('click', (e)=>{
+      if (e.target === docOverlay) closeDocModal();
+    });
+  }
+  document.addEventListener('keydown', (e)=>{
+    if (!docOverlay || docOverlay.style.display !== 'flex') return;
+    if (e.key === 'Escape') { e.preventDefault(); closeDocModal(); }
+    if (e.key === 'Tab'){
+      const focusables = getFocusable(docOverlay);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first){
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last){
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
