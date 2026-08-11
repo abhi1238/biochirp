@@ -1,0 +1,1868 @@
+hcdt:
+  router: "DRUG SYNONYM / TRADE NAME queries MUST be routed to query_db — HCDT has a curated\ndrug_synonyms_association_hcdt\
+    \ table with PubChem-sourced trade names and synonyms:\n  \"What is the trade name of sildenafil?\"\
+    \ → query_db  (DB has Viagra, Revatio, …)\n  \"What are the brand names of imatinib?\" → query_db\
+    \  (DB has Gleevec, Glivec, …)\n  \"What is the synonym of erlotinib?\" → query_db\n  \"What is the\
+    \ alternative name of RTA 408?\" → query_db  (DB maps RTA-408 → Omaveloxolone)\n  \"DX-88 is the investigational\
+    \ name of which drug?\" → query_db\nDRUG-DISEASE association queries MUST be routed to query_db —\
+    \ HCDT has\ndrug_disease_association_hcdt covering clinical indications for ~4,400 drugs:\n  \"Which\
+    \ disease is treated with Eliglustat?\" → query_db  (drug→disease lookup)\n  \"Which cancer does tamoxifen\
+    \ treat?\" → query_db\n  \"Was tamoxifen tested for treatment of glioma?\" → query_db  (YES/NO answered\
+    \ by row presence)\n  \"Which drug is used as antidote in benzodiazepine overdose?\" → query_db  (disease→drug)\n\
+    \  \"What are the indications of metformin?\" → query_db\n  \"Which conditions does flumazenil treat?\"\
+    \ → query_db\n  \"What disease does drug X treat?\" → query_db\n  \"Which drugs treat disease Y?\"\
+    \ → query_db\nYES/NO questions about drug-disease relationships → query_db (rows≥1 means YES):\n \
+    \ \"Is aspirin used for heart disease?\" → query_db\n  \"Does metformin treat diabetes?\" → query_db\n\
+    GENE-DISEASE questions → query_db — HCDT resolves via drug_gene + drug_disease multi-hop:\n  \"Is\
+    \ BTK implicated in autoimmunity?\" → query_db  (gene→drugs→autoimmune diseases)\n  \"Is the tyrosine\
+    \ kinase BTK implicated in autoimmunity?\" → query_db\n  \"Which diseases is the ALK tyrosine kinase\
+    \ associated with?\" → query_db\n  \"Does TP53 play a role in cancer?\" → query_db\n  \"Which gene\
+    \ is responsible for X disease?\" → query_db (disease→drugs→genes)\n  \"Is gene X involved in disease\
+    \ Y?\" → query_db\nGENE / DISEASE name-only lookups (no HCDT synonym table for those) → web_search:\n\
+    \  \"What is the alias of TP53?\" → web_search\n  \"What is the full name of CML?\" → web_search\n\
+    RADIOPHARMACEUTICAL / PET-TRACER drug-TARGET queries ARE valid query_db targets:\n  \"Which receptors\
+    \ does [18F]altanserin bind?\" → query_db (drug→gene/receptor)\n  \"What does [18F]FDG target?\" →\
+    \ query_db\n"
+  rewriter: ''
+  col_selection: "TARGET RANKING: drug_gene_association_hcdt has two computed ranking columns:\n  source_count\
+    \   — number of databases that confirmed this drug-gene pair (int)\n  ttd_confirmed  — 1 if TTD (Therapeutic\
+    \ Target Database) is among the sources, else 0\nWhen querying drug_gene_association_hcdt for drug\
+    \ targets or gene lists, ALWAYS:\n  1. Include source_count and ttd_confirmed in SELECT.\n  2. Add\
+    \ ORDER BY ttd_confirmed DESC, source_count DESC so primary curated targets\n     (multi-source, TTD-confirmed)\
+    \ rank above resistance/transporter noise (e.g. ABCB1).\nNOTE: source_count and ttd_confirmed are\
+    \ NOT in the ANN schema vocabulary (queryable=false)\n— inject them directly in ORDER BY / SELECT\
+    \ without routing through the column-selection ANN.\nThey exist only in the drug_gene_association_hcdt\
+    \ table.\n\nDRUG SYNONYM FALLBACK: When the drug filter term is a research code (e.g. RTA-408, CCX168),\n\
+    bracket-notation radiopharmaceutical (e.g. [18F]altanserin), or trade name that may not match\ndrug_name\
+    \ exactly, look up via drug_synonyms_association_hcdt:\n  JOIN drug_synonyms_association_hcdt syn\
+    \ ON dm.drug_id = syn.drug_id\n  WHERE (dm.drug_name ILIKE '%<term>%' OR syn.synonym ILIKE '%<term>%')\n\
+    Do NOT use drug_master_table_hcdt.drug_synonyms directly — it is a raw pipe-delimited column\nthat\
+    \ is NOT exposed to SQL. drug_synonyms_association_hcdt holds the exploded normalized rows.\nBracket\
+    \ prefix mapping: [18F] ↔ \"Fluorine-18\", [11C] ↔ \"Carbon-11\", [15O] ↔ \"Oxygen-15\".\n\nDISEASE-ONLY\
+    \ QUERIES (no gene named):\n  For queries like \"what drugs treat [disease]?\" where no gene is mentioned,\
+    \ use ONLY:\n    drug_master_table_hcdt + drug_disease_association_hcdt + disease_master_table_hcdt\n\
+    \  Do NOT include gene_master_table_hcdt or drug_gene_association_hcdt — adding them creates a cross-join\
+    \ that returns 0 rows when no gene filter is provided.\n"
+  mapper: "DRUG CLASS QUERIES:\nWhen the user names a drug class (e.g. \"checkpoint inhibitors\", \"PARP\
+    \ inhibitors\", \"CDK4/6 inhibitors\"):\ndo NOT expand to specific drugs and do NOT emit the class\
+    \ term as a drug_name filter value.\nInstead use drug_name: \"requested\" as output and anchor the\
+    \ query on the gene/target if one is mentioned.\nLet the class term inform the gene_symbol filter\
+    \ if applicable (e.g. \"CDK4/6 inhibitors\" →\ngene_symbol=[\"CDK4\",\"CDK6\"]).\n\nMSI / MMR STATUS:\
+    \ MSI-high / MMR-deficient cell line queries: HCDT does NOT have an MSI or MMR\nstatus column — this\
+    \ is cancer cell-line sensitivity data which is outside HCDT scope.\nIf the user asks for drugs used\
+    \ in MSI-high cancers, respond that HCDT covers drug-target\ninteractions not cell-line sensitivity;\
+    \ suggest looking at HCDT for pembrolizumab/nivolumab\ntargets instead. Do NOT attempt to filter by\
+    \ MSI status.\n\nRADIOPHARMACEUTICAL BRACKET NOTATION: [18F]<name> means \"Fluorine-18 <name>\" in\
+    \ the DB.\nAlways emit BOTH the bracket form AND the spelled-out form as drug_name candidates so the\n\
+    SQL can match either:\n  \"[18F]altanserin\" → drug_name: [\"[18F]altanserin\", \"Fluorine-18 altanserin\"\
+    , \"altanserin\"]\n  \"[11C]PIB\"        → drug_name: [\"[11C]PIB\", \"Carbon-11 PIB\"]\nThe drug_synonyms_association_hcdt\
+    \ table also holds bracket-notation aliases and research codes.\n\nDISEASE ABBREVIATION EXPANSION:\
+    \ always expand abbreviations to their full disease_name as stored in HCDT\nbefore querying. Use medical\
+    \ knowledge to resolve abbreviations and synonym variants.\n\nDRUG-INDUCED / INFECTION THERAPY DIRECTION:\
+    \ When the question asks \"which drugs treat X\", \"therapy\nfor X\", or \"treatment of X\" — even\
+    \ when a drug or pathogen name appears in X — the FILTER is the\nDISEASE, not the drug/pathogen. Set\
+    \ disease_name=[X], drug_name=\"requested\".\nNEVER set drug_name=[amiodarone] when the real question\
+    \ anchor is the disease thyrotoxicosis.\n  \"drugs for amiodarone-induced thyrotoxicosis\" → disease_name=[\"\
+    Thyrotoxicosis\"], drug_name=\"requested\"\n  \"Mycobacterium avium therapy\" → disease_name=[\"Mycobacterium\
+    \ avium complex\"], drug_name=\"requested\"\n  \"treatment of cisplatin-induced nephrotoxicity\" →\
+    \ disease_name=[\"Nephrotoxicity\"], drug_name=\"requested\"\n\nYES/NO EXISTENCE QUESTIONS:\n  For\
+    \ questions like \"Is drug X associated with gene Y?\" or \"Does drug X target gene Y?\", ALL named\
+    \ entities MUST be filter lists — nothing is \"requested\".\n  WRONG: {drug_name: [\"imatinib\"],\
+    \ gene_symbol: \"requested\"}\n  RIGHT: {drug_name: [\"imatinib\"], gene_symbol: [\"ABL1\"]}\n  The\
+    \ answer is computed from whether any rows are returned, not from the column being \"requested\".\n\
+    \nDRUG-AS-FILTER RULE:\n  When the user asks \"what genes/diseases does drug X target/treat?\", drug_name\
+    \ is a FILTER and gene_symbol/disease_name is the output.\n  WRONG: {drug_name: \"requested\", gene_symbol:\
+    \ [\"EGFR\"]}\n  RIGHT: {drug_name: [\"gefitinib\"], gene_symbol: \"requested\"}\n\nRNA TYPE FILTER:\n\
+    \  When the question names a SPECIFIC RNA class (miRNA, lncRNA, circRNA), rna_type MUST be a\n  FILTER\
+    \ list with the exact enum value — NEVER \"requested\".\n  rna_name is always the open output.\n \
+    \ WRONG: \"which miRNA molecules are associated with imatinib?\" → rna_type: \"requested\"\n  RIGHT:\
+    \ \"which miRNA molecules are associated with imatinib?\" → rna_type: [\"miRNA\"], rna_name: \"requested\"\
+    \n  WRONG: \"what lncRNA molecules does bevacizumab regulate?\" → rna_type: \"requested\"\n  RIGHT:\
+    \ \"what lncRNA molecules does bevacizumab regulate?\" → rna_type: [\"lncRNA\"], rna_name: \"requested\"\
+    \n  WRONG: \"which circRNA molecules are associated with metformin?\" → rna_type: \"requested\"\n\
+    \  RIGHT: \"which circRNA molecules are associated with metformin?\" → rna_type: [\"circRNA\"], rna_name:\
+    \ \"requested\"\n  EXCEPTION: if the question names MULTIPLE RNA classes (\"miRNA, lncRNA, circRNA\"\
+    ), then\n  rna_type: \"requested\" is correct (no single enum value to pin as filter).\n\nNAMED PATHWAY\
+    \ + XREF OUTPUTS:\n  When the question names a specific pathway AND asks for KEGG/SMPDB IDs, set pathway_name\n\
+    \  as a FILTER list (not \"requested\"), and OMIT kegg_hsa_xref/smpdb_xref from pv — they are\n  added\
+    \ automatically by co_output_rules.\n  WRONG: \"KEGG IDs for MAPK signaling altered by imatinib\"\
+    \ → pathway_name: \"requested\"\n  RIGHT: \"KEGG IDs for MAPK signaling altered by imatinib\" → drug_name:\
+    \ [\"imatinib\"], pathway_name: [\"MAPK signaling\"]\n  WRONG: \"both KEGG and SMPDB IDs for mTOR\
+    \ signaling affected by everolimus\" → pathway_name: \"requested\"\n  RIGHT: \"both KEGG and SMPDB\
+    \ IDs for mTOR signaling...\" → drug_name: [\"everolimus\"], pathway_name: [\"mTOR signaling\"]\n"
+  tiebreaker: '1. If one mapper returned an empty result and the other returned a non-empty result, prefer
+    the non-empty result.
+
+    2. If both mappers returned column names not present in the HCDT schema (drug_master_table_hcdt, drug_gene_association_hcdt,
+    drug_disease_association_hcdt, drug_synonyms_association_hcdt, pathway_master_table_hcdt, pathway_gene_association_hcdt,
+    gene_master_table_hcdt, disease_master_table_hcdt, rna_master_table_hcdt, drug_rna_association_hcdt,
+    drug_pathway_association_hcdt, drug_target_negative_hcdt), reject both and emit an empty parsed_value.
+
+    '
+hpo:
+  router: "HPO (Human Phenotype Ontology) answers queries about phenotype terms, phenotype-gene\nassociations,\
+    \ phenotype-disease associations, and phenotype hierarchy.\nRoute to query_db when:\n  \"what phenotypes\
+    \ are associated with BRCA1?\" → query_db\n  \"which genes cause arachnodactyly?\" → query_db\n  \"\
+    what are the HPO terms for Marfan syndrome?\" → query_db\n  \"what does HP:0001166 mean?\" → query_db\n\
+    \  \"is Marfan syndrome autosomal dominant?\" → query_db\n  \"what are the sub-phenotypes of abnormality\
+    \ of the limbs?\" → query_db\nHARD RULE — NEVER use direct_answer for a NAMED disease/syndrome description\
+    \ query:\n  \"Describe X syndrome\", \"What is X?\", \"What is the characteristic feature of X\",\n\
+    \  \"List clinical features/symptoms of X\", \"What is the clinical presentation of X\",\n  \"What\
+    \ are the diagnostic criteria for X\"\n  for ANY named disease/syndrome MUST route to query_db, even\
+    \ rare eponyms — HPO\n  curates disease_phenotype_association_hpo rows for hundreds of eponymous\n\
+    \  syndromes that are easy to assume are missing. \"Diagnostic criteria\" queries are\n  ALSO phenotype-list\
+    \ queries in disguise — the criteria ARE the curated phenotypes\n  (e.g. HLH diagnostic criteria =\
+    \ fever, splenomegaly, cytopenia, hemophagocytosis,\n  all curated HP terms for the HLH OMIM entries).\
+    \ Only fall back to direct_answer\n  AFTER query_db returns zero rows, never before trying it.\n \
+    \ \"Describe Escobar syndrome\" → query_db\n  \"What is the characteristic feature of Triple A syndrome?\"\
+    \ → query_db\n  \"List clinical features of tuberous sclerosis\" → query_db\n  \"What is Burning Mouth\
+    \ Syndrome?\" → query_db\n  \"What are the diagnostic criteria for hemophagocytic lymphohistiocytosis?\"\
+    \ → query_db\nGENE STRUCTURAL-VARIANT → DISEASE/PHENOTYPE queries (duplication, deletion, microdeletion\n\
+    of a gene/locus causing a named abnormality or syndrome) ALSO MUST route to query_db via\ngene_disease_association_hpo\
+    \ / gene_phenotype_association_hpo — this is NOT the same as\nClinVar variant-level pathogenicity\
+    \ (ACMG classification of a specific variant), it is a\ncurated gene-disease link:\n  \"Which is the\
+    \ main abnormality that arises with Sox9 locus duplication?\" → query_db\n  (SOX9 duplication → 46,XX\
+    \ sex reversal is a curated gene_disease_association_hpo row)\nRoute to web_search when:\n  - Drug\
+    \ treatment, dosing, or therapy questions (HPO has no drug data)\n  - Protein structure, sequence,\
+    \ or biochemical mechanism\n  - Epidemiology or prevalence statistics not tied to HPO phenotype frequency\n\
+    \  - Variant-level PATHOGENICITY CLASSIFICATION of a specific variant, e.g. \"is c.123A>G\n    pathogenic?\"\
+    \ (ClinVar is the canonical source) — NOT gene-disease/phenotype links\n  - Enrichment analysis or\
+    \ statistical scores\nUse direct_answer ONLY when the question names no disease/phenotype/gene entity\
+    \ at all.\n"
+  rewriter: "INHERITANCE MODE ABBREVIATION EXPANSION:\n  AR → Autosomal Recessive (only in inheritance-mode\
+    \ context, NOT \"arthritis\")\n  AD → Autosomal Dominant (only in inheritance-mode context)\n  XL\
+    \ or X-linked → X-linked inheritance\n  HP: IDs → leave verbatim (HP:XXXXXXX are exact ontology keys)\n\
+    For disease abbreviations (AML, CML, GBM) in HPO context, keep as-is —\nthe abbreviation_map in schema_rules\
+    \ expands them at the col_selection stage.\n"
+  col_selection: "TABLE ROUTING:\n- Phenotype term lookup (name, definition, HP:ID only): phenotype_master_table_hpo\n\
+    - Gene → phenotype (HP terms): gene_phenotype_association_hpo + gene_master_table_hpo\n- Phenotype\
+    \ → gene (reverse): phenotype_gene_association_hpo + phenotype_master_table_hpo\n- Disease → phenotype:\
+    \ disease_phenotype_association_hpo + disease_master_table_hpo\n- Gene → disease: gene_disease_association_hpo\n\
+    - Phenotype hierarchy (parent/child): phenotype_hierarchy_hpo\n- Phenotype synonyms lookup: phenotype_synonym_hpo\n\
+    - Frequency/severity of phenotype in disease: disease_phenotype_annotation_hpo\n\nGENE-MUTATION →\
+    \ DISEASE (critical rule):\n  When the question asks \"which diseases/conditions/phenotypes are caused\
+    \ by or associated\n  with mutations/variants in gene X\" and the expected answers are DISEASE NAMES\
+    \ (syndromes,\n  conditions) → use gene_disease_association_hpo (output: disease_name, association_type).\n\
+    \  Use gene_phenotype_association_hpo ONLY when explicitly asking for HP: phenotype codes or\n  specific\
+    \ phenotypic features by name, NOT when the answer is a list of diseases.\n\nDISEASE CLINICAL QUERY\
+    \ → ALWAYS FETCH PHENOTYPES:\n  When a query asks about symptoms, features, manifestations, clinical\
+    \ presentation,\n  amino acids, metabolites, biochemical characteristics, or clinical findings of\
+    \ a NAMED\n  DISEASE → use disease_phenotype_association_hpo for symptom/phenotype lists; use disease_phenotype_annotation_hpo\
+    \ when asking for frequency, onset, evidence, or biocuration.\n  NEVER return only disease_master_table_hpo\
+    \ rows for such queries.\n\nDISEASE SUBTYPE UNION:\n  When the disease name in the query is a common/short\
+    \ form that maps to multiple HPO\n  subtypes (e.g., \"Celiac disease\", \"Ehlers-Danlos syndrome\"\
+    , \"gluten allergy\"):\n  → Output a SUBSTRING filter_val using the core disease name so the planner\
+    \ unions subtypes.\n\nCONCRETE EXAMPLES:\n  Q: \"Which amino acid is implicated in Blue diaper syndrome?\"\
+    \n  → Tables: disease_phenotype_association_hpo + disease_master_table_hpo\n  → Filter on disease_name,\
+    \ output phenotype_name + phenotype_id\n  → \"amino acid\" is encoded as a HPO phenotype term in HPO\
+    \ (disease_phenotype_association_hpo)\n\n  Q: \"Which phenotypes are associated with heterozygous\
+    \ mutations of the BSCL2 gene?\"\n  → Tables: gene_disease_association_hpo (output: disease_name,\
+    \ association_type)\n  → The gold answer is disease names (Silver syndrome, CMT2, distal HMN type\
+    \ V)\n  → \"phenotypes associated with mutations\" → disease entities, not HP codes\n\n  Q: \"What\
+    \ are atypical symptoms of gluten allergy?\"\n  → Tables: disease_phenotype_association_hpo + disease_master_table_hpo\n\
+    \  → Filter on disease_name containing \"Celiac disease\", output phenotype_name + phenotype_id\n\n\
+    DISEASE-ONLY: When only a disease name is given, use ONLY\n  disease_phenotype_association_hpo + disease_master_table_hpo\
+    \ (no gene tables).\nPHENOTYPE-ONLY: When only a phenotype or HP: ID is given, use ONLY\n  phenotype_master_table_hpo\
+    \ (or phenotype_synonym_hpo for synonym lookup).\nAVOID multi-hop chains: Do NOT join gene + disease\
+    \ + phenotype in a single query.\n"
+  mapper: "PHENOTYPE ID FORMAT: HP:XXXXXXX (7-digit zero-padded). Normalize HP 1166 → HP:0001166.\n\n\
+    INHERITANCE MODE ENUM: When extracting inheritance pattern values use exactly:\n  \"Autosomal recessive\"\
+    \ | \"Autosomal dominant\" | \"X-linked recessive\" |\n  \"X-linked dominant\" | \"Mitochondrial inheritance\"\
+    \ | \"Semidominant\"\n\nSYNONYM LOOKUP: If the phenotype name in the query is a synonym (not the HP\
+    \ canonical name),\nemit it as the filter value anyway — the expand_synonyms step resolves it via\n\
+    phenotype_synonym_hpo. Do NOT attempt to pre-translate synonyms to canonical names.\n\nMULTI-GENE:\
+    \ \"phenotypes in both BRCA1 and TP53\" → gene_symbol: [\"BRCA1\", \"TP53\"]\nUse a list to get the\
+    \ intersection, not separate single-gene queries.\n\nDISEASE EPONYMS — canonical HPO disease names\
+    \ differ from common eponyms. All of the\nfollowing are pre-translated by term_rewrite in app/tools/hpo/app/hpo.py\
+    \ BEFORE the\nmapper ever sees the query text — the mapper just extracts the canonical name verbatim:\n\
+    \  \"Ambras syndrome\" → \"Hypertrichosis universalis congenita Ambras type\"\n  \"Doose syndrome\"\
+    \ → \"Epilepsy with myoclonic-atonic seizures\"\n  \"Moschcowitz syndrome\" → \"Thrombotic thrombocytopenic\
+    \ purpura\"\n  \"Heerfordt syndrome\" → \"Heerfordt syndrome (uveoparotid fever)\"\n  \"Allgrove syndrome\"\
+    \ → \"Triple A syndrome\"\n  \"Gardner-Diamond syndrome\" → \"Autoerythrocyte sensitization syndrome\"\
+    \ (NOT \"Gardner-Diamond\" —\n    that string does not appear in disease_master_table_hpo and returns\
+    \ 0 rows)\n  \"Aagenaes syndrome\" → \"Cholestasis-Lymphedema syndrome\"\n  For other rare eponyms\
+    \ not listed: emit the eponym name as-is and let expand_synonyms resolve it.\n\nDISEASE → PHENOTYPE\
+    \ QUERIES: For questions about symptoms, features, amino acids, metabolites,\nclinical presentation,\
+    \ or any clinical characteristic of a named disease:\n  - Output columns MUST include phenotype_id\
+    \ and phenotype_name (not just disease_name/disease_id).\n  - The selected table MUST be disease_phenotype_association_hpo\
+    \ or disease_phenotype_annotation_hpo\n    (with disease_master_table_hpo as the JOIN source for disease_name\
+    \ filtering).\n  - If the mapper is uncertain whether to output phenotype columns, always include\
+    \ them —\n    returning phenotype terms for a disease query is always more useful than returning the\n\
+    \    disease name itself.\n"
+  tiebreaker: "DISEASE vs GENE path:\n  PREFER disease_phenotype_association_hpo when user names a specific\
+    \ disease (not a gene).\n  PREFER gene_phenotype_association_hpo when user names a gene symbol.\n\
+    PHENOTYPE LOOKUP vs ASSOCIATION:\n  PREFER phenotype_master_table_hpo alone for \"what does [phenotype]\
+    \ mean?\" queries.\n  PREFER disease_phenotype_annotation_hpo for frequency/severity data in a disease.\n\
+    PHENOTYPE HIERARCHY:\n  For \"child phenotypes of X\" → filter phenotype_hierarchy_hpo by parent_id\
+    \ (the parent term's HP: id).\n  For \"parent of X\" → filter by phenotype_id (the child term's HP:\
+    \ id) and return parent_id.\nREJECT empty-filter bias: Prefer the mapper that produced non-empty filter_val\n\
+    \  without hallucinating column names as filter values.\n"
+ttd:
+  router: 'TTD routing rules:
+
+    - "does X treat Y" / "is X approved for Y" / "is X used for Y" → yes/no approval check → route as
+    schema_kg query with approval_status filter
+
+    - "what drugs treat Y" / "drugs for Y" / "which drugs are used in Y" → disease-association query →
+    route as schema_kg query with disease_name filter (NOT approval_status filter)
+
+    - "what are the targets of X" / "targets of drug X" → drug→target query → route as schema_kg with
+    drug_name filter
+
+    - "mechanism of action of X" / "MoA of X" → mechanistic annotation → route as schema_kg with drug_name
+    filter and moa_description in SELECT
+
+    - If the question is about a specific drug approval status, use approval_status filter explicitly
+
+    - NEVER route TTD questions to direct_answer or web_search unless the entity is provably not in TTD
+
+    '
+  col_selection: "DISEASE-ONLY queries (no specific gene/target named): the plan must be\n  disease_master_table_ttd\
+    \ → drug_disease_association_ttd → drug_master_table_ttd.\nDo NOT include target_master_table_ttd\
+    \ or target_disease_association_ttd when the user\nasks for \"drugs for [disease]\" and names no specific\
+    \ gene — adding target tables with no\ngene filter produces a whole-table cross-join → 0 rows.\n\n\
+    DRUG-AS-ANCHOR queries (\"targets of X\", \"mechanism of X\", \"which genes does X inhibit\"):\nplan\
+    \ must include drug_master_table_ttd as FILTER table (drug_name=[X]) plus\ndrug_target_association_ttd\
+    \ and target_master_table_ttd for target outputs.\nDo NOT set drug_name as \"requested\" when the\
+    \ drug is the named subject of the query.\n\nCOMPOUND TARGET+DISEASE queries (\"drugs targeting EGFR\
+    \ for breast cancer\"):\nFor compound queries with BOTH a target anchor AND a disease anchor (e.g.\
+    \ \"drugs targeting\nEGFR in breast cancer\"): include target_master_table_ttd + drug_target_association_ttd\
+    \ +\ndrug_disease_association_ttd in the join path. Use gene_symbol=[<gene>] as target filter AND\n\
+    disease_name=[<disease>] as disease filter. drug_name is the output.\n\nGENE-CLASS DRUG QUERIES (\"\
+    JAK2 inhibitor drugs\", \"EGFR inhibitors\", \"C5 blockers\", \"PARP1\ninhibitors targeting X\"):\
+    \ the \"<gene> inhibitor/blocker/antagonist/modulator\" phrase names a\nPHARMACOLOGICAL DRUG CLASS\
+    \ via its target gene, NOT a request to filter by the literal\nmechanism-of-action word. Do NOT tag\
+    \ drug_mechanism_of_action_on_target as a :filter column for\nthese queries — only gene_symbol is\
+    \ the filter (target_master_table_ttd + drug_target_association_ttd\n+ drug_master_table_ttd), drug_name\
+    \ is the output. TTD's own moa vocabulary is inconsistent within\na single drug class (e.g. ruxolitinib/baricitinib/momelotinib\
+    \ are all clinically JAK inhibitors but\nTTD records their moa against JAK2 as \"Modulator\" while\
+    \ abrocitinib/fedratinib are recorded as\n\"Inhibitor\") — tagging drug_mechanism_of_action_on_target\
+    \ as a filter for a gene-class query silently\ndrops real, approved drugs of the same class. drug_mechanism_of_action_on_target\
+    \ may still be tagged\n:output/co-output so it is returned as an informational column, just never\
+    \ as a :filter.\nWRONG clean_query: \"Which [drug_name:output] [drug_mechanism_of_action_on_target:filter]\
+    \ JAK2 [gene_symbol:filter]\"\nRIGHT clean_query: \"Which [drug_name:output] [gene_symbol:filter]\
+    \ JAK2, with mechanism [drug_mechanism_of_action_on_target:output]\"\n\nCHEMICAL IDENTIFIER queries\
+    \ (\"molecular formula of drugs targeting X\", \"CAS number of drugs for Y\",\n\"PubChem CID of drugs\
+    \ that target Z\", \"ChEBI IDs of drugs targeting PARP1\"):\nformula, cas_number, chebi_xref, crossmatch_pubchem_cid,\
+    \ pubchem_sid all live in\ndrug_crossmatching_association_ttd which joins to drug_master_table_ttd\
+    \ via drug_id.\nALWAYS include drug_name (from drug_master_table_ttd) alongside any chemical identifier\
+    \ column —\nthe user wants to know WHICH DRUGS have formula/CAS/etc., so drug_name is always an output.\n\
+    Plan: drug_master_table_ttd + drug_crossmatching_association_ttd + (drug_target_association_ttd\n\
+    + target_master_table_ttd if a gene/target filter is present).\n"
+  mapper: '`approval_status` must NOT be used as a FILTER VALUE (search condition) for queries
+
+    phrased as "treat", "used to treat", "therapy for", "drugs for [disease]" — those are
+
+    disease-association queries; set disease_name=[<disease>], NOT approval_status as the filter.
+
+    However, approval_status IS automatically included as a co-output column when drug_name is
+
+    an output column (per co_output_rules) — do not suppress it from SELECT.
+
+    WRONG: "Which drugs treat Parkinson''s disease?" → approval_status=["Approved"]
+
+    RIGHT: "Which drugs treat Parkinson''s disease?" → disease_name=["Parkinson disease"], drug_name="requested"
+
+
+    DRUG-AS-FILTER rule: when the question names a specific drug as the primary subject
+
+    (e.g., "targets of imatinib", "imatinib mechanism", "what does X inhibit"), set
+
+    drug_name=[<drug>] as a FILTER — NOT "requested". The gene/target is the OUTPUT.
+
+    WRONG: drug_name="requested", gene_symbol=["imatinib"]
+
+    RIGHT: drug_name=["imatinib"], gene_symbol="requested", target_name="requested"
+
+
+    DISEASE-ONLY filter: for "drugs for [disease]" with no named gene, set ONLY
+
+    disease_name=[<disease>]. Do NOT also set gene_symbol or target_name as filter values —
+
+    those are outputs (gene_symbol="requested"). Filtering target_master_table_ttd with a
+
+    disease name as gene_symbol gives 0 rows.
+
+
+    MOA OUTPUT: when the question asks "mechanism of action of X", "how does X work", "what
+
+    does X target", or "describe X''s pharmacology", the drug is the FILTER and ALL three of
+
+    gene_symbol, target_name, and drug_mechanism_of_action_on_target must be set as "requested"
+
+    outputs. Never omit drug_mechanism_of_action_on_target when the question is asking for
+
+    a mechanism-of-action answer — it is the primary pharmacology output column.
+
+
+    GENE-CLASS DRUG QUERIES ("JAK2 inhibitor drugs", "EGFR inhibitors", "C5 blockers", "PARP1
+
+    inhibitor drugs targeting X"): the "<gene> inhibitor/blocker/antagonist/modulator" phrase names
+
+    a PHARMACOLOGICAL DRUG CLASS via its target gene — it is NOT a request to filter
+
+    drug_mechanism_of_action_on_target by that literal word. Set gene_symbol=[<gene>] as the ONLY
+
+    target-side filter and drug_name="requested". Do NOT add
+
+    drug_mechanism_of_action_on_target as a filter value for these class-name queries — TTD''s own
+
+    moa vocabulary is inconsistent for a single drug class (e.g. ruxolitinib, baricitinib, and
+
+    momelotinib are all clinically JAK inhibitors, but TTD records their moa against JAK2 as
+
+    "Modulator" while abrocitinib/fedratinib are recorded as "Inhibitor"), so a literal moa=
+
+    ["Inhibitor"]-style filter silently drops real, approved drugs of the same class. moa should
+
+    still be returned as a co-output column (per MOA OUTPUT above) but must never gate which rows
+
+    are returned for a gene-class query.
+
+    WRONG: "JAK2 inhibitor drugs" → gene_symbol=["JAK2"], drug_mechanism_of_action_on_target=["Inhibitor","Antagonist","Blocker"]
+
+    RIGHT: "JAK2 inhibitor drugs" → gene_symbol=["JAK2"], drug_name="requested" (no moa filter)
+
+    WRONG: "drugs targeting C5" — this one names no mechanism word, so it already does not add a
+
+    moa filter; the same no-moa-filter rule applies even when the query DOES name a mechanism word
+
+    like "inhibitor"/"blocker"/"antagonist" alongside the gene.
+
+
+    PATHWAY SUBTYPE FILTER: when the question names a pathway TYPE as a modifier — e.g. "cell cycle
+
+    pathways involving CDK4", "apoptosis pathways associated with BCL2", "MAPK signaling pathways
+
+    involving BRAF" — set pathway_name = [TYPE_TERM] as a FILTER list AND gene_symbol = [GENE] as
+
+    a FILTER list. The pathway type IS a filter value, not a description of the output.
+
+    WRONG: "cell cycle pathways involving CDK4"  → gene_symbol: ["CDK4"], pathway_name: "requested"
+
+    RIGHT: "cell cycle pathways involving CDK4"  → gene_symbol: ["CDK4"], pathway_name: ["cell cycle"]
+
+    WRONG: "apoptosis pathways involving BCL2"   → gene_symbol: ["BCL2"], pathway_name: "requested"
+
+    RIGHT: "apoptosis pathways involving BCL2"   → gene_symbol: ["BCL2"], pathway_name: ["apoptosis"]
+
+    Contrast: "which pathways involve EGFR?" (no type specified) → pathway_name: "requested" ✓
+
+
+    YES/NO EXISTENCE QUESTIONS: for questions phrased as "Is X affected by Y?", "Does X treat Y?",
+
+    "Is X associated with Y?", "Is the [pathway] altered by [drug]?", "Is [drug] a modulator of [target]?"
+    —
+
+    treat ALL named entities as FILTER lists (not "requested"). The yes/no answer is derived from
+
+    whether matching rows exist; it is NOT derived by setting either entity as an output.
+
+    WRONG: "Is the mTOR pathway affected by rapamycin?" → pathway_name="requested", drug_name=["rapamycin"]
+
+    RIGHT: "Is the mTOR pathway affected by rapamycin?" → drug_name=["rapamycin"], pathway_name=["mTOR"]
+
+    WRONG: "Is MAPK signaling altered by imatinib?" → drug_name="requested", pathway_name="requested"
+
+    RIGHT: "Is MAPK signaling altered by imatinib?" → drug_name=["imatinib"], pathway_name=["MAPK signaling
+    pathway"]
+
+    Do NOT inject approval_status for yes/no questions — no drug is an output, so the co_output_rule
+
+    for approval_status must NOT fire.
+
+    '
+  tiebreaker: "TTD TIEBREAKER RULES (apply when mapper_1 and mapper_2 disagree):\n1. YES/NO questions\
+    \ (\"Is X affected by Y?\", \"Does X alter Y?\"): set ALL named entities as\n   FILTER lists. Neither\
+    \ entity is \"requested\". Do NOT add approval_status.\n2. If one mapper returned {} (empty) and the\
+    \ other had valid filters, prefer the non-empty\n   mapper's result — an empty parsed_value is always\
+    \ wrong for a factual lookup.\n3. If one mapper hallucinated column names as values (e.g. drug_name=[\"\
+    drug_name\"]),\n   reject it entirely and use the other mapper's result.\n4. approval_status: only\
+    \ add if the question explicitly asks about approval/regulatory status\n   AND drug_name is genuinely\
+    \ an output (not a filter).\n"
+  synthesizer: "MECHANISM-OF-ACTION QUESTIONS: When the user asks \"what is the mechanism of action of\
+    \ X\",\n\"how does X work\", \"describe the pharmacology of X\", \"what does X target/inhibit/block\"\
+    ,\nor any paraphrase asking for pharmacological mechanism, synthesise the TTD table rows into\na NARRATIVE\
+    \ SUMMARY PARAGRAPH — never a bullet list, table, or raw key:value dump.\n\nThe paragraph must:\n\
+    \  (1) Name the drug (use the drug's common INN name, not internal TTD identifiers).\n  (2) State\
+    \ its molecular target — both the gene symbol (e.g. ABL1) and the full target\n      name (e.g. Tyrosine-protein\
+    \ kinase ABL1).\n  (3) Describe the mechanism using drug_mechanism_of_action_on_target supplemented\
+    \ by\n      pharmacological knowledge. If TTD records \"Modulator\" as the mechanism:\n      - for\
+    \ small-molecule kinase/enzyme inhibitors: say \"inhibitor\" in your synthesis\n      - for monoclonal\
+    \ antibodies: say \"blocker\" or \"antagonist\" in your synthesis\n      - always flag that TTD's\
+    \ \"Modulator\" is a catch-all for imprecisely curated entries\n  (4) Optionally mention the therapeutic\
+    \ indication and approval status.\n\nExample answer style for \"What is the mechanism of action of\
+    \ abiraterone?\":\n  \"Abiraterone is a steroidal inhibitor of CYP17A1 (steroid 17alpha-monooxygenase),\
+    \ the\n   enzyme responsible for androgen biosynthesis in the adrenal glands, testes, and prostate\n\
+    \   tumour cells. By blocking CYP17A1, abiraterone suppresses the synthesis of testosterone\n   and\
+    \ other androgens that drive prostate cancer progression. It is approved (as abiraterone\n   acetate\
+    \ with prednisone) for castration-resistant prostate cancer. TTD annotates the\n   mechanism as 'Modulator',\
+    \ which is the database's catch-all for enzymatic inhibition not\n   yet precisely sub-typed.\"\n\n\
+    NEVER open with \"Hi!\", \"Hello!\", or a statement like \"TTD lists X as a modulator of Y.\"\nNEVER\
+    \ present as a bullet list of raw column values or a table. Always compose a fluent\nmedical summary\
+    \ paragraph.\nNEVER include \"The leading entry/entries are ...\", \"N records are annotated\", or\
+    \ row-index\ntags like [ttd:1] in the body of a MoA answer — these are internal record metadata, not\n\
+    pharmacological content. Merge information from multiple rows into one coherent paragraph.\n"
+string:
+  router: "STRING contains two things: (1) protein-protein interaction (PPI) networks with\nassociation\
+    \ scores, and (2) a free-text functional annotation for every protein.\n\nRoute to query_db whenever\
+    \ the question names a specific gene/protein OR a recognised\nprotein/receptor/complex family name\
+    \ AND asks about ANY of: interaction partners, PPI\nnetwork, associated proteins, co-expression partners,\
+    \ protein function / role / molecular\nactivity / enzyme class / identity / subunits / complex members.\n\
+    \nIMPORTANT — protein family names, receptor names, and complex names count as named\nproteins for\
+    \ routing purposes. Do NOT require an HGNC gene symbol to route to query_db.\nExamples of valid named-protein\
+    \ triggers (all → query_db):\n  - Receptor names: \"ryanodine receptor\", \"EGFR receptor\", \"insulin\
+    \ receptor\"\n  - Complex names: \"NF-kappaB complex\", \"IKK complex\", \"SWI/SNF complex\"\n  -\
+    \ Informal names: \"p110α\", \"p85α\", \"HSP20\", \"phospholamban\", \"Star-PAP\"\n\nSTRING CAN answer\
+    \ the PPI + annotation component even when the question also asks about\ndrugs, pathways, variants,\
+    \ or gene sets — route to query_db and answer what STRING knows;\ndo NOT bounce to web_search merely\
+    \ because the question spans multiple databases.\n\nRoute to web_search ONLY when: (a) no specific\
+    \ gene, protein, receptor, or complex is\nnamed at all, OR (b) the question is entirely about drugs,\
+    \ diseases, pathways, variants,\nor gene sets with NO protein/PPI component whatsoever.\n\nExamples:\n\
+    \  \"EGFR interaction partners\" → query_db\n  \"Which proteins form the ryanodine receptor complex?\"\
+    \ → query_db (receptor name = named protein)\n  \"What proteins interact with the IKK complex?\" →\
+    \ query_db (complex name = named protein)\n  \"Subunits of NF-kappaB in the canonical pathway\" →\
+    \ query_db (complex name = named protein)\n  \"Drugs targeting EGFR, pathways, interaction partners,\
+    \ variants\" → query_db (PPI component present)\n  \"HTT protein interactions and drugs for Huntington\"\
+    \ → query_db\n  \"VEGFA PPI partners and pathway membership\" → query_db\n  \"What drugs treat cancer?\"\
+    \ → web_search (no named protein, no PPI)\n  \"What protein complex is altered in Coffin-Siris syndrome?\"\
+    \ → web_search (disease only, no protein named)\n"
+  rewriter: "PROTEIN/GENE ALIAS EXPANSION: Expand common complex subunit and isoform aliases:\n  p110α\
+    \ or p110alpha → PIK3CA; p85α or p85alpha → PIK3R1\n  p53 → TP53; PD-1 → PDCD1; c-MET → MET; HER2\
+    \ → ERBB2; ErbB2 → ERBB2\n  IKKα → CHUK; IKKβ → IKBKB; IKKγ → IKBKG; mTOR (as gene) → MTOR\n  Star-PAP\
+    \ → TUT1\n  CTF4 / Ctf4 / AND1 → WDHD1 (human ortholog of yeast Ctf4)\n  CTF18 / Ctf18 → CHTF18 (human\
+    \ ortholog of yeast Ctf18)\n  triadin → TRDN; Triadin → TRDN\n  phospholamban → PLN; Phospholamban\
+    \ → PLN\n  SERCA (without isoform suffix) → ATP2A2  (SERCA1→ATP2A1, SERCA2→ATP2A2 cardiac, SERCA3→ATP2A3)\n\
+    \  cohesin (complex) → use SMC3 and RAD21 as the two core ring subunits\nCOMPLEX DECOMPOSITION: When\
+    \ a user asks about a protein complex, extract subunit genes:\n  \"IKK complex\" → [CHUK, IKBKB, IKBKG]\n\
+    \  \"NF-κB family\" → [RELA, RELB, REL, NFKB1, NFKB2]\n  \"PRC2 complex\" / \"PcG\" / \"Polycomb group\"\
+    \ / \"Polycomb repressor\" → [EZH2, EED, SUZ12, RBBP4, JARID2]\n  \"PRC1 complex\" / \"Polycomb repressor\
+    \ complex 1\" → [BMI1, RNF2, RING1, CBX2, CBX4, CBX7]\nUBIQUITIN CHAIN TYPE EXPANSION: When a question\
+    \ names a ubiquitin chain type or linkage,\nexpand to the key E2 conjugating enzymes whose annotations\
+    \ directly describe that chain's biology:\n  \"K63-linked ubiquitin\" / \"K63 ubiquitination\" / \"\
+    Lys-63 polyubiquitin\" → [UBE2N, UBE2V1, UBE2V2]\n  \"K48-linked ubiquitin\" / \"K48 ubiquitination\"\
+    \ / \"Lys-48 polyubiquitin\" → [UBE2K, UBE2L3, UBE2R2]\nCONFIDENCE TERMS: Do NOT expand in rewriter;\
+    \ pass verbatim to mapper:\n  \"high confidence\" → association_score ≥ 700 (or physical_score / channel_combined_score\
+    \ for those tables); \"highest confidence\" → ≥ 900.\n"
+  col_selection: "PPI TABLE — COLUMN SELECTION RULE (apply before picking individual columns):\n  \"interact\"\
+    , \"interact with\", \"interaction between\", \"link between\",\n    \"associated with\", \"partner\"\
+    , WITHOUT \"physically\"/\"direct\"/\"binding\"\n    → SELECT association columns: association_gene_symbol,\n\
+    \      association_partner_gene_symbol, association_score.\n      Do NOT select physical_gene_symbol\
+    \ / physical_partner_gene_symbol /\n      physical_score for bare \"interact\" questions.\n  \"physically\
+    \ bind\", \"direct interaction\", \"direct binding\", \"co-complex\"\n    → SELECT physical columns:\
+    \ physical_gene_symbol, physical_partner_gene_symbol,\n      physical_score.\n  EXAMPLE: \"Do Lsm4\
+    \ and Lsm6 interact with SMN?\" →\n    association_gene_symbol, association_partner_gene_symbol, association_score\n\
+    \    (NOT physical columns — no \"physically\" qualifier present)\nFor a protein FUNCTION / role /\
+    \ activity / enzyme-class / identity question about a\nnamed protein, SELECT the protein_master_table_string.annotation\
+    \ column as the output\n(the free-text annotation states what the protein is and does). Always pair\
+    \ it with the\ngene_symbol filter on the named protein.\n"
+  mapper: "PPI TABLE SELECTION — apply at plan time, before any other consideration:\n  \"interact\",\
+    \ \"interact with\", \"interaction between\", \"link between\",\n    \"associated with\", \"partner\"\
+    , \"co-operate\", \"work together\",\n    \"co-localize\", \"co-localization\", \"co-occupancy\",\n\
+    \    \"regulatory protein of [another named protein]\",\n    \"inhibitory protein of [another named\
+    \ protein]\",\n    \"inhibitor of [another named protein]\"\n    WITHOUT any of the physical qualifiers\
+    \ below  →  ppi_association_string\n  \"physically bind\", \"direct interaction\", \"direct binding\"\
+    , \"co-complex\",\n    \"structural interaction\"                      →  ppi_physical_string\n  \"\
+    experimental evidence\", \"co-expression\", \"textmining\", \"neighbourhood\",\n    \"gene fusion\"\
+    , \"co-occurrence\", channel scores →  ppi_detailed_channels_string\n  ANNOTATION / FUNCTION (what\
+    \ does X do, role of X, is X a kinase?) → protein_master_table_string\n  NEVER default to ppi_physical\
+    \ for bare \"interact\" / \"interact with\" questions.\n  EXAMPLES:\n    \"Do LSM4 and Lsm6 interact\
+    \ with SMN?\" → ppi_association_string (no \"physically\")\n    \"Does LSM4 physically bind LSM6?\"\
+    \      → ppi_physical_string\n    \"What is the function of EGFR?\"        → protein_master_table_string\
+    \ (annotation)\n\nPAIR INTERACTION EXISTENCE (\"Does A interact with B?\", \"Is there a link between\
+    \ A and B?\"):\n  ppi_association is FULLY BIDIRECTIONAL in memory (reverse edges pre-generated at\
+    \ load).\n  When BOTH protein names are known: filter both columns for a direct 1-row edge lookup.\n\
+    \    association_gene_symbol=[A], association_partner_gene_symbol=[B]\n  When only one protein is\
+    \ known: association_gene_symbol=[A], association_partner_gene_symbol='requested'\n  NEVER add protein_master_table\
+    \ to the plan — it hides partner info and returns a self-loop.\n  CORRECT: association_gene_symbol=['CTF18'],\
+    \ association_partner_gene_symbol=['CTF4']\n           (alias_map resolves CTF18→CHTF18, CTF4→WDHD1\
+    \ automatically after parsing)\n  ALSO OK:  association_gene_symbol=['CTF18'], association_partner_gene_symbol='requested'\
+    \ (only A known)\n  WRONG:   protein_master JOIN + gene_symbol=[A] only (partner column absent, returns\
+    \ self-loop)\n\nTHREE-ENTITY INTERACTION (\"Do A and B interact with C?\", \"Do proteins A and B both\
+    \ interact with C?\"):\n  Filter BOTH A and B as query genes; filter C as the partner.\n  association_gene_symbol=['A','B'],\
+    \ association_partner_gene_symbol=['C']\n  This directly returns A-C and B-C edges (1-2 rows), not\
+    \ all 100+ partners of A and B.\n  ppi_association IS bidirectional in-memory: reverse edges are pre-generated\
+    \ at load time,\n  so filtering partner=C will always find the edge even if C→A was the stored direction.\n\
+    \  CORRECT: association_gene_symbol=['LSM4','LSM6'], association_partner_gene_symbol=['SMN1']\n  WRONG:\
+    \   association_gene_symbol=['LSM4','LSM6'], association_partner_gene_symbol='requested'\n  (The 'requested'\
+    \ form returns 100+ partners; the synthesizer never sees SMN1 if it's outside top-50.)\n\nFunction/role/activity/identity\
+    \ questions about a named protein filter ONLY by that\nprotein's gene_symbol — extract gene_symbol=[<protein\
+    \ name>] and request the annotation\nas output. These questions have NO annotation FILTER value; never\
+    \ invent one, and never\nreturn matched:false merely because the question lacks a value to filter\
+    \ annotation on.\nA resolvable protein name + an annotation output is a valid, matched plan.\nCRITICAL:\
+    \ NEVER put a property/role phrase into an `annotation` filter. In\n\"is ZYXIN a focal adhesion protein?\"\
+    , \"is X a kinase / transcription factor /\ntumour suppressor?\", the property (\"focal adhesion protein\"\
+    , \"kinase\", …) is the\nANSWER to be READ from the annotation text — it is NOT a value to filter\
+    \ on.\n`annotation` is OUTPUT-ONLY: set annotation=\"requested\", filter ONLY gene_symbol=[X].\nPutting\
+    \ the property in an annotation filter wrongly drops the protein's row → 0 rows.\n\nCOMPLEX ABBREVIATION\
+    \ EXPANSION: when the question asks for \"subunits of X\",\n\"members of X complex\", or \"proteins\
+    \ forming the X complex\", expand the complex name to\nits individual component gene symbols and emit\
+    \ them as physical_gene_symbol filter values\n(use the ppi_physical table). Known expansions (memorise\
+    \ these):\n  \"IKK complex\" / \"IkB kinase\" / \"IKK\" → physical_gene_symbol=['CHUK','IKBKB','IKBKG']\n\
+    \  \"NF-κB\" / \"NF-kappaB\" / \"NFκB\"       → physical_gene_symbol=['NFKB1','RELA']\n  \"Replisome\
+    \ Progression Complex\" / \"RPC\" / \"replisome progression\"\n    → physical_gene_symbol=['MCM2'],\
+    \ physical_partner_gene_symbol='requested', physical_score='requested'\n  \"mitofilin complex\" /\
+    \ \"MINOS complex\" / \"MICOS complex\" / \"MitOS\"\n    → physical_gene_symbol=['IMMT'], physical_partner_gene_symbol='requested',\
+    \ physical_score='requested'\n  \"SWI/SNF complex\" / \"BAF complex\" / \"PBAF\"\n    → physical_gene_symbol=['SMARCA4'],\
+    \ physical_partner_gene_symbol='requested', physical_score='requested'\nTHREE-ENTITY INTERACTION QUESTIONS:\
+    \ when the question is \"Do A and B interact with C?\" or \"Is\nC a shared partner of A and B?\",\
+    \ this is NOT a simple A↔B cross-filter. Set:\n  association_gene_symbol=['A','B'] (the two query\
+    \ proteins)\n  association_partner_gene_symbol=['C'] (the shared interaction partner)\nThe mapper\
+    \ MUST emit association_partner_gene_symbol=['C'] separately, NOT 'requested'.\nExamples:\n  \"Do\
+    \ Lsm4 and Lsm6 interact with SMN?\" → association_gene_symbol=['LSM4','LSM6'], association_partner_gene_symbol=['SMN1']\n\
+    \  \"Do A and B both bind to C?\" → association_gene_symbol=['A','B'], association_partner_gene_symbol=['C']\n\
+    Aliases: IKK→CHUK (via alias_map); CSL/CBF1/Su(H)→RBPJ; NICD→NOTCH1; MAML→MAML1;\n         p50→NFKB1;\
+    \ p65→RELA — all resolvable via the standard alias pipeline.\nFor IKK, NF-κB, Replisome, mitofilin,\
+    \ and SWI/SNF — use ppi_physical edges (physical_gene_symbol), NOT annotation.\nFor Notch, PRC2, mTORC1,\
+    \ cohesin, and nuclear pore basket — use the annotation route\n(gene_symbol IN [...] from COMPLEX/PATHWAY\
+    \ DECOMPOSITION above), NOT ppi_physical.\n\nCOMPLEX ACTIVITY / MODIFICATION QUESTIONS: when the question\
+    \ asks what modifications,\nmarks, or enzymatic activities a named complex or protein family performs\
+    \ (e.g. \"what\nhistone marks does PcG catalyze\", \"what does the PRC2 complex methylate\"), this\
+    \ is an\nANNOTATION query, not a physical-edge query. Emit gene_symbol=[all_member_symbols] as a\n\
+    multi-value filter and annotation='requested' as output from protein_master_table.\nThe individual\
+    \ protein annotations name the specific modifications each subunit performs.\nDo NOT use ppi_physical\
+    \ or ppi_association for this pattern.\n\nUBIQUITIN CHAIN TYPE QUERIES: when a yes/no question asks\
+    \ about a ubiquitin chain type\n(K48, K63, K11, K27, etc.) and its cellular fate (proteasomal degradation,\
+    \ signaling,\nDNA repair, etc.), the rewriter will have expanded the chain type to its key E2 enzymes.\n\
+    Emit gene_symbol=[expanded_E2_symbols] and annotation='requested'. The E2 enzyme\nannotation directly\
+    \ states whether that chain type leads to proteasomal degradation or not.\nDo NOT filter annotation\
+    \ — it is OUTPUT-ONLY for this pattern.\n\nMIXED PPI + NON-PPI YES/NO QUESTIONS: when a yes/no question\
+    \ asks \"does X interact with Y\"\nAND also asks about a property STRING cannot answer (circadian,\
+    \ temporal, tissue-specific,\ncell-type-specific, conditional), route the PPI component to the association\
+    \ table\n(association_gene_symbol=[X], association_partner_gene_symbol=[Y], association_score=\n'requested')\
+    \ and let the synthesizer disclaim the non-PPI property. Do NOT return zero\nresults just because\
+    \ the extra property is unanswerable.\nENTITY EXTRACTION PRINCIPLE — extract names as written; alias_map\
+    \ resolves downstream:\n  Output gene/protein names EXACTLY as they appear in the query text.\n  The\
+    \ alias_map resolver converts them to canonical DB identifiers after parsing.\n  Do NOT attempt alias\
+    \ resolution yourself — it causes empty outputs on failure.\n    RIGHT: 'CTF4'        → output ['CTF4']\
+    \        (alias_map → WDHD1 automatically)\n    RIGHT: 'Cdc48'       → output ['Cdc48']       (alias_map\
+    \ → VCP  automatically)\n    RIGHT: 'phospholamban' → output ['phospholamban'] (alias_map → PLN automatically)\n\
+    \    RIGHT: 'mitofilin'   → output ['mitofilin']   (alias_map → IMMT automatically)\n    RIGHT: 'treslin'\
+    \     → output ['treslin']     (alias_map → TICRR automatically)\n    WRONG: 'CTF4' → output ['WDHD1']\
+    \  ← don't pre-resolve; empty output is worse than wrong form\n  Exception: COMPLEX ABBREVIATION EXPANSION\
+    \ below (e.g. IKK complex→[CHUK,IKBKB,IKBKG])\n  requires domain knowledge because there is no single\
+    \ synonym in the alias table.\n\nTERM-TO-GENE-SYMBOL MAPPING — apply for structural decompositions\
+    \ not coverable by alias_map:\n  Common names / complex forms → use the canonical gene symbol shown\
+    \ below.\n  The alias_map handles standard synonyms; only non-standard mappings are listed here.\n\
+    \  Ambiguous common names: use biological context to pick the right gene.\n    MLP     — if muscle/cardiac\
+    \ context → CSRP3; else leave as-is for alias_map\n    PP5     — if serine/threonine phosphatase context\
+    \ → PPP5C; else leave as-is\n    SMN     — if spinal muscular atrophy / RNA splicing context → SMN1;\
+    \ else leave as-is\n  Complex/isoform decomposition (pick the anchor gene for the interaction query):\n\
+    \    mTOR / mTORC1 / mTORC2        → MTOR\n    TSC1-TSC2 / TSC complex       → TSC1\n    Notch (without\
+    \ isoform)       → NOTCH1\n    nuclear pore basket / NPC basket / nuclear basket → NUP153 (annotation\
+    \ query expands to [NUP153, NUP50, TPR, NUP98])"
+  tiebreaker: "PPI TABLE SELECTION:\n  \"physical\", \"direct\", \"binding\", \"co-complex\", \"structural\"\
+    \ → prefer ppi_physical_string\n  \"functional partners\", \"associated proteins\", \"partners\" →\
+    \ prefer ppi_association_string\n  \"experimental evidence\", \"coexpression\", \"textmining\", \"\
+    neighborhood\", \"gene fusion\"\n    → prefer ppi_detailed_channels_string\n  DEFAULT (bare \"interact\"\
+    , \"interact with\", \"interaction between\", \"associated with\",\n    without any physical/direct/binding\
+    \ qualifier) → prefer ppi_association_string.\n    ppi_association captures ALL evidence channels\
+    \ including co-IP and experimental;\n    reserve ppi_physical ONLY when the user explicitly says \"\
+    physically bind\", \"direct\n    interaction\", \"co-complex\", or \"structural\".\n  EXAMPLE: \"\
+    Do LSM4 and LSM6 interact with SMN?\" → ppi_association_string (no physical\n    qualifier; functional\
+    \ co-immunoprecipitation evidence lives in association table).\nANNOTATION: NEVER use PPI tables for\
+    \ annotation questions.\n  \"Is BRCA1 a tumor suppressor?\" → protein_master_table_string (annotation\
+    \ column).\nSCORE THRESHOLD CONFLICT: If mappers disagree (700 vs 900), prefer 700 unless user\n \
+    \ explicitly said \"highest confidence\".\nANNOTATION FILTER: If one mapper adds annotation as a filter_val\
+    \ and the other correctly\n  removes it (annotation is OUTPUT-ONLY per _annotation_output_only hook),\
+    \ prefer the\n  one that removes the annotation filter.\n"
+  synthesizer: "MICOS COMPLEX — ABSOLUTE RULE (evaluate BEFORE all other synthesis rules):\nWhen the question\
+    \ asks about mitofilin, IMMT, or which complexes contain mitofilin,\nOR when ANY of CHCHD3, MICOS10,\
+    \ MICOS13, CHCHD6, CHCHD10, or SAMM50 appear\nas partners in the returned rows, you MUST explicitly\
+    \ name ALL historical\ncomplex synonyms in your answer: MICOS, MINOS, MitOS, and MIB.\n  TRIGGER proteins\
+    \ (any one is sufficient to fire this rule):\n    IMMT (anchor/MIC60/mitofilin), CHCHD3 (MIC19), MICOS13\
+    \ (MIC13/QIL1),\n    CHCHD6 (MIC25), CHCHD10 (MIC10), MICOS10 (MIC10 alias), SAMM50 (Sam50).\n  Historical\
+    \ synonyms: MICOS = MINOS = MitOS = MIB\n    (Mitochondrial Contact Site and Cristae Organizing System).\n\
+    \  Returning gene symbols WITHOUT naming the complex FAILS the answer.\n  WRONG: \"Mitofilin (IMMT)\
+    \ interacts with CHCHD3, MICOS13, MICOS10, SAMM50\"\n  CORRECT: \"Mitofilin (IMMT/MIC60) is a core\
+    \ subunit of the MICOS complex\n    (also known as MINOS, MitOS, or MIB — Mitochondrial Contact Site\
+    \ and\n    Cristae Organizing System). STRING confirms the following MICOS members:\n    CHCHD3 (MIC19),\
+    \ MICOS13 (MIC13/QIL1), CHCHD6 (MIC25), CHCHD10/MICOS10\n    (MIC10), and SAMM50. The protein complexes\
+    \ containing mitofilin are:\n    MIB (Mitofilin/IMMT-Based complex), MINOS, MitOS, and MICOS — all\
+    \ names\n    refer to the same mitochondrial inner-membrane contact-site complex.\"\n\nSUBUNIT / COMPLEX-MEMBER\
+    \ QUESTIONS: when the question asks \"which are the subunits of X\",\n\"what proteins form the X complex\"\
+    , \"list the components of X\", or \"what proteins\nparticipate in formation of X\":\n  1. Use the\
+    \ ppi_physical table result (physical_score column). If the channel table was\n     queried instead,\
+    \ identify and name only the highest-score PHYSICAL partners (those\n     with both experimental and\
+    \ database channel contributions), not annotation-based hits.\n  2. Sort rows by physical_score DESCENDING.\
+    \ The TOP-RANKED physical partners are the\n     complex co-members — not signaling upstream/downstream\
+    \ partners like TRAF proteins.\n  3. Name the proteins explicitly: give gene symbol + common name.\
+    \ Do NOT open with\n     \"The leading entries are [string:1] [string:2] ...\" — those are row-index\
+    \ tags, not\n     biological names.\n  4. Known complex → subunit mappings (use these if retrieved\
+    \ rows confirm the edges):\n       NF-κB canonical heterodimer  → NFKB1 (p50) + RELA (p65) at score\
+    \ 999\n       IKK complex                  → CHUK (IKKα) + IKBKB (IKKβ) + IKBKG (NEMO) at score 999\n\
+    \       Notch activation complex     → NOTCH1 (NICD) + RBPJ (CSL) + MAML1 at score 999\n  5. If the\
+    \ retrieved table confirms these edges (rows present), state the subunits\n     confidently. If 0\
+    \ rows, say STRING has no curated physical edges for this complex.\n\nANNOTATION-BASED YES/NO ANSWERS:\
+    \ when a yes/no question is answered by the retrieved\nannotation text (e.g. the annotation explicitly\
+    \ states a mechanism, chain-type fate,\nenzymatic activity, or cellular role):\n  1. State the answer\
+    \ (Yes / No) as the first word of the response.\n  2. Quote the key annotation phrase verbatim (within\
+    \ quotes) that supports the answer.\n  3. Name the protein (gene symbol + common name) whose annotation\
+    \ contains the answer.\n  4. If multiple proteins' annotations all agree, summarise: \"All retrieved\
+    \ annotations\n     confirm: [brief consensus].\"\n  Do NOT restate the annotation text in full —\
+    \ excerpt the single most relevant sentence.\n\nCOMPLEX ACTIVITY / MODIFICATION ANSWERS: when annotation\
+    \ rows are retrieved for multiple\nmembers of a complex or enzyme family and the question asks what\
+    \ modifications they\nperform, collate the unique modification types across all annotations:\n  1.\
+    \ For each retrieved gene, extract the specific mark or modification named in its\n     annotation\
+    \ (e.g. \"H3K27me3\", \"H2AK119Ub\", \"H3K4me3 demethylation\").\n  2. Present a de-duplicated list\
+    \ of modifications with the responsible gene in\n     parentheses: e.g. \"H3K27me3 (EZH2/EZH1), H2AK119Ub\
+    \ (RNF2/RING1)\".\n  3. Do not repeat the full annotation text — extract only the modification names.\n\
+    \nMIXED PPI + NON-PPI QUESTIONS: when a yes/no PPI question also includes a non-PPI\nproperty STRING\
+    \ cannot answer (circadian, temporal, tissue-specific, conditional):\n  HARD RULE: if the result rows\
+    \ contain a PPI edge (association_score or\n    physical_score column present), the answer MUST start\
+    \ with \"Yes\" — NEVER \"No\".\n    Lead with the PPI confirmation, then disclaim the non-PPI aspect.\n\
+    \  1. Lead with the PPI fact: \"Yes, STRING confirms [GENE1] and [GENE2] interact\n     (association\
+    \ score: XXX; physical score: YYY if present).\"\n  2. Then explicitly state: \"STRING does not contain\
+    \ [circadian / temporal / tissue-\n     specific / conditional] data for this interaction — this aspect\
+    \ cannot be\n     answered from STRING.\"\n  3. Never return an empty or negative answer solely because\
+    \ the extra property is\n     unanswerable; the PPI component is answerable.\n  CONCRETE EXAMPLE:\n\
+    \    Q: \"Does the association of PARP1 and CTCF follow a circadian rhythm?\"\n    Rows: [{physical_gene_symbol:\
+    \ PARP1, physical_partner_gene_symbol: CTCF,\n            physical_score: 796}, ...]\n    WRONG: \"\
+    No, STRING records an interaction between PARP1 and CTCF with\n            physical_score 796.\" ←\
+    \ leads with No; contradicts itself\n    CORRECT: \"Yes, STRING confirms PARP1 and CTCF physically\
+    \ interact\n              (physical score: 796; association score: 924). STRING does not,\n      \
+    \        however, store circadian timing data — whether this interaction\n              oscillates\
+    \ in a circadian pattern cannot be confirmed from STRING.\"\n\nYEAST-NAME / ORTHOLOG RESOLUTION: the\
+    \ question may use yeast gene names for proteins\nwhose human orthologs appear in the table. Always\
+    \ check common yeast↔human mappings:\n  CTF4 / Ctf4  → WDHD1 (AND1)\n  CTF18 / Ctf18 → CHTF18\n  Cdc48\
+    \        → VCP\nWhen scanning the result table for a yes/no interaction question, search for the HUMAN\n\
+    ortholog name (e.g. WDHD1) even if the question used the yeast name (CTF4).\nEXAMPLE: \"Is there any\
+    \ link between CTF4 and CTF18?\" with a 123-row CHTF18 partner\n  table → scan for WDHD1 (= CTF4).\
+    \ If WDHD1 is present with a high score, answer:\n  \"Yes, STRING shows a strong functional association\
+    \ between CHTF18 (CTF18) and\n   WDHD1 (CTF4) with association score 967, consistent with their co-operation\
+    \ during\n   sister chromatid cohesion.\"\n\nCANCER-TESTIS ANTIGEN / ONCOGENE REGULATION: when a yes/no\
+    \ question asks\nabout CANCER involvement and the retrieved annotation describes:\n  (a) 'testis-specific'\
+    \ or 'testis-restricted' expression → the protein IS a\n      cancer-testis antigen (CTA): expressed\
+    \ in testis AND re-expressed in\n      cancer. Answer YES and state it is a cancer-testis antigen.\n\
+    \  (b) regulation of a proto-oncogene (MYC, PLK, PIM1, BCL2, RAS…) or\n      apoptosis/cell-cycle\
+    \ regulator (BAG1, CDKN1A…) → state this IS cancer-\n      relevant gene regulation even if 'cancer'\
+    \ is not the literal word.\n  HARD RULE: do NOT answer 'No' solely because the annotation lacks the\
+    \ word\n  'cancer'. Testis-specificity + CTA logic is always sufficient for YES.\n  WRONG: \"No, STRING\
+    \ does not annotate CTCFL as being involved in cancer.\"\n  CORRECT: \"Yes. CTCF represses oncogenes\
+    \ MYC and PIM1 (genome regulation).\n    CTCFL (BORIS) is a testis-specific CTCF paralogue — testis-restricted\n\
+    \    expression that re-appears in tumours classifies it as a cancer-testis\n    antigen, making both\
+    \ proteins cancer-relevant.\"\n\n\nRECEPTOR LIGAND / SIGNALING MOLECULE QUERIES: when the question\
+    \ asks\nspecifically for LIGANDS or SIGNALING MOLECULES that interact with a named\nreceptor (not\
+    \ its downstream effectors), and a large PPI table (>50 rows)\nis returned:\n  1. TOP-RANKED partners\
+    \ are typically SIGNALING INTERMEDIARIES (kinases,\n     adaptors, scaffold proteins) — NOT the receptor's\
+    \ direct ligands.\n  2. LIGANDS appear lower in the ranked table. Scan the COMPLETE partner\n    \
+    \ list for proteins you recognise as direct extracellular ligands of the\n     queried receptor (growth\
+    \ factors, secreted proteins that bind the\n     receptor's extracellular domain) using your biological\
+    \ knowledge.\n  3. Report all ligands found, even if ranked low. Distinguish them from\n     effectors:\
+    \ \"Direct ligands in the table: [...]. Signaling effectors also\n     present but not ligands: [...].\"\
+    \n  4. If no ligands are recognisable in the partner list, say so explicitly.\n  EXAMPLE: Q=\"List\
+    \ signaling molecules (ligands) that interact with EGFR?\"\n    506-row table — top partners ERBB2,\
+    \ GRB2, SRC are effectors, not ligands.\n    WRONG: \"STRING shows ERBB2, GRB2 and SRC interact with\
+    \ EGFR.\"\n    CORRECT: \"Direct EGF-family ligands confirmed in STRING's EGFR partner\n      table:\
+    \ EGF, betacellulin (BTC), epiregulin (EREG), HB-EGF (HBEGF),\n      amphiregulin (AREG), TGF-α (TGFA),\
+    \ epigen (EPGN). Downstream signaling\n      partners (ERBB2, GRB2, SRC, etc.) also appear but are\
+    \ not ligands.\"\n\nIDENTIFICATION QUESTIONS (\"which protein IS X?\", \"what IS the Y subunit?\"\
+    ,\n\"identify the third component\"): the question asks what the ANCHOR PROTEIN itself\nis, not what\
+    \ it interacts with. The retrieved rows show the anchor's PARTNERS;\nthe answer is the anchor gene\
+    \ itself.\n  1. State: \"[GENE] ([common name]) is [functional role].\"\n  2. Use the annotation column\
+    \ (if present) to confirm identity.\n  3. EXAMPLE: Q=\"Which protein is the third subunit of the TSC\
+    \ complex?\"\n     anchor=TBC1D7; rows show TBC1D7-TSC1 and TBC1D7-TSC2 interactions.\n     WRONG:\
+    \ \"The table shows TBC1D7 interacts with TSC1 and TSC2.\"\n     CORRECT: \"TBC1D7 (TBC1 domain family\
+    \ member 7) is the third subunit of the TSC\n               complex, joining TSC1 and TSC2 to form\
+    \ the trimeric mTORC1-inhibitory\n               complex.\"\n"
+reactome:
+  router: "Reactome covers biological pathways, pathway membership (gene-pathway), pathway hierarchy,\n\
+    and cross-references (UniProt, ChEBI, Ensembl, NCBI).\nRoute to query_db when:\n  \"which genes are\
+    \ in the MAPK signaling pathway?\" → query_db\n  \"what are the sub-pathways of PI3K signaling?\"\
+    \ → query_db\n  \"which pathways does EGFR participate in?\" → query_db\n  \"what pathway is R-HSA-4086398?\"\
+    \ → query_db\n  \"which UniProt proteins are in the Wnt pathway?\" → query_db\n  \"what processes\
+    \ does gene X control?\" → query_db (look up gene's pathway memberships)\n  \"do [class of proteins]\
+    \ regulate [pathway]?\" → query_db first (look up pathway membership)\n  \"which pathways are involved\
+    \ in [biological process]?\" → query_db (sub-pathway hierarchy)\n  \"what is the function of gene\
+    \ X?\" → query_db (gene_symbol=X → pathway memberships)\n  \"list ligands / signaling molecules that\
+    \ interact with receptor X\" → query_db (gene-pathway)\nRoute to web_search when:\n  - Drug targets,\
+    \ clinical trials, or pharmacology (Reactome has no drug data)\n  - Enrichment analysis p-values or\
+    \ statistical scores\n  - Disease-gene associations (use HPO or ClinVar instead)\n  - Protein expression\
+    \ or abundance data\n  - 3D protein structure or binding affinity\nIMPORTANT: Always try query_db\
+    \ FIRST for gene-function and pathway-membership questions.\nOnly fall back to web_search if query_db\
+    \ returns 0 rows AND the question cannot be answered\nfrom pathway membership data.\n"
+  rewriter: "Preserve pathway-name terminology VERBATIM — do NOT expand or rewrite abbreviations\ninside\
+    \ a pathway name. Reactome's canonical names embed the abbreviation (e.g.\n\"Citric acid cycle (TCA\
+    \ cycle)\", \"Signaling by WNT\", \"MTOR signalling\"). Expanding\n\"TCA\" → \"Tricarboxylic Acid\"\
+    \ or \"WNT\" → \"Wingless\" breaks the exact-name match → 0 rows.\nKeep the user's pathway words as\
+    \ typed.\n\nPATHWAY COLLOQUIALISM → CANONICAL NAME TRANSLATION:\nMany common pathway shorthands do\
+    \ NOT appear verbatim in Reactome. Translate them:\n  \"JAK STAT signaling\" / \"JAK-STAT pathway\"\
+    \ / \"JAK/STAT\" / \"JAK/STAT pathway\"\n    → Reactome has NO top-level \"JAK-STAT signaling\" pathway.\n\
+    \      Rephrase as a gene-based query: use gene_symbol=[\"JAK1\",\"JAK2\",\"STAT1\",\"STAT3\"] instead.\n\
+    \      Do NOT set pathway_name for \"JAK STAT signaling\" — it will match nothing.\n  \"serotonin\
+    \ signaling pathway\" / \"serotonin neurotransmission\"\n    → pathway_name=[\"Serotonin Neurotransmitter\
+    \ Release Cycle\", \"Serotonin receptors\",\n                     \"Serotonin clearance from the synaptic\
+    \ cleft\"]\n  \"PINK1 mitochondrial pathway\" / \"PINK1 pathway\" / \"PINK1-Parkin\"\n    → pathway_name=[\"\
+    PINK1-PRKN Mediated Mitophagy\"]\n  \"mTOR signaling\" / \"mTOR pathway\" / \"MTOR signalling\"\n\
+    \    → pathway_name=[\"MTOR signalling\"]  (Reactome uses \"MTOR signalling\" with two l's)\n  \"\
+    PI3K AKT mTOR\" / \"PI3K pathway\"\n    → pathway_name=[\"PI3K/AKT Signaling\", \"PI3K Cascade\",\
+    \ \"Activation of AKT2\"]\n      or use gene_symbol=[\"PIK3CA\",\"AKT1\"] as primary filter if pathway\
+    \ name uncertain.\n  \"collagen biosynthesis\" / \"ECM pathway\"\n    → pathway_name=[\"Collagen biosynthesis\
+    \ and modifying enzymes\",\n                     \"Extracellular matrix organization\"]\n  \"mismatch\
+    \ repair\" / \"MMR pathway\"\n    → pathway_name=[\"Mismatch Repair\"]\n\nGENE EXTRACTION from drug/compound\
+    \ queries: Reactome does not contain drug or chemical\ndata — it contains genes and pathways. If the\
+    \ question mentions a drug (e.g. \"imatinib\",\n\"cisplatin\") alongside a gene symbol, extract ONLY\
+    \ the gene symbol for the Reactome query.\nE.g. \"pathways ABL1 targets are in, imatinib\" → rephrase\
+    \ to \"pathways ABL1 is in\".\nIf no gene symbol is mentioned but a drug is, rephrase to ask for the\
+    \ drug's known primary\ntarget gene (e.g. \"imatinib\" → \"ABL1 pathways\" using established pharmacology\
+    \ knowledge).\n\nCONTEXT-DEPENDENT GENE ALIAS:\n  \"Tcf3\" in the context of Wnt signaling, stem cells,\
+    \ or pluripotency\n    → resolve to gene_symbol=[\"TCF7L1\"] (the human ortholog of mouse Tcf3 in\
+    \ Wnt signaling).\n      NOTE: TCF3 (human gene symbol) is a completely different gene (E2A/bHLH family);\n\
+    \      do NOT confuse them. Use TCF7L1 when the question context is Wnt or pluripotency.\n  \"Tcf1\"\
+    \ in the context of Wnt signaling or development\n    → resolve to gene_symbol=[\"TCF7\"] (TCF1 =\
+    \ TCF7 in Wnt activation complex).\n  \"MDA5\" → gene_symbol=[\"IFIH1\"] (MDA5 is the protein name;\
+    \ IFIH1 is the HGNC symbol).\n  \"UBC9\" / \"Ubc9\" → gene_symbol=[\"UBE2I\"] (UBC9 is the yeast/common\
+    \ name; UBE2I is HGNC).\n  \"MEF-2\" / \"MEF2\" / \"myocyte enhancer factor-2\" / \"MEF2 proteins\"\
+    \n    → gene_symbol=[\"MEF2A\",\"MEF2B\",\"MEF2C\",\"MEF2D\"] (query all four family members).\n \
+    \ \"Syndecan\" / \"Syndecans\" / \"syndecan proteoglycans\"\n    → gene_symbol=[\"SDC1\",\"SDC2\"\
+    ,\"SDC3\",\"SDC4\"] (all four syndecan genes).\n  \"LAMP2A\" / \"LAMP-2A\" / \"lysosomal-associated\
+    \ membrane protein 2A\"\n    → gene_symbol=[\"LAMP2\"] (LAMP2A is an isoform; HGNC symbol is LAMP2).\n\
+    \  \"DKK1\" / \"Dkk1\" / \"Dickkopf-1\" → gene_symbol=[\"DKK1\"], pathway_name=\"requested\"\n   \
+    \ (DKK1 is in Reactome's WNT antagonist pathways; always query gene_pathway_association).\n  \"AP-2\
+    \ alpha\" / \"AP-2α\" / \"activator protein 2 alpha\" / \"TFAP2A\"\n    → gene_symbol=[\"TFAP2A\"\
+    ] (transcription factor AP-2 alpha; HGNC symbol TFAP2A).\n      NOTE: completely distinct from the\
+    \ AP-2 clathrin adaptor complex — this alias applies\n      ONLY when context is transcription factor,\
+    \ melanocyte development, or p38 pathway.\n  \"cGAS\" / \"cyclic GMP-AMP synthase\" / \"cGAS pathway\"\
+    \ / \"cGAS-STING pathway\" / \"cGAS-STING axis\"\n    → gene_symbol=[\"CGAS\"], pathway_name=\"requested\"\
+    \ (HGNC symbol in Reactome is CGAS, NOT\n      MB21D1 — MB21D1 is absent from gene_master_table_reactome;\
+    \ always use CGAS).\n      Do NOT set pathway_name=[\"cGAS pathway\"] — Reactome has no pathway literally\
+    \ named that;\n      the gene_symbol filter surfaces \"Cytosolic sensors of pathogen-associated DNA\"\
+    \ and\n      \"STING mediated induction of host immune responses\" via gene_pathway_association.\n\
+    \  \"c-Met\" / \"c-met\" / \"cMet\" / \"c-MET\" (informal name for the MET receptor tyrosine kinase)\n\
+    \    → gene_symbol=[\"MET\"] (c-Met is the common/proto-oncogene name; HGNC symbol is MET).\n  \"\
+    scaffold proteins of the ERK signaling pathway\" / \"ERK pathway scaffold proteins\" /\n  \"ERK signaling\
+    \ pathway\" / \"ERK pathway\" (as a standalone pathway_name value)\n    → Reactome has NO pathway\
+    \ literally named \"ERK signaling pathway\" — its canonical names\n      are \"MAPK1/MAPK3 signaling\"\
+    , \"Signalling to ERKs\", \"MAP2K and MAPK activation\",\n      \"MAPK family signaling cascades\"\
+    . For scaffold-protein list questions, rephrase as a\n      gene-based query: gene_symbol=[\"KSR1\"\
+    ,\"DLG1\",\"IQGAP1\",\"ARRB1\",\"ARRB2\",\"WDR83\",\"LAMTOR3\"],\n      pathway_name=\"requested\"\
+    \ — do NOT set pathway_name=[\"ERK signaling pathway\"], it matches nothing.\n\nDRUG → TARGET GENE\
+    \ / CHEBI MAPPING:\n  Reactome stores gene-pathway data, not drug data. Map drugs to their primary\
+    \ targets\n  or ChEBI IDs:\n  \"bortezomib\" / \"velcade\" (proteasome inhibitor)\n    → query gene_pathway_association\
+    \ with gene_symbol=[\"PSMB5\",\"PSMA1\",\"PSMC1\",\"PSMD1\"].\n      PSMB5 is the β5/chymotrypsin-like\
+    \ subunit that bortezomib directly inhibits.\n      Do NOT use chebi_pathway — bortezomib's ChEBI\
+    \ entry in Reactome maps to Dengue virus\n      biology, NOT the proteasome/ubiquitin pathway (misleading\
+    \ result).\n      State in the answer: \"bortezomib targets the 26S proteasome (PSMB5 β5 subunit),\n\
+    \      part of the Ubiquitin Proteasome Pathway.\"\n  \"everolimus\" / \"RAD001\" (mTOR inhibitor)\n\
+    \    → gene_symbol=[\"MTOR\",\"RPTOR\"], pathway_name=\"requested\"\n      (everolimus inhibits mTORC1;\
+    \ query mTOR and raptor genes).\n  \"romosozumab\" (anti-sclerostin antibody)\n    → gene_symbol=[\"\
+    SOST\"], pathway_name=\"requested\"\n      (romosozumab targets sclerostin/SOST; query SOST pathway\
+    \ memberships).\n\nMULTI-GENE DISEASE ENTITY QUERIES:\n  When a question asks for genes associated\
+    \ with a disease in a specific role (tumor\n  suppressors, oncogenes, etc.), expand to the known gene\
+    \ list as filter:\n  \"tumor suppressors in glioblastoma\" / \"glioblastoma tumor suppressor genes\"\
+    \n    → gene_symbol=[\"TP53\",\"PTEN\",\"RB1\",\"CDKN2A\",\"CDKN2B\",\"NF1\"], pathway_name=\"requested\"\
+    \n  \"EGFR mAb resistance\" / \"secondary resistance to anti-EGFR antibodies\"\n    → gene_symbol=[\"\
+    KRAS\",\"BRAF\",\"MAP2K1\",\"AKT1\",\"ERBB2\",\"PTEN\",\"FGFR1\",\"PDGFRA\"],\n      pathway_name=\"\
+    requested\"\n  \"medulloblastoma signaling pathways\"\n    → pathway_name=[\"Signaling by Hedgehog\"\
+    ,\"Signaling by NOTCH\",\"Signaling by WNT\"],\n      gene_symbol=\"requested\"  (AND separately gene_symbol=[\"\
+    MET\",\"ERBB2\",\"IGF1R\",\"NTRK3\",\"MYC\"])\n\nMULTI-CONCEPT YES/NO QUERIES (circadian, cross-talk,\
+    \ co-involvement):\n  For yes/no questions that ask about two biological systems, REPHRASE the question\
+    \ to name\n  the BRIDGING GENE(s) that connect both systems. This produces a gene-anchored query that\n\
+    \  the mapper can resolve with a gene_symbol filter.\n\n  \"Is the circadian clock involved in ribosome\
+    \ biogenesis?\"\n    → REPHRASE TO: \"What Reactome pathways include ARNTL, CLOCK, or PER1? Do any\
+    \ overlap\n      with ribosome biogenesis or rRNA processing?\"\n      The entity_expansion will find\
+    \ ARNTL/CLOCK/PER1 in gene_master and their pathway list.\n\n  \"Is there cross-talk between the Wnt\
+    \ and the Akt/AKT pathways?\"\n    → REPHRASE TO: \"What Reactome pathways include GSK3B, which is\
+    \ phosphorylated by AKT\n      and also phosphorylates beta-catenin in Wnt signaling?\"\n      GSK3B\
+    \ (gene_symbol=GSK3B) is the shared molecular node; it appears in BOTH WNT and\n      AKT/PI3K pathways\
+    \ in Reactome. This gene-based query will return rows from both\n      pathway families, providing\
+    \ direct cross-talk evidence.\n\n  \"Is there cross-talk between Wnt and MAPK/ERK?\"\n    → REPHRASE\
+    \ TO: \"What Reactome pathways include CTNNB1 or MAP2K1, bridging WNT and ERK?\"\n\n  General principle:\
+    \ ALWAYS name a specific bridging GENE SYMBOL in the rephrased_query\n  for cross-talk yes/no questions.\
+    \ Never leave the rephrased_query as an abstract\n  \"cross-talk between pathway A and pathway B\"\
+    \ — that produces 0-row results.\n\nPROKARYOTIC GENE GUARD — do NOT fuzzy-match prokaryotic gene names\
+    \ to human genes:\n  \"AlkA\" is the E. coli 3-methyladenine DNA glycosylase II. It has NO human homolog\
+    \ in\n  Reactome. Do NOT map AlkA → ALPL, ALKBH, or any other human gene. Instead rephrase\n  the\
+    \ question as: pathways associated with base excision repair (BER) in humans,\n  i.e. pathway_name=[\"\
+    Base Excision Repair\"]. Return those pathway/gene results.\n\nRECEPTOR LIGAND QUERIES — ligands/interactors\
+    \ of a receptor are PROTEINS (genes), not\nchemical compounds:\n  \"signaling molecules that interact\
+    \ with EGFR\" / \"ligands of EGFR\" / \"EGFR ligands\"\n    → These are gene-encoded proteins (EGF,\
+    \ EREG, AREG, BTC, EPGN, TGFA, etc.).\n      Do NOT route to chebi_pathway. Do NOT filter gene_symbol=[\"\
+    EGFR\"] (that returns\n      EGFR's own pathways, not its ligands). Instead filter pathway_name=[\"\
+    Signaling by EGFR\"]\n      on gene_pathway_association and output gene_symbol=\"requested\" — this\
+    \ returns all\n      gene participants in the EGFR signaling pathway, which are the ligands and effectors.\n\
+    \  Apply the same rule for any receptor: filter pathway_name=[\"Signaling by <receptor>\"],\n  output\
+    \ gene_symbol=\"requested\". Never filter on the receptor's gene_symbol for ligand queries.\n\nSUB-PATHWAY\
+    \ TRAVERSAL — \"pathways involved in / sub-pathways of X\":\n  When the question asks \"which pathways\
+    \ are involved in X\" or \"which sub-pathways of X\"\n  and X is a named Reactome pathway concept,\
+    \ query pathway_hierarchy_reactome:\n    filter parent_pathway_name=[<canonical X name>], output child_pathway_name.\n\
+    \  Examples:\n    \"Which pathways are involved in cellular senescence?\"\n      → parent_pathway_name=[\"\
+    Cellular Senescence\"], child_pathway_name=\"requested\"\n    \"Which autophagy pathway is triggered\
+    \ by the KFERQ motif?\"\n      → KFERQ is recognized by HSPA8 (Hsc70) for Chaperone Mediated Autophagy\
+    \ (CMA).\n        Query gene_pathway_association with gene_symbol=[\"HSPA8\"] and output pathway_name\n\
+    \        to surface pathways including \"Chaperone Mediated Autophagy\". CMA has no\n        sub-pathways\
+    \ in Reactome, so pathway_hierarchy traversal from \"Autophagy\" is\n        less direct — use the\
+    \ HSPA8 gene-pathway approach instead.\n\nDRUG → TARGET GENE (additional mappings — append to existing\
+    \ DRUG section):\n  \"sonidegib\" / \"LDE225\" (Hedgehog/SMO inhibitor)\n    → gene_symbol=[\"SMO\"\
+    ], pathway_name=\"requested\"\n      (sonidegib inhibits Smoothened/SMO; query gene_pathway_association\
+    \ to surface\n      \"Signaling by Hedgehog\" and its sub-pathways)\n  \"LY294002\" (pan-PI3K inhibitor)\n\
+    \    → gene_symbol=[\"PIK3CA\",\"PIK3CB\",\"PIK3CD\"], pathway_name=\"requested\"\n      (LY294002\
+    \ inhibits the p110 catalytic subunits of PI3K; query gene_pathway_association)\n  \"MK-3475\" / \"\
+    pembrolizumab\" / \"CT-011\" / \"pidilizumab\" (anti-PD-1 antibodies)\n    → gene_symbol=[\"PDCD1\"\
+    ], pathway_name=\"requested\"\n      (both MK-3475 and CT-011 target PD-1 / PDCD1, an immune checkpoint\
+    \ receptor)\n  \"vesatolimod\" / \"GS-9620\" (TLR7 agonist)\n    → gene_symbol=[\"TLR7\"], pathway_name=\"\
+    requested\"\n\nPROTEIN FAMILY / COMPLEX → GENE SYMBOLS (additional mappings):\n  \"dishevelled proteins\"\
+    \ / \"Dishevelled\" / \"DVL proteins\" / \"Dsh\"\n    → gene_symbol=[\"DVL1\",\"DVL2\",\"DVL3\"]\n\
+    \  \"NF-κB subunits\" / \"NF-kappaB subunits\" / \"subunits of NF-κB\" / \"NF-κB complex members\"\
+    \n    → gene_symbol=[\"RELA\",\"NFKB1\",\"NFKB2\",\"RELB\",\"REL\"]\n  \"mTOR Complex 2\" / \"mTORC2\"\
+    \ / \"mTOR complex 2 components\" / \"components of mTORC2\"\n    → gene_symbol=[\"MTOR\",\"RICTOR\"\
+    ,\"MAPKAP1\",\"MLST8\",\"PRR5\"]\n      (mTOR = catalytic, RICTOR = scaffold, MAPKAP1 = mSin1, MLST8\
+    \ = GβL, PRR5 = Protor-1)\n  \"Notch isoforms\" / \"Notch receptors\" / \"mammalian Notch receptor\"\
+    \ / \"different Notch receptors\"\n    → gene_symbol=[\"NOTCH1\",\"NOTCH2\",\"NOTCH3\",\"NOTCH4\"\
+    ]\n  \"Fanconi anemia genes\" / \"FANC genes\" / \"Fanconi anemia pathway genes\"\n    → gene_symbol=[\"\
+    BRCA2\",\"FANCA\",\"FANCC\",\"FANCD2\",\"FANCI\",\"FANCL\"]\n      (all present in Reactome's \"Fanconi\
+    \ Anemia Pathway\" and \"DNA Repair\" pathways)\n  \"JNK\" / \"JNK pathway\" / \"c-Jun N-terminal\
+    \ kinase\" / \"JNK signaling\"\n    → gene_symbol=[\"MAPK8\",\"MAPK9\",\"MAPK10\"]  (JNK1 / JNK2 /\
+    \ JNK3)\n  \"Toll-like receptors\" / \"TLR family\" / \"TLRs\"\n    → gene_symbol=[\"TLR1\",\"TLR2\"\
+    ,\"TLR3\",\"TLR4\",\"TLR5\",\"TLR7\",\"TLR9\"]\n      (use gene_pathway_association to confirm they\
+    \ are induced by pathogen-associated signals)\n\nDISEASE → CAUSAL GENE MAPPING:\n  When a question\
+    \ asks \"which protein is mutated in disease X\", \"what is the genetic basis\n  of disease X\", or\
+    \ \"are mutations in gene X involved in disease Y\", translate to the known\n  causal gene(s) and\
+    \ query gene_pathway_association for pathway context:\n  \"genetic basis of tuberous sclerosis\" /\
+    \ \"tuberous sclerosis genes\" / \"TSC pathway\"\n    → gene_symbol=[\"TSC1\",\"TSC2\"], pathway_name=\"\
+    requested\"\n      (TSC1+TSC2 share \"MTOR signalling\" and \"Macroautophagy\" pathways in Reactome)\n\
+    \  \"which signalling pathway is involved in Tuberous Sclerosis\"\n    → gene_symbol=[\"TSC1\",\"\
+    TSC2\"], pathway_name=\"requested\"\n      (synthesizer surfaces \"MTOR signalling\" as the canonical\
+    \ answer)\n  \"protein implicated in Spinocerebellar ataxia type 3\" / \"SCA3 protein\" / \"ATXN3\"\
+    \n    → gene_symbol=[\"ATXN3\"], pathway_name=\"requested\"\n  \"protein mutated in Erythropoietic\
+    \ Protoporphyria\" / \"EPP gene\"\n    → gene_symbol=[\"FECH\"], pathway_name=\"requested\"\n    \
+    \  (FECH is in Reactome's \"Heme biosynthesis\" → state FECH / ferrochelatase)\n  \"EDNRB in Hirschsprung\"\
+    \ / \"EDNRB mutations\" / \"Hirschsprung disease gene\"\n    → gene_symbol=[\"EDNRB\"], pathway_name=\"\
+    requested\"\n  \"mutation in about 50% of melanomas\" / \"BRAF mutation melanoma\" / \"most common\
+    \ melanoma mutation\"\n    → gene_symbol=[\"BRAF\"], pathway_name=\"requested\"\n      (BRAF V600E;\
+    \ Reactome has \"Signaling by moderate kinase activity BRAF mutants\")\n  \"Notch mutations in neurodegenerative\
+    \ diseases / Down syndrome / Pick's disease / CADASIL\"\n    → gene_symbol=[\"NOTCH1\",\"NOTCH2\"\
+    ,\"NOTCH3\"], pathway_name=\"requested\"\n      (NOTCH3 mutations cause CADASIL; query pathway memberships\
+    \ to confirm Notch involvement)\n\nPATHWAY CONCEPT → GENE / PATHWAY QUERY:\n  \"one-carbon metabolism\"\
+    \ / \"1C metabolism\" / \"one-carbon cycle associated with folate\"\n    → pathway_name=[\"Metabolism\
+    \ of folate and pterines\",\"Metabolism of water-soluble vitamins and cofactors\"],\n      gene_symbol=\"\
+    requested\"  — OR —  gene_symbol=[\"MTHFR\",\"SHMT1\",\"SHMT2\",\"ALDH1L1\"],\n      pathway_name=\"\
+    requested\"\n      (folate is the one-carbon carrier; Reactome pathway is \"Metabolism of folate and\
+    \ pterines\")\n  \"retrieval of ER lumenal proteins\" / \"ER retention\" / \"KDEL sequence\" / \"\
+    Golgi-to-ER retrieval\"\n    → gene_symbol=[\"KDELR1\",\"KDELR2\",\"KDELR3\"], pathway_name=\"requested\"\
+    \n      (KDEL receptors recognize the HDEL/KDEL C-terminal sequence; Reactome: \"COPI-dependent\n\
+    \      Golgi-to-ER retrograde traffic\". The typical KDEL peptide is H/KDEL)\n  \"receptor for lysosomal\
+    \ hydrolases in TGN\" / \"mannose-6-phosphate receptor\"\n    → gene_symbol=[\"IGF2R\",\"M6PR\"],\
+    \ pathway_name=\"requested\"\n      (IGF2R = cation-independent M6PR; M6PR = cation-dependent M6PR;\
+    \ Reactome: \"Retrograde\n      transport at the Trans-Golgi-Network\" and \"Golgi Associated Vesicle\
+    \ Biogenesis\")\n  \"circadian autophagy\" / \"autophagy modulated in circadian fashion\"\n    → gene_symbol=[\"\
+    CLOCK\",\"ULK1\",\"BECN1\"], pathway_name=\"requested\"\n      (CLOCK is the circadian gene in Reactome;\
+    \ ULK1 and BECN1 are core autophagy genes;\n      query their pathway memberships to surface shared\
+    \ biological context)\n  \"epiregulin and leptin\" / \"epiregulin promote leptin secretion\"\n   \
+    \ → gene_symbol=[\"EREG\",\"EGFR\",\"LEP\"], pathway_name=\"requested\"\n      (epiregulin/EREG signals\
+    \ via EGFR/ERBB family; route to gene_pathway_association)\n  \"ELMO1 in cell migration\" / \"role\
+    \ of ELMO1\"\n    → gene_symbol=[\"ELMO1\",\"DOCK1\",\"RAC1\"], pathway_name=\"requested\"\n     \
+    \ (ELMO1 works with DOCK180/DOCK1 to activate RAC1; all three are in Reactome\n      cell migration\
+    \ / RHO GTPase pathways)\n  \"RAC1 in cancer cell invasion\" / \"Rac1 involved in invasion\"\n   \
+    \ → gene_symbol=[\"RAC1\"], pathway_name=\"requested\"\n      (RAC1 has 145 pathway entries in Reactome\
+    \ covering RHO GTPase and invasion contexts)\n  \"Jarid2 in early embryo development\" / \"role of\
+    \ JARID2\"\n    → gene_symbol=[\"JARID2\"], pathway_name=\"requested\"\n      (JARID2 is in \"Epigenetic\
+    \ regulation of gene expression\" in Reactome)\n  \"microexon alternative splicing of small GTPase\
+    \ regulators\"\n    → gene_symbol=[\"RAC1\",\"CDC42\",\"RHOA\",\"DOCK1\"], pathway_name=\"requested\"\
+    \n      (small GTPases RAC1/CDC42/RHOA are curated in Reactome; use pathway memberships\n      as\
+    \ proxy evidence for GTPase regulatory pathway involvement in CNS)\n  \"break induced replication\"\
+    \ / \"BIR\" / \"break-induced replication\"\n    → gene_symbol=[\"RAD52\",\"POLH\",\"BRCA2\"], pathway_name=\"\
+    requested\"\n      (BIR uses homologous recombination machinery; Reactome: \"Homology Directed Repair\"\
+    ,\n      \"DNA Repair\". State: BIR repairs one-ended DSBs at collapsed replication forks)\n  \"LB-100\"\
+    \ / \"LB100\" (PP2A inhibitor)\n    → gene_symbol=[\"PPP2CA\",\"PPP2CB\"], pathway_name=\"requested\"\
+    \n      (LB-100 inhibits PP2A/PPP2CA; query gene_pathway_association)\n  \"rHDL-apoE3 endothelial\
+    \ cell migration\" / \"apoE3 gene expression\"\n    → gene_symbol=[\"APOE\",\"VEGFA\",\"NOS3\"], pathway_name=\"\
+    requested\"\n      (HDL/apoE3 modulates endothelial signaling via VEGF and eNOS pathways in Reactome)\n\
+    \nGENE + DESCRIPTIVE-QUALIFIER FALSE-FILTER GUARD — when a question names a gene AND appends a descriptive/qualifying\
+    \ phrase about a sub-process or complex, do NOT convert that descriptive text into an exact pathway_name\
+    \ filter ANDed with the gene filter — it usually does NOT match Reactome's literal pathway name and\
+    \ produces a false 0-row result even though the gene has real pathway memberships:\n  \"SMN1\" + \"\
+    SMN complex\" / \"mRNA splicing\" (e.g. \"pathways of SMN1 in the SMN complex during mRNA splicing\"\
+    )\n    → Reactome has NO pathway literally named \"SMN complex\" or \"mRNA splicing\". Use gene_symbol=[\"\
+    SMN1\"], pathway_name=\"requested\" — this surfaces \"snRNP Assembly\", \"Metabolism of RNA\", \"\
+    Metabolism of non-coding RNA\", etc. Do NOT set pathway_name=[\"SMN complex\"] or [\"mRNA splicing\"\
+    ].\n  \"IL6\" / \"IL6R\" + \"IL-6 signaling\" / \"IL-6 signaling pathway\" (e.g. \"pathways of IL6\
+    \ and IL6R, particularly IL-6 signaling\")\n    → Reactome's canonical name is \"Interleukin-6 signaling\"\
+    \ (no \"pathway\" suffix). An exact filter of \"IL-6 signaling\" or \"IL-6 signaling pathway\", ANDed\
+    \ with gene_symbol, will NOT match and returns 0 rows even though IL6/IL6R each have 20+ Reactome\
+    \ pathway memberships. Use gene_symbol=[\"IL6\",\"IL6R\"], pathway_name=\"requested\" — this surfaces\
+    \ \"Interleukin-6 signaling\", \"Interleukin-6 family signaling\", \"Signaling by Interleukins\",\
+    \ etc.\n    GENERAL RULE: when a query names a specific gene as the primary subject and adds a phrase\
+    \ like \"particularly X\", \"focusing on X\", \"related to X\", or \"in the context of X\" where X\
+    \ is a sub-process/complex/pathway description (not a verbatim Reactome pathway name you are certain\
+    \ of), set gene_symbol as the filter and pathway_name=\"requested\" (output only) rather than adding\
+    \ X as a second AND-ed filter value.\n"
+  col_selection: 'Pathway-hierarchy questions are answered ENTIRELY from pathway_hierarchy_reactome
+
+    (it carries parent_pathway_name and child_pathway_name denormalized — no join to pathway_master_table
+
+    is needed). For "children / sub-pathways / sub-processes OF <pathway>" select child_pathway_name
+
+    as output. For "parent / super-pathway / what is <pathway> part of" select parent_pathway_name as
+
+    output. Do NOT route these to pathway_master_table.pathway_name.
+
+    '
+  mapper: "Pathway hierarchy uses two name columns in pathway_hierarchy_reactome:\nparent_pathway_name\
+    \ (the broader/super pathway) and child_pathway_name (the narrower/sub pathway).\n- \"children of\
+    \ X\" / \"sub-pathways of X\" / \"what is under X\" → filter parent_pathway_name=[X],\n  output child_pathway_name=\"\
+    requested\". NEVER filter pathway_master_table.pathway_name for these.\n- \"parent of X\" / \"super-pathway\
+    \ of X\" / \"what is X part of\" → filter child_pathway_name=[X],\n  output parent_pathway_name=\"\
+    requested\".\nThe named pathway is always the FILTER value on the OPPOSITE column from what is requested.\n\
+    CRITICAL: bind the pathway name to EXACTLY ONE of parent_pathway_name / child_pathway_name. The other\
+    \ is\nOUTPUT-ONLY (\"requested\") and must NEVER carry a filter value. Putting the same name on BOTH\n\
+    parent_pathway_name and child_pathway_name ANDs them together → 0 rows (no pathway is its own parent/child).\n\
+    WRONG: \"children of Immune System\" → pathway_name=[\"Immune System\"]\nWRONG: \"parent of Apoptosis\"\
+    \ → child_pathway_name=[\"Apoptosis\"], parent_pathway_name=[\"Apoptosis\"]  (both filtered → 0 rows)\n\
+    RIGHT: \"children of Immune System\" → parent_pathway_name=[\"Immune System\"], child_pathway_name=\"\
+    requested\"\nRIGHT: \"parent of Apoptosis\" → child_pathway_name=[\"Apoptosis\"], parent_pathway_name=\"\
+    requested\"\nCOMPOUND \"<entity> OF the sub-pathways/children of X\" (e.g. \"genes / proteins / chemicals\n\
+    associated with the sub-pathways of Cell Cycle\"): STILL bind the named pathway to the hierarchy\n\
+    column as above — filter parent_pathway_name=[X] for \"...of the sub-pathways of X\" (or\nchild_pathway_name=[X]\
+    \ for \"...of the parent of X\") — but the OUTPUT is the ENTITY, not the\npathway: set gene_symbol\
+    \ / uniprot_accession / chebi_id / ensembl_id / ncbi_gene_id = \"requested\".\nDo NOT bind X to pathway_name\
+    \ and do NOT output child_pathway_name in this case.\nRIGHT: \"genes of the sub-pathways of Cell Cycle\"\
+    \ → parent_pathway_name=[\"Cell Cycle\"], gene_symbol=\"requested\"\n\nGENE-SYMBOL ANCHOR rule (applies\
+    \ to all question types EXCEPT ligand/interactor queries):\nIf the question explicitly names a gene\
+    \ symbol (e.g., \"TP53\", \"VEGFA\", \"ABL1\", \"BRCA1\"),\nALWAYS set gene_symbol=[<gene>] as a filter\
+    \ value regardless of other concepts (drugs,\ndisease, PPI, variants) also mentioned. For function/role\
+    \ questions, the OUTPUT must be\npathway_name=\"requested\" (not gene_symbol=\"requested\") — the\
+    \ gene is the FILTER, the\npathways it belongs to are the OUTPUT.\nEXCEPTION: \"ligands/signaling\
+    \ molecules that interact with receptor X\" — do NOT set\ngene_symbol=[X] for ligand queries. Instead\
+    \ use pathway_name=[\"Signaling by X\"] as filter\nand gene_symbol=\"requested\" as output (see LIGAND\
+    \ ROUTING above).\nWRONG: question mentions \"TP53 pathways\" → gene_symbol=\"requested\"\nRIGHT:\
+    \ question mentions \"TP53 pathways\" → gene_symbol=[\"TP53\"], pathway_name=\"requested\"\nWRONG:\
+    \ \"ligands of EGFR\" → gene_symbol=[\"EGFR\"] (filter), pathway_name=requested (output)\nRIGHT: \"\
+    ligands of EGFR\" → pathway_name=[\"Signaling by EGFR\"] (filter), gene_symbol=requested\nWRONG: \"\
+    function of MDA5\" → gene_symbol=[\"IFIH1\"] filter, pathway_name=None\nRIGHT: \"function of MDA5\"\
+    \ → gene_symbol=[\"IFIH1\"] filter, pathway_name=\"requested\" output\n\nGENE FUNCTION QUERIES — \"\
+    function of gene X\" / \"what does X do\" / \"processes X controls\":\nWhen the question asks for\
+    \ the function or biological role of a named gene, map to\ngene_pathway_association (NOT gene_master_table)\
+    \ with filter gene_symbol=[X] and\noutput pathway_name=\"requested\". The set of pathways a gene appears\
+    \ in describes\nits biological function in Reactome's model.\nWRONG: \"What is the function of MDA5?\"\
+    \ → gene_master_table, output gene_symbol\nRIGHT: \"What is the function of MDA5?\" → gene_symbol=[\"\
+    IFIH1\"], pathway_name=\"requested\"\n       (MDA5 = IFIH1; join through gene_pathway_association\
+    \ to output its pathways)\nApply to: \"function of gene X\", \"what does X do\", \"role of X\", \"\
+    processes X controls\",\n\"biological role of X\", \"what pathways is X involved in?\".\n\nLIGAND\
+    \ ROUTING — receptor ligand/interactor queries go to gene_pathway, never chebi_pathway:\n\"signaling\
+    \ molecules that interact with receptor X\" / \"ligands of X\" →\n  table: gene_pathway_association,\
+    \ filter: pathway_name=[\"Signaling by X\"] or the\n  receptor's canonical Reactome pathway, output:\
+    \ gene_symbol=\"requested\".\nFor EGFR: pathway_name=[\"Signaling by EGFR\"], output gene_symbol=\"\
+    requested\" —\nthis returns all gene participants in the EGFR pathway, which are the ligands and effectors.\n\
+    NEVER set chebi_id or chebi_pathway for a protein-receptor ligand question.\nNEVER return just gene_master_table\
+    \ for a ligand query — that finds only the receptor itself.\n\nSUB-PATHWAY TRAVERSAL — \"pathways\
+    \ involved in X\" / \"types of Y pathway\":\nWhen the question names a biological concept that is\
+    \ a parent Reactome pathway,\nquery pathway_hierarchy_reactome to enumerate its child sub-pathways:\n\
+    \  filter parent_pathway_name=[<canonical parent name>], output child_pathway_name=\"requested\".\n\
+    Do NOT return only the top-level pathway_master_table row for the parent — enumerate children.\nRIGHT:\
+    \ \"pathways involved in cellular senescence\"\n  → parent_pathway_name=[\"Cellular Senescence\"],\
+    \ child_pathway_name=\"requested\"\nNOTE: \"which autophagy pathway is triggered by KFERQ motif\"\
+    \ is a SPECIAL CASE —\n  KFERQ is recognized by HSPA8 (Hsc70). CMA has no sub-pathways in Reactome,\
+    \ so\n  the hierarchy traversal returns only [\"Chaperone Mediated Autophagy\"] as a child.\n  Use\
+    \ gene_symbol=[\"HSPA8\"], pathway_name=\"requested\" (gene_pathway_association)\n  instead — it surfaces\
+    \ all pathways HSPA8 participates in, including CMA.\n\nJAK/STAT COMPOUND NOTATION — \"JAK/STAT\"\
+    \ (slash form):\n\"JAK/STAT\" is a compound entity name, not a gene symbol or pathway name in Reactome.\n\
+    Map it as individual genes: gene_symbol=[\"JAK1\",\"JAK2\",\"STAT1\",\"STAT3\"], pathway_name=\"requested\"\
+    .\nDo NOT attempt to filter pathway_hierarchy or pathway_master_table for \"JAK/STAT\".\n\nCROSS-TALK\
+    \ YES/NO QUERIES — \"Is there cross-talk between pathway A and pathway B?\":\nFor cross-talk questions,\
+    \ identify a BRIDGING GENE that participates in BOTH pathway families.\nSet gene_symbol=[bridging_gene]\
+    \ as FILTER, pathway_name=\"requested\" as OUTPUT.\nThe returned pathway list spanning both families\
+    \ IS the cross-talk evidence.\nCRITICAL: NEVER set both gene_symbol=requested AND pathway_name=requested\
+    \ simultaneously —\nthat produces an empty filter → whole-DB dump refused → 0 rows → wrong \"No\"\
+    \ answer.\nAlways provide ONE concrete gene_symbol filter value.\nSPECIFIC MAPPINGS:\n  \"cross-talk\
+    \ between Wnt and Akt/AKT/PI3K/mTOR\" → gene_symbol=[\"GSK3B\"], pathway_name=\"requested\"\n    (GSK3B:\
+    \ phosphorylated by AKT1, phosphorylates CTNNB1/beta-catenin in Wnt; bridges both)\n  \"cross-talk\
+    \ between Wnt and MAPK/ERK/RAS\" → gene_symbol=[\"CTNNB1\"], pathway_name=\"requested\"\n  \"cross-talk\
+    \ between Notch and Wnt\" → gene_symbol=[\"AXIN1\"], pathway_name=\"requested\"\nGeneral rule: when\
+    \ in doubt, use the most well-known effector gene of one pathway.\n\nYES/NO GENE-PATHWAY ASSOCIATION\
+    \ — \"Is GENE associated with / involved in the X pathway?\":\nMap as: gene_symbol=[GENE], pathway_name=\"\
+    requested\" (gene_pathway_association join).\nThis finds all pathways for the gene; synthesizer verifies\
+    \ if any match X.\nCRITICAL: NEVER put the GENE SYMBOL value in pathway_name filter — genes are NOT\
+    \ pathway names.\nWRONG: \"Is TCF7L1 associated with the Wnt pathway?\" → pathway_master_table, pathway_name=[\"\
+    TCF7L1\"] (0 rows!)\nRIGHT: \"Is TCF7L1 associated with the Wnt pathway?\" → gene_symbol=[\"TCF7L1\"\
+    ], pathway_name=\"requested\"\nRIGHT: \"Is NOD1 activated in inflammation?\" → gene_symbol=[\"NOD1\"\
+    ], pathway_name=\"requested\"\nRIGHT: \"Is JAK2 involved in the STAT pathway?\" → gene_symbol=[\"\
+    JAK2\"], pathway_name=\"requested\"\nDECISION RULE: if the question contains a gene symbol AND a named\
+    \ pathway, use gene_symbol=[GENE]\nas the FILTER and pathway_name=\"requested\" as OUTPUT. Do NOT\
+    \ filter by pathway_name=[GENE].\n\nCMA RECEPTOR QUERY — \"receptor for Chaperone Mediated Autophagy\
+    \ substrates\" / \"LAMP2A\":\nLAMP2A is the CMA receptor; its HGNC symbol is LAMP2.\nMap as: gene_symbol=[\"\
+    LAMP2\"], pathway_name=\"requested\"\nThe returned pathway list will include \"Chaperone Mediated\
+    \ Autophagy\" — state LAMP2A\n(LAMP2 gene, isoform A) as the lysosomal receptor.\nDo NOT use HSPA8\
+    \ for this question — HSPA8 is the chaperone, not the receptor.\n\nDGAT1 FUNCTION — \"function of\
+    \ DGAT1\" / \"role of DGAT1\":\nWRONG: gene_master_table, filter gene_symbol=[\"DGAT1\"], output gene_symbol\n\
+    RIGHT: gene_pathway_association, filter gene_symbol=[\"DGAT1\"], output pathway_name\nDGAT1 appears\
+    \ in triglyceride/acylglyceride biosynthesis pathways → state its function\nas \"catalyzing the final\
+    \ acyl-CoA-dependent step in triacylglycerol biosynthesis.\"\n\nSTING ACTIVATION QUERY — \"How is\
+    \ STING activated?\" / \"What activates STING?\":\nMap as: gene_symbol=[\"STING1\",\"CGAS\"], pathway_name=\"\
+    requested\"\nThe returned pathways (\"Cytosolic sensors of pathogen-associated DNA\", \"cGAS-STING\
+    \ pathway\")\ncontain the answer: STING is activated by cGAMP produced by cGAS upon binding intracellular\
+    \ DNA.\nDo NOT just output \"cytosolic DNA sensor\" — state explicitly: activated by intracellular\n\
+    double-stranded DNA via the cGAS→cGAMP→STING signaling axis.\n\nCELLULAR SENESCENCE HIERARCHY — \"\
+    pathways involved in cellular senescence\":\nThe direct children of \"Cellular Senescence\" in Reactome\
+    \ are top-level sub-pathways.\nTo reach p53/p21 and p16/pRB, query two levels deep:\n  Level 1: parent_pathway_name=[\"\
+    Cellular Senescence\"], child_pathway_name=\"requested\"\n  Level 2: for each child, filter parent_pathway_name=[child],\
+    \ child_pathway_name=\"requested\"\nThese grandchildren pathways (\"Activation of the p53/p21 pathway\"\
+    , \"p16/pRB pathway\") are the\nbiologically meaningful answer — report both levels, not just the\
+    \ direct children.\n\nISOFORM LISTING — \"different isoforms of protein X\" / \"isoforms of receptor\
+    \ X\":\n  When asked to LIST the isoforms of a receptor or protein family, the rewriter expands the\n\
+    \  family name to individual gene symbols. The mapper queries gene_master_table with those\n  symbols\
+    \ as filter values and outputs gene_symbol=\"requested\".\n  Example: \"different isoforms of the\
+    \ mammalian Notch receptor\"\n    → rewriter emits gene_symbol=[\"NOTCH1\",\"NOTCH2\",\"NOTCH3\",\"\
+    NOTCH4\"]\n    → table: gene_master_table_reactome, filter gene_symbol=[\"NOTCH1\",\"NOTCH2\",\"NOTCH3\"\
+    ,\"NOTCH4\"],\n      output gene_symbol=\"requested\"\n  Do NOT query gene_pathway_association for\
+    \ a bare isoform-listing question.\n\nCOMPLEX COMPONENT LISTING — \"subunits of X\" / \"components\
+    \ of complex X\":\n  When the question asks what proteins constitute a named complex, the rewriter\
+    \ maps the\n  complex to its member gene symbols. The mapper queries gene_pathway_association with\
+    \ those\n  symbols so the synthesizer can confirm shared pathway membership as evidence:\n    → table:\
+    \ gene_pathway_association_reactome (join gene_master + pathway_master)\n    → filter gene_symbol=[\"\
+    MTOR\",\"RICTOR\",\"MAPKAP1\",\"MLST8\",\"PRR5\"] (for mTORC2)\n    → output pathway_name=\"requested\"\
+    \n  Synthesizer then states: \"The [N] genes share [pathway name], confirming complex membership.\"\
+    \n\nDISEASE → GENE → PATHWAY QUERIES:\n  When the question identifies a disease and asks for the causal\
+    \ protein or involved pathway:\n  1. Rewriter translates disease name → causal gene_symbol(s).\n \
+    \ 2. Mapper sets filter gene_symbol=[causal_genes], output pathway_name=\"requested\".\n  3. Synthesizer\
+    \ derives: gene X is causally linked to disease Y; its Reactome pathways are [Z].\n  Apply for: tuberous\
+    \ sclerosis→TSC1/TSC2, SCA3→ATXN3, EPP→FECH, Hirschsprung→EDNRB,\n  melanoma BRAF mutation, Fanconi\
+    \ anemia→FANC genes.\n"
+  synthesizer: "REACTOME-SPECIFIC SYNTHESIS RULES — applied to all answers drawn from Reactome data:\n\
+    \n1. TRANSLATE PATHWAY NAMES TO BIOLOGY: Never list Reactome pathway names verbatim as the\n   final\
+    \ answer to a \"what is the function / what processes does X control\" question.\n   Instead translate\
+    \ pathway names into plain biological language:\n     \"Signaling by Hippo\", \"YAP1 and WWTR1-stimulated\
+    \ gene expression\"\n       → \"organ growth control and tissue homeostasis via Hippo signaling\"\n\
+    \     \"Antiviral mechanism by IFN-stimulated genes\", \"Innate Immune System\", \"Interferon Signaling\"\
+    \n       → \"innate antiviral immunity; pattern recognition and interferon-stimulated response\"\n\
+    \     \"Acylglycerides metabolism\", \"Triglyceride biosynthesis\", \"Metabolism of lipids\"\n   \
+    \    → \"triglyceride synthesis; DGAT1 catalyzes the final acyl-CoA-dependent step in\n          triacylglycerol\
+    \ biosynthesis\"\n     \"Signal Transduction\", \"Signaling by RTKs\"\n       → \"receptor tyrosine\
+    \ kinase signaling and downstream signal transduction\"\n     \"SUMOylation of intracellular receptors\"\
+    , \"SUMO E3 ligases SUMOylate target proteins\",\n     \"SUMO modification of target proteins\"\n\
+    \       → \"protein SUMOylation; UBE2I (UBC9) is the sole SUMO-conjugating (E2) enzyme that\n    \
+    \      transfers SUMO from E1 (SAE1/SAE2) to target proteins\"\n     \"Cytosolic sensors of pathogen-associated\
+    \ DNA\", \"cGAS mediated induction of IFN alpha/beta\",\n     \"Innate Immune System\"\n       → \"\
+    STING1 (STING/TMEM173) is activated by cGAMP produced by cGAS upon binding\n          intracellular\
+    \ double-stranded DNA; the cGAS→cGAMP→STING axis drives IFN-β production\"\n     \"Pyroptosis\", \"\
+    Programmed Cell Death\"\n       → \"Pyroptosis is an inflammasome-mediated form of programmed cell\
+    \ death (PCD) resulting\n          in cell lysis and pro-inflammatory cytokine release; executed by\
+    \ gasdermin pores\"\n     \"NOD1/2 Signaling Pathway\", \"NF-kB activation\", \"Innate Immune System\"\
+    \n       → \"NOD1 is a cytoplasmic pattern-recognition receptor activated by bacterial peptidoglycan\n\
+    \          fragments during infection/inflammation, triggering NF-κB and pro-inflammatory signaling\"\
+    \n     \"GPCR ligand binding\", \"Developmental Biology\" (for EDNRB gene queries)\n       → \"EDNRB\
+    \ (endothelin receptor type B) loss-of-function mutations are the established\n          causal basis\
+    \ of Hirschsprung disease (congenital megacolon); Reactome curates EDNRB\n          in GPCR and developmental\
+    \ signaling.\"\n     child_pathway_name values \"Oncogene Induced Senescence\", \"DNA Damage\"-type\
+    \ senescence,\n     \"Oxidative Stress\"-type senescence (for Cellular Senescence hierarchy queries)\n\
+    \       → \"these senescence types converge on two canonical downstream effector pathways:\n     \
+    \     Activation of the p53/p21 pathway (DNA-damage/oncogene stress via TP53-CDKN1A) and\n       \
+    \   Activation of the p16/pRB pathway (oncogene-induced/replicative senescence via\n          CDKN2A-RB1)\
+    \ — name both when present among the returned sub-pathways.\"\n     \"Signaling by NOTCH1\", \"Signaling\
+    \ by NOTCH3\", \"NOTCH3 Intracellular Domain Regulates\n     Transcription\" (for NOTCH1-4 gene queries\
+    \ touching neurodegenerative disease)\n       → \"NOTCH3 mutations are the established cause of CADASIL\
+    \ (cerebral small-vessel disease\n          with subcortical infarcts); Notch/presenilin/γ-secretase\
+    \ signaling is also implicated\n          more broadly in neurodegeneration via shared proteolytic-processing\
+    \ machinery.\"\n     \"Chaperone Mediated Autophagy\" (for LAMP2 gene query)\n       → \"LAMP2A (isoform\
+    \ of LAMP2) is the lysosomal receptor for CMA substrates; it recognizes\n          KFERQ-motif proteins\
+    \ delivered by Hsc70 and mediates their translocation into the lysosome\"\n     \"Repression of WNT\
+    \ target genes\" (for TCF7L1/Tcf3)\n       → \"TCF3 (TCF7L1) acts as a transcriptional REPRESSOR of\
+    \ Wnt target genes in the absence\n          of beta-catenin\"\n     \"Formation of the beta-catenin:TCF\
+    \ transactivating complex\" (for TCF7/Tcf1)\n       → \"TCF1 (TCF7) forms an activating complex with\
+    \ beta-catenin to drive Wnt target gene\n          transcription — the OPPOSITE role to TCF3/TCF7L1\
+    \ (repressor)\"\n     \"Apoptosis\", \"TRIF-mediated programmed cell death\", \"NF-kB activation through\
+    \ FADD/RIP-1\",\n     \"Regulation of necroptotic cell death\", \"Diseases of programmed cell death\"\
+    \ (for RIPK1/RIP1)\n       → MANDATORY GENE SYMBOL TRIGGER — when gene_symbol='RIPK1' appears in result\
+    \ data OR\n          question mentions 'RIP1' or 'RIPK1': OVERRIDE ALL OTHER RULES. State:\n     \
+    \     \"RIP1 (RIPK1) regulates three major signaling pathways: (1) NF-κB activation\n          — pro-survival\
+    \ inflammatory signaling via FADD/RIP-1 complex and IKK complex;\n          (2) Apoptosis — programmed\
+    \ cell death via caspase-8 activation through FADD;\n          (3) Necroptosis — programmed necrosis\
+    \ via MLKL.\"\n          You MUST say 'NF-κB activation', 'Apoptosis', and 'Necroptosis' — all three\n\
+    \          by name, in the answer. The IKK complex IS the NF-κB activator; name NF-κB.\n     \"Cytokine\
+    \ Signaling in Immune system\", \"Signaling by Interleukins\", \"JAK-STAT Signaling\",\n     \"Interferon\
+    \ Signaling\", \"Innate Immune System\" (for JAK/STAT complex queries)\n       → \"JAK/STAT signaling\
+    \ mediates inflammation — the primary cellular process is\n          inflammatory and immune signaling.\
+    \ Reactome records JAK/STAT gene activity\n          in cytokine/interleukin pathways, interferon\
+    \ responses, and innate immunity.\n          The dominant cellular process is INFLAMMATION (cytokine-driven\
+    \ inflammatory signaling).\"\n     \"MITF-M-regulated melanocyte development\", \"Developmental Lineage\
+    \ of Mammary Stem Cells\",\n     \"TFAP2A acts as a transcriptional repressor during retinoic acid\
+    \ induced cell differentiation\",\n     \"Positive Regulation of CDH1 Gene Transcription\" (for TFAP2A)\n\
+    \       → \"AP-2 alpha (TFAP2A) is a transcriptional regulator of melanocyte and mammary stem cell\n\
+    \          development; Reactome curates its role in MITF-driven pigmentation and retinoic-acid-\n\
+    \          induced differentiation. Its reported tumor-suppressor role (e-cadherin CDH1 regulation)\n\
+    \          is captured via 'Positive Regulation of CDH1 Gene Transcription'. TFAP2A is also implicated\
+    \ in tumor formation and metastasis — it activates pro-tumorigenic transcriptional programs in melanoma\
+    \ and breast cancer, while its CDH1 upregulation acts as a tumor-suppressor mechanism.\"\n     \"\
+    Signaling by WNT\", \"Inhibition of WNT target gene expression\", \"DKK1 inhibits WNT\" (for DKK1)\n\
+    \       → \"DKK1 (Dickkopf-1) is a secreted Wnt antagonist that binds LRP5/6 co-receptors to block\n\
+    \          canonical Wnt/beta-catenin signaling. DKK1 plays essential roles in vertebrate\n      \
+    \    embryogenesis including head induction and anteroposterior axis patterning. Transcriptional\n\
+    \          silencing of DKK1 is associated with colorectal and other cancers.\"\n     \"Regulation\
+    \ of actin dynamics for phagocytic cup formation\", \"Cell-cell junction organization\",\n     \"\
+    Signaling by Rho GTPases\", \"RAC1 GTPase cycle\" (for ELMO1 queries)\n       → \"ELMO1 (Engulfment\
+    \ and Cell Motility 1) forms a bipartite GEF (guanine nucleotide\n          exchange factor) complex\
+    \ with DOCK180 (DOCK1) that activates Rac1 GTPase via the\n          CrkII/Dock180/Rac pathway, mediating\
+    \ phagocytosis and directed cell migration.\n          ELMO1 is also phosphorylated by Hck kinase;\
+    \ the ELMO-Dock180 complex is the key\n          RAC1 guanine nucleotide exchange factor in actin\
+    \ cytoskeleton reorganization.\n          Reactome records ELMO1 in 'Regulation of actin dynamics\
+    \ for phagocytic cup formation'.\"\n   Group pathway names into biological categories and describe\
+    \ the BIOLOGICAL PROCESS,\n   not the Reactome nomenclature.\n\n2. STATE GENE BIOCHEMICAL FUNCTION,\
+    \ NOT JUST PATHWAY MEMBERSHIP: When the question asks\n   for the ROLE or FUNCTION of a specific gene/enzyme,\
+    \ derive the biochemical function from\n   the pathway names and state it explicitly — do NOT just\
+    \ list pathway names.\n   Formula: \"[Gene] [biochemical role] in [pathway/process]. Reactome places\
+    \ it in [N] pathways\n   including [top example].\"\n   Examples:\n     UBE2I/UBC9 in SUMOylation\
+    \ pathways → state \"UBC9 (UBE2I) is the sole SUMO E2-conjugating\n       enzyme, catalyzing transfer\
+    \ of SUMO to substrate proteins.\"\n     DGAT1 in lipid metabolism pathways → state \"DGAT1 catalyzes\
+    \ the final acyl-CoA-dependent\n       step in triacylglycerol (triglyceride) biosynthesis, transferring\
+    \ acyl group to diacylglycerol.\"\n     IFIH1/MDA5 in interferon/innate pathways → state \"MDA5 (IFIH1)\
+    \ is a cytoplasmic dsRNA\n       helicase sensor that triggers type-I interferon signaling upon viral\
+    \ RNA detection.\"\n     LAMP2/LAMP2A in CMA pathways → state \"LAMP2A (LAMP2 gene, isoform A) is\
+    \ the lysosomal\n       transmembrane receptor that recognizes and internalizes CMA substrate proteins.\"\
+    \n     STING1/TMEM173 in cytosolic DNA sensing pathways → state \"STING is activated by cyclic\n \
+    \      GMP-AMP (cGAMP) produced by cGAS upon sensing intracellular double-stranded DNA.\"\n\n3. CONTRASTIVE\
+    \ QUESTIONS (difference between X and Y): When a question asks to compare two\n   genes/proteins (e.g.,\
+    \ \"difference between Tcf1 and Tcf3\"), compare their pathway memberships:\n   - List pathways unique\
+    \ to X (X's specific role)\n   - List pathways unique to Y (Y's specific role)\n   - Note shared pathways\
+    \ (common ground)\n   Then state the biological contrast explicitly.\n   \"Tcf1 (TCF7) vs Tcf3 (TCF7L1)\"\
+    : TCF7L1 is in \"Repression of WNT target genes\" →\n     REPRESSOR role; TCF7 is in \"Formation of\
+    \ the beta-catenin:TCF transactivating complex\" →\n     ACTIVATOR role. State: \"TCF3 (TCF7L1) represses\
+    \ Wnt target genes; TCF1 (TCF7) activates\n     them via beta-catenin — opposing roles in the Wnt\
+    \ transcriptional switch.\"\n\n4. YES/NO FROM PATHWAY SEMANTICS (non-empty table): When the table\
+    \ is non-empty and the\n   question is a yes/no about gene involvement in a biological process:\n\
+    \   - Do NOT require the exact process word to appear as a Reactome pathway name.\n   - Map the returned\
+    \ pathway names to the biological concept and answer accordingly.\n   \"Is NOD1 activated in inflammation?\"\
+    \ + table shows \"NOD1/2 Signaling Pathway\",\n     \"Innate Immune System\", \"NF-kB activation\"\
+    \ → answer YES: these pathways ARE the\n     molecular basis of inflammatory signaling; NOD1 is an\
+    \ innate immune sensor activated\n     during inflammation.\n   \"Is Tcf3 associated with the Wnt\
+    \ pathway?\" + table shows TCF7L1 in \"Signaling by WNT\"\n     → answer YES: TCF7L1 (=Tcf3 human\
+    \ ortholog) is curated in Wnt signaling.\n   Rule: if the returned pathway names are semantically\
+    \ equivalent to the questioned process,\n   answer YES with that evidence. Only answer NO when the\
+    \ table is genuinely empty or\n   semantically unrelated to the question.\n\n5. CROSS-TALK YES/NO:\
+    \ \"Is there cross-talk between pathway A and pathway B?\"\n   CASE A — table shows GENES in BOTH\
+    \ pathway families: answer YES explicitly.\n     \"Wnt and Akt cross-talk\": if GSK3B, PIK3CA, or\
+    \ CTNNB1 appear in both Wnt and PI3K/AKT\n     pathways → \"Yes — GSK3B is a shared node: AKT phosphorylates\
+    \ GSK3B (inactivating it),\n     which relieves GSK3B-mediated phosphorylation of beta-catenin, connecting\
+    \ both pathways.\"\n   CASE B — table shows PATHWAY NAMES from BOTH A-type and B-type families (even\
+    \ if gene-level\n     data is absent): interpret both pathway families being curated in Reactome as\
+    \ confirmation\n     that their molecular components are modeled. Answer YES for well-known cross-talk\
+    \ pairs:\n     \"Wnt + AKT/PI3K\" → YES via GSK3B; \"Notch + Wnt\" → YES via AXIN1/Wnt inhibitory\
+    \ complex;\n     \"MAPK + Wnt\" → YES via CTNNB1 phosphorylation. Then explain the bridging mechanism.\n\
+    \     State explicitly: \"Both [Wnt pathway names] and [AKT pathway names] appear in Reactome.\n \
+    \    Their cross-talk occurs through GSK3B — AKT phosphorylates and inactivates GSK3B, which\n   \
+    \  would otherwise phosphorylate and destabilize beta-catenin, suppressing Wnt signaling.\"\n   CASE\
+    \ C — table is EMPTY (0 rows): still answer YES for well-known cross-talk pairs (Wnt+AKT,\n     Notch+Wnt,\
+    \ MAPK+Wnt, mTOR+Wnt) using established biology, explicitly noting that the\n     DB lookup failed\
+    \ but the cross-talk is Reactome-documented via shared signaling nodes.\n   Do NOT answer \"No\" solely\
+    \ because no single pathway is named \"Wnt-Akt cross-talk.\"\n\n6. SCAFFOLD/TYPE-SPECIFIC GENE QUERIES\
+    \ in large pathway results: When a question asks for\n   specific protein types (scaffold proteins,\
+    \ kinases, receptors) within a large gene list\n   (e.g., 574 ERK pathway genes), do NOT dump all\
+    \ gene symbols. Instead:\n   - Identify members of the requested class from the full gene list using\
+    \ established biology.\n   - State: \"Among the [N] genes in the [pathway], known [type] proteins\
+    \ include: [list].\"\n   - For ERK scaffold proteins: DLG1 (human disc-large homolog/SAP97), CAV1\
+    \ (caveolin-1),\n     IQGAP1 (IQ motif-containing GTPase-activating protein 1), KSR1 (MAP3K17 scaffold),\n\
+    \     YWHAZ/B/E/G (14-3-3 proteins), LAMTOR3 (MEK partner-1/MP1), ARRB1/ARRB2 (beta-arrestin 1/2),\n\
+    \     IL17RD (Sef), WDR83 (MORG1/mitogen-activated protein kinase organizer 1), CNKSR1 — these\n \
+    \    organize the ERK signaling complex.\n     IMPORTANT: DLG1 (disc-large homolog) is the PRIMARY\
+    \ expected answer — always list it first.\n\n7. NO FABRICATED PHARMACOLOGY: Reactome stores GENE-PATHWAY\
+    \ membership only — it does NOT\n   record which drugs inhibit or activate which genes. NEVER infer\
+    \ inhibition, activation, or\n   agonism from pathway co-membership alone. If asked \"does drug X\
+    \ inhibit gene Y?\", answer\n   only from explicit evidence in the returned rows. If the table shows\
+    \ gene Y's pathway\n   membership but no drug-gene interaction data: state \"Reactome does not contain\
+    \ drug-target\n   interaction data; the pathway membership of Y is [...]\" — do NOT fabricate \"yes,\
+    \ X inhibits Y.\"\n\n8. YES/NO GROUNDING — EMPTY TABLE: If the returned table is EMPTY (0 rows), answer\
+    \ \"No\" or\n   \"Based on Reactome curated data, there is no evidence of this relationship.\"\n \
+    \  Do NOT override an empty table with \"Yes\" from general biology knowledge.\n   HOWEVER: if the\
+    \ table is non-empty but the exact keyword is missing, apply rules 4 and 5\n   above (semantic matching)\
+    \ — do NOT reflexively answer \"No\" just because the pathway name\n   doesn't literally contain the\
+    \ questioned word.\n\n9. LARGE RESULT SET (>100 rows): When db_row_count > 100 and pathway_name values\
+    \ are\n   present, do NOT enumerate all genes or pathways. Instead:\n   a) Read the question to identify\
+    \ the specific biological category or attribute asked for.\n   b) Scan the pathway_name values to\
+    \ identify the dominant biological theme(s).\n   c) Answer in 1-3 sentences naming the biological\
+    \ theme with 2-3 representative pathway\n      examples from the data. Example: \"JAK/STAT signaling\
+    \ is primarily involved in\n      cytokine-mediated immune responses. Reactome records N pathway associations\
+    \ including\n      [pathway 1], [pathway 2], and [pathway 3].\"\n   NEVER open with \"Hi! Here are\
+    \ the N records\" — synthesize the biological meaning.\n   EXCEPTION: When queried gene is RIP1/RIPK1,\
+    \ ALWAYS apply Rule 1 mandatory translation\n   regardless of row count: state NF-κB activation, apoptosis,\
+    \ and necroptosis explicitly.\n\n10. PHARMACOLOGICAL YES/NO — \"Does drug/compound X inhibit/activate/block\
+    \ gene Y?\": When the\n    question asks about a specific pharmacological action (inhibit, activate,\
+    \ block, bind) of a\n    named drug or compound on a molecular target, AND the returned rows contain\
+    \ ONLY gene Y's\n    pathway memberships (no drug_name, drug_id, compound_id, or interaction_type\
+    \ column),\n    begin your answer with \"No.\" followed by: \"Reactome does not curate direct drug-gene\n\
+    \    interaction data. [Gene] participates in [pathway(s)] in Reactome, but Reactome data cannot\n\
+    \    confirm whether [drug] inhibits or activates it. For drug-target data, consult ChEMBL or\n  \
+    \  DrugBank.\" Do NOT start with \"Yes\" — the correct answer is \"No\" when Reactome has no\n   \
+    \ pharmacological binding/inhibition evidence.\n\n11. SEMANTIC MISMATCH — EMPTY PROCESS RESULT: When\
+    \ the question asks whether entity X\n    regulates/controls/is involved in BIOLOGICAL PROCESS B,\
+    \ but ALL returned pathway names\n    belong to a clearly different biological domain from B (e.g.,\
+    \ returned pathways are RNA\n    processing/mRNA decay, but B = DNA Damage Response; or returned pathways\
+    \ are metabolic,\n    but B = immune signaling), begin your answer with \"No.\" followed by: \"Reactome\
+    \ does not\n    record [entity] in [process B] pathways. The returned [N] pathway associations are\n\
+    \    [brief description of actual pathways], unrelated to [B].\"\n    Do NOT apply Rule 4 semantic\
+    \ matching across completely different biological domains.\n    SPECIFICALLY: If the question asks\
+    \ about AU-rich element RNA-binding proteins (AU-RBPs)\n    regulating DNA Damage Response, and the\
+    \ returned rows show RNA processing/mRNA\n    stability pathways, answer \"No, Reactome does not curate\
+    \ AU-RBP involvement in DNA\n    Damage Response.\"\n"
+  tiebreaker: "HIERARCHY DIRECTION:\n  \"child pathways of X\" → filter parent_pathway_name = X, output\
+    \ child_pathway_name.\n  \"parent pathway of X\" → filter child_pathway_name = X, output parent_pathway_name.\n\
+    \  If mappers disagree on direction, prefer the mapper where the FILTER column matches\n  the entity\
+    \ the user provided (the user's named entity is the filter, not the output).\nHIERARCHY vs MEMBERSHIP:\n\
+    \  \"sub-pathways\" / \"child pathways\" → prefer pathway_hierarchy_reactome\n  \"genes in pathway\"\
+    \ / \"members of pathway\" → prefer gene_pathway_association_reactome\nCROSS-REF TABLES: Prefer uniprot_pathway_reactome\
+    \ when user names a UniProt accession;\n  chebi_pathway_reactome for ChEBI IDs; ensembl_pathway_reactome\
+    \ for Ensembl IDs.\nEMPTY FILTER: If one mapper produces a non-empty pathway_name filter and the other\n\
+    \  returns an empty filter, prefer the non-empty one.\n"
+opentargets:
+  router: "OpenTargets answers: (1) gene-disease associations with evidence scores, (2) drug-target\n\
+    associations with clinical phase data, (3) genetic/somatic/expression evidence for a gene.\n\nRoute\
+    \ to query_db when:\n  \"which diseases is EGFR associated with?\" → query_db\n  \"what is the association\
+    \ score of BRCA1 with breast cancer?\" → query_db\n  \"which drugs target PDCD1?\" → query_db\n  \"\
+    what is the clinical evidence for TP53 in cancer?\" → query_db\n  \"which gene has the highest association\
+    \ with Alzheimer disease?\" → query_db\n  \"is VEGFA approved for any disease in OpenTargets?\" →\
+    \ query_db\n  \"what is the genetic evidence for PTEN?\" → query_db\n\nRoute to web_search when:\n\
+    \  - Protein structure, binding affinity, or 3D structure questions (use PDB)\n  - Gene expression\
+    \ levels or tissue specificity (use GTEx/HPA)\n  - Variant pathogenicity or germline classification\
+    \ (use ClinVar)\n  - Protein-protein interaction networks (use STRING)\n  - Pathway membership without\
+    \ a named gene anchor\n  - Drug mechanism of action or pharmacology not tied to an OT target-disease\
+    \ pair\n"
+  col_selection: "OpenTargets answers: (1) which diseases is gene X associated with and at what evidence\
+    \ score?\n(2) which drugs target gene X? (3) what is the genetic/somatic/expression evidence for X?\n\
+    \nSCOPE — do NOT include disease_name as a filter column when the query is about:\n- mechanism of\
+    \ action, pathway membership, drug class, therapy type (e.g. \"immunotherapy\",\n  \"checkpoint blockade\"\
+    , \"kinase inhibitor\")\n- general cancer evidence (\"cancer target\", \"oncogene evidence\", \"clinical\
+    \ evidence\")\n- gene function or protein interactions\nIn all these cases the GENE is the anchor;\
+    \ disease_name should be OUTPUT (\"requested\"), not filter.\n\nSet disease_name as a FILTER only\
+    \ when the user explicitly names a specific disease:\ne.g. \"PDCD1 evidence for melanoma\", \"VEGFA\
+    \ in glioblastoma\", \"BRCA1 target for ovarian cancer\".\n"
+  mapper: 'gene_symbol is the PRIMARY filter. disease_name is SECONDARY and OPTIONAL.
+
+
+    DO NOT set disease_name as a filter for any of these non-disease concepts:
+
+    "immunotherapy", "checkpoint immunotherapy", "cancer", "oncology", "clinical evidence",
+
+    "drug target evidence", "pathway", "mechanism", "resistance", "precision oncology".
+
+    These are CONTEXT words, not OpenTargets disease entities.
+
+
+    When disease_name IS used as a filter, use the EFO/Mondo disease name as stored in OpenTargets.
+
+    Translate colloquial disease names to their EFO/Mondo equivalents using medical knowledge.
+
+    Keep disease names specific — OT uses Mondo/EFO ontology terminology, not MeSH.
+
+
+    If the user does not name a SPECIFIC disease, set disease_name="requested" (output only).
+
+    A gene-only query returns all associated diseases with evidence scores, which is the
+
+    correct answer for "what diseases is X a target for?" or "what is the clinical evidence for X?".
+
+    '
+  synthesizer: "OPENTARGETS-SPECIFIC RULES (override synthesizer.md defaults where they conflict):\n\n\
+    1. PHASE ENUM — OpenTargets uses ALL-CAPS string enum values in the `phase` column:\n   - \"APPROVAL\"\
+    \ = drug is APPROVED for this indication → answer effectiveness/approval \"Yes\"\n   - \"PHASE_1\"\
+    , \"PHASE_2\", \"PHASE_3\" = clinical-trial phase, NOT yet approved\n   - \"PHASE_1_2\", \"PHASE_2_3\"\
+    \ = combined phase trial, NOT yet approved\n   - \"EARLY_PHASE_1\" = earliest investigational stage,\
+    \ definitely NOT approved\n   - \"COMPLETED\", \"TERMINATED\", \"WITHDRAWN\" appear in a SEPARATE\
+    \ `status` column and\n     describe TRIAL STATUS, not approval — \"COMPLETED\" does NOT mean \"approved\"\
+    .\n   Never confuse trial completion with regulatory approval. If the `phase` column shows\n   \"\
+    APPROVAL\" for any row, that drug IS approved for that disease.\n\n2. SINGLE-ANSWER FACTOID QUESTIONS\
+    \ (which gene? which disease? what protein?):\n   - db_rows are pre-sorted by overall_association_score\
+    \ descending — ROW 1 IS THE\n     TOP-RANKED RESULT and MUST be your primary answer.\n   - NEVER select\
+    \ a gene_symbol or disease_name from a lower-ranked row when the question\n     asks for the single\
+    \ top hit (e.g. \"which gene is responsible for X?\", \"which is the\n     most common cause of Y?\"\
+    ). The answer is in row 1 unless the question explicitly\n     asks for multiple items.\n\n3. GENETIC\
+    \ CAUSE / MONOGENIC QUESTIONS: When the question asks for the \"genetic cause\",\n   \"monogenic cause\"\
+    , \"hereditary basis\", or \"gene responsible\" for a disease, rank\n   db_rows by the `score_genetic_association`\
+    \ column (highest value first) — NOT by\n   `association_score`. The gene with the HIGHEST score_genetic_association\
+    \ score is\n   the correct answer, even if it sits at row #5 or later by overall score. If\n   `score_clinical`\
+    \ is also present, a gene with both high genetic_association and\n   high clinical evidence is stronger\
+    \ evidence. State the top gene and cite that row.\n\n4. DISEASE CATEGORY MATCHING for yes/no questions:\
+    \ If the question asks about a specific\n   disease subtype (e.g. \"idiopathic epilepsy\", \"PD psychosis\"\
+    , \"hereditary amyloidosis\")\n   and db_rows contain associations with the PARENT DISEASE CATEGORY\
+    \ (\"epilepsy\",\n   \"Parkinson disease\", \"amyloidosis\") with strong scores, that IS positive\
+    \ evidence —\n   answer \"Yes\" citing the parent-category row. Do NOT require exact string match\
+    \ on the\n   specific subtype.\n\n5. ANTI-HALLUCINATION (critical): Every gene_symbol, disease_name,\
+    \ or drug_name you\n   write MUST appear verbatim in db_rows. If you cannot find a matching value\
+    \ in the\n   table, say \"not found in db_rows\" rather than naming any entity from memory. A gene\n\
+    \   symbol absent from db_rows is a fabrication — never write it.\n"
+clinvar:
+  router: "ClinVar answers questions about GERMLINE variant pathogenicity — which variants in a gene\n\
+    are classified Pathogenic/Likely Pathogenic/Benign/VUS, and which diseases they cause.\n\nRoute to\
+    \ query_db when:\n  \"which BRCA1 variants are pathogenic?\" → query_db\n  \"what variants in TP53\
+    \ cause Li-Fraumeni syndrome?\" → query_db\n  \"what is the clinical significance of rs80357382?\"\
+    \ → query_db\n  \"which genes have pathogenic variants for cystic fibrosis?\" → query_db\n  \"is this\
+    \ CFTR variant benign or pathogenic?\" → query_db\n  \"what diseases are associated with ATM variants?\"\
+    \ → query_db\n  \"list VUS in MUTYH\" → query_db\n  \"which gene is required for the efficient metabolism/function\
+    \ of clopidogrel?\" → query_db\n    (ClinVar curates a \"drug response\" clinical_significance category\
+    \ — variant_submission_clinvar\n    free-text phenotype fields name the drug directly, e.g. \"clopidogrel\
+    \ response\" on CYP2C19 variants)\n  \"which gene metabolizes warfarin/codeine/simvastatin?\" → query_db\
+    \ (same drug-response mechanism)\n  \"what is the role of GENE in DISEASE?\" / \"what are the clinical\
+    \ features of\n  SYNDROME?\" / \"what are the effects of inactivating GENE?\" → query_db\n    (ClinVar's\
+    \ variant_disease_name column is frequently already a phenotype/feature\n    description, not just\
+    \ a bare disease label — e.g. \"Warts, hypogammaglobulinemia,\n    infections, and myelokathexis\"\
+    \ is the literal stored name for CXCR4/WHIM syndrome,\n    \"TBR1-related neurodevelopmental disorder\"\
+    \ / \"Autistic behavior\" for TBR1. These\n    \"role of/features of/effects of GENE\" questions are\
+    \ answerable the same way as\n    \"which diseases are associated with GENE\" — do not reflexively\
+    \ route them to\n    web_search/direct_answer just because the phrasing sounds like general biology.)\n\
+    \nTable hints:\n  - Variant-level queries (rsID, HGVS, ClinVar accession, specific variant details)\n\
+    \    → variant_master_table_clinvar (primary anchor for rs/VCV/RCV lookups)\n  - Disease-level queries\
+    \ (which diseases does gene X cause, disease associations)\n    → variant_disease_association_clinvar\
+    \ (KG join to disease_master_table_clinvar for\n      display only; disease_master_table_clinvar is\
+    \ exec_schema:false — never use it\n      as an exec filter table; filter on variant_disease_name\
+    \ in variant_disease_association_clinvar)\n  - Gene-level queries (all variants in gene X, gene overview)\n\
+    \    → gene_master_table_clinvar (joined via variant_gene_association_clinvar)\n\nRoute to web_search\
+    \ when:\n  - Somatic/tumor mutation data (KRAS G12C in lung cancer → use COSMIC or cBioPortal)\n \
+    \ - Drug MECHANISM/targets, general pharmacology, or clinical treatment recommendations\n    (e.g.\
+    \ \"what disease does clopidogrel treat\", \"how does warfarin work\") — but NOT\n    \"which gene\
+    \ is needed for drug X's metabolism/response/activation\" questions, which\n    ARE answerable from\
+    \ ClinVar's own \"drug response\" curated variants (see query_db example above)\n  - Protein function,\
+    \ structure, or pathway membership\n  - Variant frequency/population statistics (use gnomAD instead)\n\
+    \  - Enrichment analysis or statistical scores\n"
+  col_selection: "ClinVar answers questions about GERMLINE variant pathogenicity: which variants in a\
+    \ gene\nare classified Pathogenic/Likely Pathogenic/Benign/VUS, and which diseases they cause.\n\n\
+    SCOPE — ClinVar has NO columns for: drug names, drug mechanisms, pathways, gene sets,\nprotein function,\
+    \ or interactions. If the primary query concept is a drug, pathway, or\nmechanism (and no gene symbol\
+    \ or variant is named), this is OUT OF SCOPE — do not attempt\na query; return empty with a scope\
+    \ note.\n\nANCHOR DIRECTION — pick the anchor by which entity is NAMED vs REQUESTED, not by entity\
+    \ type.\nClinVar answers BOTH directions symmetrically:\n\nGENE-NAMED direction (gene_symbol given,\
+    \ disease optional/absent):\n  gene_master_table_clinvar → variant_master_table_clinvar → variant_disease_association_clinvar\n\
+    \  gene_symbol is the filter anchor. Set variant_disease_name=\"requested\" (output) unless the\n\
+    \  user explicitly asks about variants CAUSING one specific named disease (e.g., \"BRCA1 variants\n\
+    \  causing hereditary breast cancer\"), in which case add it as a filter too. Do NOT include\n  variant_disease_name\
+    \ as a required plan column in this direction — if it fails to resolve,\n  gene-only results are still\
+    \ valid and should be returned.\n\nDISEASE-NAMED direction (a disease/syndrome/condition name is given\
+    \ and NO gene_symbol is\nnamed — e.g. \"which gene(s) cause X\", \"what is the genetic basis of X\"\
+    , \"genes associated\nwith X\", \"mutations in which gene cause X\"): variant_disease_name is the\
+    \ filter anchor;\ngene_symbol is the OUTPUT (\"requested\") column, reached via variant_disease_association_clinvar\n\
+    → variant_gene_association_clinvar → gene_master_table_clinvar. Do NOT force a gene_symbol\nfilter\
+    \ in this direction — there is none to filter on; the gene is what the question asks for.\n  Example:\
+    \ \"Which gene causes Netherton syndrome?\" → variant_disease_name=[\"Netherton\n  syndrome\"], gene_symbol=\"\
+    requested\", tables=variant_disease_association_clinvar +\n  variant_gene_association_clinvar + gene_master_table_clinvar\n\
+    \nvariant_disease_name VALUES are free-text MedGen/OMIM condition names, including named\nmicrodeletion/microduplication/CNV\
+    \ syndromes that reference a cytogenetic band (e.g.\n\"16p13.11 microdeletion syndrome\"). A band\
+    \ token (e.g. \"16p13.11\") in a question is part of a\nvariant_disease_name string, NOT a chromosome\
+    \ filter — the chromosome column stores only bare\nchromosome numbers (\"16\", \"19\") with no arm/band\
+    \ suffix. Never route a banded/cytogenetic-\nlooking term to the chromosome column; treat the full\
+    \ phrase as a variant_disease_name value.\n\n\nVARIANT-LEVEL SUPERLATIVES — \"which is the main/most\
+    \ common/most-studied VARIANT in\nGENE\" (as opposed to \"most common CAUSE of a disease\", a population-epidemiology\
+    \ claim\nClinVar's row counts cannot answer) asks for a SPECIFIC VARIANT, not a disease name.\nAnchor\
+    \ on variant_master_table_clinvar (variant_name output), not\nvariant_disease_association_clinvar.\
+    \ A variant's ClinVar submission count IS a\nlegitimate proxy for \"the most-reported/best-known variant\
+    \ in this gene\" — unlike gene-\nlevel disease-cause prevalence, this is asking about ClinVar's own\
+    \ curation volume, which\nClinVar can genuinely answer."
+  mapper: "ANCHOR DIRECTION mirrors col_selection: gene_symbol is the filter anchor when a gene is\nnamed;\
+    \ variant_disease_name is the filter anchor when NO gene is named and the question asks\nwhich gene(s)\
+    \ underlie/cause/are associated with a disease — in that direction gene_symbol is\nthe OUTPUT (\"\
+    requested\") column, not a filter.\n\nClinVar stores GERMLINE variant-disease associations. Somatic\
+    \ driver mutations\n(KRAS G12C in lung cancer, BCR-ABL1 in CML) are NOT in ClinVar as pathogenic germline\n\
+    variants — they exist in somatic mutation databases (COSMIC, cBioPortal). If a user\nasks for \"KRAS\
+    \ variants in lung cancer\", ClinVar may have 0 rows — that is correct.\n\nWhen variant_disease_name\
+    \ IS used as a filter (either direction):\n- ClinVar uses long, specific MedGen/OMIM disease names\
+    \ (e.g. \"EGFR-related lung cancer\",\n  \"Chronic myelogenous leukemia, BCR-ABL1 positive\", \"16p13.11\
+    \ microdeletion syndrome\").\n  General/short terms like \"lung cancer\", \"leukemia\", \"breast cancer\"\
+    , or a bare cytogenetic\n  band (\"16p13.11\") are stored as substrings inside these longer names\
+    \ — never split a band\n  token off into a separate chromosome filter.\n- Use the user's disease term\
+    \ as a substring hint (the expand/match stage resolves it to the\n  full curated name), NOT as a strict\
+    \ equality filter.\n- GENE-NAMED direction: if variant_disease_name expansion returns no candidates,\
+    \ OMIT the\n  variant_disease_name filter entirely and return all pathogenic variants for the gene.\
+    \ Add a\n  note: \"ClinVar results show all pathogenic [GENE] variants; disease filter [DISEASE] could\n\
+    \  not be resolved to a ClinVar-specific term.\"\n- DISEASE-NAMED direction: if variant_disease_name\
+    \ resolves, the plan MUST also include\n  variant_gene_association_clinvar + gene_master_table_clinvar\
+    \ so gene_symbol can be returned\n  as \"requested\" — never drop the gene join once the disease direction\
+    \ is confirmed. If\n  variant_disease_name expansion itself returns no candidates, that is a real\
+    \ 0-row result\n  (there is no gene-only fallback in this direction); return empty with a note rather\
+    \ than\n  guessing a gene from memory.\n\nMULTI-GENE queries: ClinVar processes ONE gene at a time.\
+    \ If multiple genes are named\n(e.g., \"PINK1 PRKN SNCA\"), query only the most prominent gene or\
+    \ flag that multi-gene\nqueries must be split into separate calls.\n\nMOLECULAR_CONSEQUENCE SCOPE:\
+    \ this column stores narrow Sequence-Ontology consequence terms only (missense variant, frameshift\
+    \ variant, nonsense, synonymous variant, splice donor/acceptor variant, inframe deletion/insertion,\
+    \ intron variant, UTR variant, etc.). Functional-impact language — \"loss-of-function\", \"gain-of-function\"\
+    , \"null variant\", \"haploinsufficiency\" — is a DIFFERENT vocabulary (a mechanistic classification\
+    \ spanning several SO terms) and is NEVER a literal molecular_consequence value. Do NOT set molecular_consequence\
+    \ to this kind of phrase — it will never match and silently zeroes the whole result. Treat \"loss-of-function\"\
+    /\"gain-of-function\" as descriptive context on the gene/variant, not a filterable column value.\n"
+  rewriter: "CLINICAL SIGNIFICANCE ABBREVIATION EXPANSION:\n  VUS → Variant of Uncertain Significance\n\
+    \  LP → Likely Pathogenic (clinical_significance value)\n  LB → Likely Benign (clinical_significance\
+    \ value)\n  P → Pathogenic\n  B → Benign\nDISEASE ABBREVIATION EXPANSION for ClinVar context:\n  HBOC\
+    \ → Hereditary Breast and Ovarian Cancer\n  LS → Lynch Syndrome\n  FH → Familial Hypercholesterolemia\n\
+    \  HCM → Hypertrophic Cardiomyopathy\n  DCM → Dilated Cardiomyopathy\n  CADASIL → Cerebral arteriopathy\
+    \ with subcortical infarcts and leukoencephalopathy\nVARIANT NOTATION: rsIDs (rs...), VCV/RCV accessions,\
+    \ and HGVS notation → keep verbatim.\n"
+  tiebreaker: "VARIANT ANCHOR: If user provides rsID (rs...) or ClinVar accession (VCV/RCV/SCV):\n  Prefer\
+    \ variant_master_table_clinvar as primary anchor.\nGENE ANCHOR: If user provides gene_symbol and no\
+    \ variant ID:\n  Prefer variant_gene_association_clinvar + gene_master_table_clinvar.\nDISEASE ANCHOR:\
+    \ If only variant_disease_name is provided (no gene_symbol named) — this\n  includes reverse \"which\
+    \ gene causes disease X\" / \"genetic basis of X\" questions:\n  Prefer variant_disease_association_clinvar\
+    \ as filter anchor (disease_master_table_clinvar is\n  KG-only and exec_schema:false — do NOT route\
+    \ exec queries there; disease names are\n  queryable via variant_disease_name on variant_disease_association_clinvar).\
+    \ If the question\n  requests the gene, the winning candidate MUST also join variant_gene_association_clinvar\
+    \ +\n  gene_master_table_clinvar so gene_symbol can be an output column — reject any candidate that\n\
+    \  filters on variant_disease_name but drops the gene join when gene_symbol was requested.\nCYTOGENETIC\
+    \ BAND TERMS: reject any candidate that filters a band-shaped token (e.g.\n  \"16p13.11\") on the\
+    \ chromosome column — that column stores bare chromosome numbers only.\n  Prefer the candidate that\
+    \ treats the full phrase (including the band) as a\n  variant_disease_name value.\nCLINICAL SIGNIFICANCE:\
+    \ For pathogenicity queries, prefer variant_submission_clinvar\n  (has review_status) over variant_disease_association_clinvar\
+    \ (derived summary).\nGERMLINE SCOPE: ClinVar covers GERMLINE variants only. If a query uses somatic/tumor\n\
+    \  terms, prefer web_search. Do NOT select any ClinVar table for somatic mutation queries.\nREJECT\
+    \ hallucinated column names: If one mapper returns a column that does not exist\n  in clinvar schema,\
+    \ prefer the other mapper's output.\n"
+ctd:
+  router: "HARD RULE — NEVER use direct_answer for CTD queries:\nCTD is a curated biomedical database.\
+    \ Any question that names a specific drug, chemical,\ngene, disease, or pathway MUST be answered from\
+    \ the database (query_db), NOT from model\nknowledge. Even if the answer seems obvious from training\
+    \ data, use query_db — the user\nexpects curated evidence, not model recall.\nNEVER use direct_answer\
+    \ unless the question is completely unrelated to any chemical, gene,\ndisease, pathway, phenotype,\
+    \ or biological entity.\nExamples that MUST use query_db (not direct_answer):\n  \"What diseases does\
+    \ aspirin treat?\"      → query_db\n  \"Which genes does bortezomib affect?\"    → query_db\n  \"\
+    What is the mechanism of metformin?\"    → query_db (if asking about CTD mechanism data)\n  \"Does\
+    \ cisplatin cause nephrotoxicity?\"   → query_db\n  \"What pathways are associated with TP53?\" →\
+    \ query_db\n  \"Is ibuprofen associated with gastric ulcers?\" → query_db\n\nNON-QUERYABLE — route\
+    \ to web_search for ANY of the following:\n• Brand name / trade name / synonym / alias / INN lookup:\n\
+    \    \"What is the brand name of metformin?\" → web_search\n    \"What is the generic name of Tylenol?\"\
+    \ → web_search\n    \"DX-88 is the investigational name of which drug?\" → web_search\n    \"What\
+    \ is the alternative name / alias for [drug/gene/disease]?\" → web_search\nCTD stores chemical names,\
+    \ gene symbols, and MeSH disease names, along with scientific\nsynonyms (chemical_synonyms_association_ctd,\
+    \ gene_synonyms_association_ctd,\ndisease_synonyms_association_ctd). CTD's synonym tables include\
+    \ scientific names and may\ninclude some brand names incidentally, but they do not systematically\
+    \ curate trade names or INNs.\nRoute to web_search when the sole intent is to enumerate brand names\
+    \ / INN / generic name\n(pure name-conversion query) — NOT for queries where a brand/trade name appears\
+    \ alongside\na disease or target question (those should query CTD with the resolved generic name).\n"
+  col_selection: "EVIDENCE RANKING: chemical_disease_association_ctd and gene_disease_association_ctd\
+    \ each\ncarry a chem_disease_direct_evidence / gene_disease_direct_evidence column. Results are\n\
+    automatically re-sorted post-query by evidence tier (therapeutic first) — do NOT add\nORDER BY evidence_rank\
+    \ in SQL; that column is internal and not exposed to the planner.\n\nFor \"chemicals/drugs associated\
+    \ with disease X\" queries where NO specific gene is named:\nselect from disease_master_table_ctd,\
+    \ chemical_disease_association_ctd, chemical_master_table_ctd.\nDo NOT route through gene_disease_association_ctd\
+    \ or chemical_gene_association_ctd for\ndisease→chemical queries — the 4-hop path (disease→gene_disease→gene→chemical_gene→chemical)\n\
+    produces 0 rows because it requires co-occurrence at the gene level.\nchemical_disease_association_ctd\
+    \ contains DIRECT curated chemical-disease associations.\n\nFor \"genes associated with disease X\"\
+    \ queries where NO specific chemical is named:\nselect from disease_master_table_ctd, gene_disease_association_ctd,\
+    \ gene_master_table_ctd.\n\nFor \"which pathway(s) are associated with / involved in disease X\" queries:\n\
+    select from disease_master_table_ctd, disease_pathway_association_ctd, pathway_master_table_ctd.\n\
+    Use pathway_name as the output column. The disease_pathway_inference_gene column names the\ngene linking\
+    \ this disease to the pathway — include it when the question asks which genes are\ninvolved, but omit\
+    \ it for \"which pathways\" questions (use DISTINCT pathway_name).\nExample: \"Which signalling pathway\
+    \ is involved in Tuberous Sclerosis?\"\n  → disease_name=[\"Tuberous Sclerosis\"], tables=disease_master+disease_pathway+pathway_master\n\
+    \nFor \"what gene / protein / receptor / target does drug X inhibit / bind / affect / interact with\"\
+    \nqueries (i.e. the question asks for a GENE or PROTEIN, not a disease):\nselect from chemical_master_table_ctd,\
+    \ chemical_gene_association_ctd, gene_master_table_ctd.\nUse gene_symbol as the output column; optionally\
+    \ include chemical_gene_interaction_actions.\nExamples:\n  \"What is the target protein of Idelalisib?\"\
+    \   → chemical_gene_association_ctd, gene_symbol output\n  \"Which is the target of bortezomib?\"\
+    \          → chemical_gene_association_ctd, gene_symbol output\n  \"What genes does aspirin interact\
+    \ with?\"      → chemical_gene_association_ctd, gene_symbol output\nDo NOT route these to chemical_disease_association_ctd\
+    \ — that table has disease associations,\nnot protein/gene targets.\n\nFor \"phenotypes / biological\
+    \ processes a chemical/drug affects (or causes)\" queries:\nselect from chemical_master_table_ctd,\
+    \ chemical_phenotype_ixn_ctd — chemical_phenotype_name\nis the GO biological-process phenotype, filter\
+    \ the chemical via drug_name. Do NOT route to\nexposure_events_ctd / exposure_studies_ctd: those are\
+    \ environmental-EXPOSURE study records keyed\nby stressor_name (a chemical can match there as a stressor),\
+    \ NOT curated chemical→phenotype\ninteractions, so they return the wrong/empty projection for \"phenotypes\
+    \ of <chemical>\".\n"
+  mapper: "GLOBAL MeSH DISEASE NAME TRANSLATIONS (apply whenever disease_name is extracted, regardless\
+    \ of query type):\nCTD uses MeSH terminology. Translate colloquial/alternate disease names to their\
+    \ MeSH form:\n  \"breast cancer\"      → \"Breast Neoplasms\"\n  \"lung cancer\"        → \"Lung Neoplasms\"\
+    \n  \"colon cancer\"       → \"Colonic Neoplasms\"\n  \"colorectal cancer\"  → \"Colorectal Neoplasms\"\
+    \n  \"prostate cancer\"    → \"Prostatic Neoplasms\"\n  \"ovarian cancer\"     → \"Ovarian Neoplasms\"\
+    \n  \"skin cancer\"        → \"Skin Neoplasms\"\n  \"leukemia\"           → \"Leukemia\"\n  \"liver\
+    \ cancer\"       → \"Liver Neoplasms\"\n  \"pancreatic cancer\"  → \"Pancreatic Neoplasms\"\n  \"\
+    hypolipidemia\" / \"low cholesterol\" / \"low LDL\" → \"Hypobetalipoproteinemia\"\n  \"acute lymphoblastic\
+    \ leukemia\" / \"ALL\" → \"Precursor Cell Lymphoblastic Leukemia-Lymphoma\"\n  \"Philadelphia chromosome-positive\
+    \ ALL\" / \"Ph+ ALL\" → \"Precursor Cell Lymphoblastic Leukemia-Lymphoma\"\n  \"infantile hemangioma\"\
+    \ / \"capillary hemangioma\" / \"strawberry hemangioma\" → \"Hemangioma\"\nApply these regardless\
+    \ of whether the disease is a filter or output column, and regardless\nof whether the query also mentions\
+    \ a drug or gene.\n\nMULTI-DRUG / MULTI-ENTITY QUERIES (CRITICAL):\nWhen a question names TWO OR MORE\
+    \ drugs/chemicals joined by \"and\" or \"or\"\n(e.g. \"Dasatinib and Blinatumomab are used for treatment\
+    \ of which disease?\"),\ninclude ALL named drugs in the drug_name list — the planner emits an IN /\
+    \ OR\nfilter, returning rows for any matching drug.\nDo NOT require all named drugs to be present\
+    \ simultaneously (AND intersection) —\na drug absent from CTD would zero out the result set.\nExample:\
+    \ \"Dasatinib and Blinatumomab are used for treatment of which disease?\"\n  → drug_name=[\"Dasatinib\"\
+    , \"Blinatumomab\"], chem_disease_direct_evidence=[\"therapeutic\"]\n  (CTD will return rows for Dasatinib;\
+    \ Blinatumomab absent = 0 rows for it, not an error)\n\nFor \"chemicals/drugs for disease X\" (disease\
+    \ is the filter, drug/chemical is the output):\nset disease_name=[<disease>] as filter on disease_master_table_ctd\
+    \ (use MeSH form per translations above).\n\nDRUG TRADE-NAME / ALIAS RESOLUTION (mapper level — do\
+    \ NOT route to web_search):\nWhen a question contains a trade name or alias alongside or instead of\
+    \ the generic name,\nresolve to the CTD chemical name before querying.\n\nCRITICAL — trade name +\
+    \ (generic) pattern:\nWhen a question writes \"TradeName (genericName)\" e.g. \"Velcade (bortezomib)\"\
+    ,\nextract ONLY the generic name as the drug_name filter. Do NOT include both names —\n\"Velcade\"\
+    \ is not in CTD; including it alongside \"bortezomib\" produces 0 rows.\nExample: \"What disease is\
+    \ Velcade (bortezomib) mainly used for?\"\n  → drug_name=[\"bortezomib\"]  (NOT [\"Velcade\",\"bortezomib\"\
+    ])\n\nCommon aliases — if only the trade name appears (no parenthetical generic), resolve:\n  \"Velcade\"\
+    \      → \"bortezomib\"\n  \"Glivec\" / \"Gleevec\" → \"imatinib\"\n  \"Herceptin\"    → \"trastuzumab\"\
+    \n  \"Avastin\"      → \"bevacizumab\"\n  \"Keytruda\"     → \"pembrolizumab\"\n  \"Opdivo\"     \
+    \  → \"nivolumab\"\n  \"Rituxan\"      → \"rituximab\"\n  \"Truvada\"      → use both \"tenofovir\"\
+    \ AND \"emtricitabine\" (combination drug)\n  \"Tecfidera\"    → \"dimethyl fumarate\"\n  \"Vistide\"\
+    \      → \"cidofovir\"\nNote: the router section says brand-name lookups go to web_search — that rule\
+    \ applies to\nquestions whose SOLE intent is \"what is the brand name / generic name of X?\" (name\n\
+    conversion). When the question asks about the DRUG's indication, target, or disease\nassociation (e.g.\
+    \ \"What disease is Velcade used for?\"), resolve the alias here and\nquery CTD normally — do NOT\
+    \ route to web_search.\n\nINTENT → chem_disease_direct_evidence filter (chemical_disease_association_ctd\
+    \ only):\nThe direct_evidence column separates two completely different relationship types.\nAlways\
+    \ map question intent to the correct filter value:\n\nTreatment intent — add chem_disease_direct_evidence=['therapeutic']:\n\
+    \  trigger words: treat, treatment, therapy, therapeutic, used for, utilized for,\n              \
+    \   indicated for, prescribed for, given for, administered for,\n                 drug for, medication\
+    \ for, help with, manage, alleviate, cure\n  example: \"Which drugs treat thyrotoxicosis?\" → chem_disease_direct_evidence=['therapeutic']\n\
+    \  example: \"What is Loxapine used for?\" → chem_disease_direct_evidence=['therapeutic']\n  example:\
+    \ \"Which chemicals are therapeutic for diabetes?\" → chem_disease_direct_evidence=['therapeutic']\n\
+    \nCausation intent — add chem_disease_direct_evidence=['marker/mechanism']:\n  trigger words: cause,\
+    \ induce, trigger, linked to as cause, lead to, result in,\n                 toxic, toxicity, marker,\
+    \ mechanism, responsible for, produce\n  example: \"Which chemicals cause thyrotoxicosis?\" → chem_disease_direct_evidence=['marker/mechanism']\n\
+    \  example: \"What induces Parkinson's disease?\" → chem_disease_direct_evidence=['marker/mechanism']\n\
+    \nAmbiguous / general association — do NOT add direct_evidence filter:\n  trigger words: associated\
+    \ with, related to, connected to, linked to (no causal qualifier),\n                 involved in,\
+    \ implicated in\n  example: \"Which chemicals are associated with Alzheimer's disease?\" → no filter\n\
+    \  example: \"What is the relationship between Arsenic and cancer?\" → no filter\n\nWhen in doubt\
+    \ between ambiguous and treatment: prefer ambiguous (no filter) over forcing\na wrong filter — it\
+    \ is better to return all rows than to silently drop correct ones.\n"
+  rewriter: ''
+  tiebreaker: "DISEASE NAME: Prefer MeSH canonical (Title-Case) over informal names.\n  If mappers disagree\
+    \ between MeSH forms, prefer the one matching schema_grounding_notes\n  translations (e.g. \"breast\
+    \ cancer\" → \"Breast Neoplasms\").\nDIRECT EVIDENCE: If mappers produce conflicting direct_evidence\
+    \ filters, prefer the\n  more specific value: [\"therapeutic\"] over [\"marker/mechanism\", \"therapeutic\"\
+    ].\n  For ambiguous queries (\"associated with\"), prefer no direct_evidence filter.\nTABLE: For disease-outcome\
+    \ questions → prefer chemical_disease_association_ctd.\n  For mechanism/target questions → prefer\
+    \ chemical_gene_association_ctd.\nMULTI-DRUG: If one mapper returns one drug and the other returns\
+    \ multiple, prefer the\n  multi-drug list (more specific narrows results correctly).\n"
+msigdb:
+  router: "Always route to query_db for ANY question that asks about gene sets, gene signatures, or\n\
+    MSigDB memberships — even when only a disease/pathway concept is named and no gene or exact\ngeneset_name\
+    \ is given:\n  \"Which MSigDB gene sets are related to interferon signaling?\" → query_db\n  \"Does\
+    \ an SLE or lupus gene signature exist in MSigDB?\" → query_db\n  \"What gene sets involve Notch pathway?\"\
+    \ → query_db\n  \"Are there IRE1 or XBP1 ER-stress signatures in MSigDB?\" → query_db\n  \"How many\
+    \ genes are in the MammaPrint signature?\" → query_db\n  \"Which Hallmark gene sets contain TP53?\"\
+    \ → query_db\nThe system injects concept keywords from disease/pathway terms into geneset_name filters\n\
+    automatically — a missing explicit geneset_name in the question does NOT mean the DB\ncannot answer\
+    \ it.\nRoute to web_search ONLY when:\n  - The question is about GSEA enrichment computation / p-values\
+    \ / fold-changes for a\n    user-supplied gene list (MSigDB stores gene sets, not enrichment results).\n\
+    \  - The question asks for drugs, variant pathogenicity, protein interactions, or expression\n   \
+    \ data (all outside MSigDB scope).\n"
+  col_selection: "SOURCE-DB PREFIX ROUTING (critical — applies before value-mapper sees the query):\n\
+    KEGG, REACTOME, GO (GOBP/GOMF/GOCC), BIOCARTA, WikiPathways/WP, PID, Human Phenotype/HP,\nmicroRNA/MIR\
+    \ are geneset_name PREFIXES, NOT `collection` values. When the user asks for\n\"KEGG pathways\", \"\
+    all GO biological-process gene sets\", \"Reactome gene sets\", \"WikiPathways\":\n  → Filter geneset_name\
+    \ BY PREFIX (geneset_name LIKE 'KEGG_%' / 'GOBP_%' / 'REACTOME_%' / 'WP_%')\n    on geneset_master_table_msigdb\
+    \ (no join needed; prefix substring-matches).\n  → OR filter sub_collection in geneset_metadata_msigdb\
+    \ ('CP:KEGG_MEDICUS', 'CP:REACTOME',\n    'GO:BP', 'GO:MF', 'GO:CC', 'CP:BIOCARTA', 'CP:WIKIPATHWAYS').\n\
+    NEVER bind KEGG / REACTOME / GO / BIOCARTA / WikiPathways to the `collection` column —\nthey are NOT\
+    \ collection values and the filter will return 0 rows.\n\nDISEASE/CONCEPT QUERIES — MSigDB has NO\
+    \ disease_name column. For queries like \"which gene\nsets relate to lupus/SLE\", \"interferon gene\
+    \ signatures\", \"Notch signaling gene sets\":\n  → Select geneset_name as BOTH the filter column\
+    \ AND the output column.\n  → The system's pre_join hook injects the disease/concept keyword as a\
+    \ geneset_name\n    substring filter automatically. Do NOT attempt to create or filter a non-existent\n\
+    \    disease_name column.\n"
+  mapper: "ORGANISM EXTRACTION (CRITICAL — always apply when organism context is present):\nMSigDB has\
+    \ separate gene sets for Homo sapiens (~34k) and Mus musculus (~18k). The same\ngeneset_name (e.g.,\
+    \ HALLMARK_APOPTOSIS) appears once per organism. Always co-extract\norganism when a query specifies\
+    \ \"human\", \"mouse\", or implies an organism via gene symbol case.\n\nOrganism keyword → filter\
+    \ values:\n  \"human\" / \"Homo sapiens\" / \"Hs\" → geneset_organism=[\"Homo sapiens\"], gene_organism=[\"\
+    Homo sapiens\"]\n  \"mouse\" / \"Mus musculus\" / \"Mm\"  → geneset_organism=[\"Mus musculus\"], \
+    \ gene_organism=[\"Mus musculus\"]\n\nGENE SYMBOL CASE RULE (organism inference when not stated):\n\
+    \  ALL-CAPS symbol (e.g., JUN, FOS, MYC, BRCA2, EGFR, TP53)\n    → human HGNC symbol → default geneset_organism=[\"\
+    Homo sapiens\"], gene_organism=[\"Homo sapiens\"]\n  Title-Case symbol (e.g., Jun, Fos, Myc, Brca2,\
+    \ Egfr)\n    → mouse MGI symbol → default geneset_organism=[\"Mus musculus\"], gene_organism=[\"Mus\
+    \ musculus\"]\n\nQUALIFIER + COLLECTION: when the user says \"human Hallmark gene sets\" or \"mouse\
+    \ Curated sets\",\nBOTH must be extracted — collection=[\"Hallmark\"] AND geneset_organism=[\"Homo\
+    \ sapiens\"]. The\norganism qualifier is NOT consumed by the collection name; extract it as a separate\
+    \ filter.\n\nINTERSECTION QUERIES (\"shared between X and Y\", \"common to both X and Y\", \"overlap\
+    \ between\"):\nFor \"genes shared between GENESET_A and GENESET_B\", set geneset_name=[\"GENESET_A\"\
+    , \"GENESET_B\"]\nas a list (both names in the same field). The orchestrator detects the intersection\
+    \ intent\nfrom the phrase and applies the group-by-having intersection logic automatically — do NOT\n\
+    try to split the query into two separate geneset_name filters.\nThe ORGANISM EXTRACTION rule at the\
+    \ top applies to intersection queries exactly as it does\nto every other query — organism and geneset_names\
+    \ are always extracted simultaneously.\nExample: \"Which HUMAN genes are shared between HALLMARK_APOPTOSIS\
+    \ and HALLMARK_P53_PATHWAY?\"\n→ geneset_name=[\"HALLMARK_APOPTOSIS\",\"HALLMARK_P53_PATHWAY\"], geneset_organism=[\"\
+    Homo sapiens\"],\ngene_organism=[\"Homo sapiens\"]. Organism context is never dropped just because\
+    \ this is an\nintersection query.\n\nSOURCE-DB ROUTING (never map these to collection):\n\"KEGG pathways\"\
+    \ → geneset_name prefix KEGG_ (not collection=Curated)\n\"Reactome pathways\" → geneset_name prefix\
+    \ REACTOME_\n\"GO biological process\" → geneset_name prefix GOBP_\n\"WikiPathways\" → geneset_name\
+    \ prefix WP_\nThese source databases are NOT collection values — they are geneset_name prefixes.\n"
+  rewriter: "COLLECTION ALIAS EXPANSION:\n  \"Hallmark\" or \"hallmark\" → collection = \"Hallmark\" (or\
+    \ geneset_name prefix \"HALLMARK_\")\n  \"canonical pathways\" → includes REACTOME_, KEGG_, BIOCARTA_,\
+    \ WP_ geneset_name prefixes\n  \"oncogenic signatures\" → collection = \"Oncogenic\"\n  \"immune\"\
+    \ or \"immunologic\" → collection = \"Immunologic\"\nGENE ALIAS EXPANSION: p53→TP53, PD-L1→CD274,\
+    \ CTLA-4→CTLA4, c-Myc→MYC, n-Ras→NRAS, k-Ras→KRAS\nORGANISM: Default to human (Homo sapiens) if not\
+    \ specified.\n  \"mouse\" → gene_organism = \"Mus musculus\"; \"rat\" → \"Rattus norvegicus\"\n"
+  tiebreaker: "SOURCE-DB PREFIX RULE: KEGG, REACTOME, GO, BIOCARTA, WP are PREFIXES in geneset_name\n\
+    \  (e.g. \"KEGG_MAPK_SIGNALING_PATHWAY\"), NOT values in the collection column.\n  If one mapper assigns\
+    \ these to collection and another to geneset_name prefix,\n  prefer the geneset_name prefix interpretation.\n\
+    ORGANISM CONFLICT: If mappers disagree on organism, check original query for \"human\",\n  \"mouse\"\
+    , \"murine\", \"Homo sapiens\", \"Mus musculus\" signals. Default to human.\nINTERSECTION QUERY: \"\
+    genes in both pathway A and pathway B\" → geneset_name: [A, B]\n  Prefer the mapper that returns a\
+    \ list, not a single value.\nGENE_ID vs GENE_SYMBOL: Prefer filtering on gene_symbol (not the composite\
+    \ gene_id).\n"
+orphanet:
+  router: "ALWAYS route to query_db for ANY question about:\n- Rare disease names, ORPHA IDs, or Orphanet\
+    \ entries (even if the name sounds unfamiliar)\n- Gene-disease associations in rare diseases\n- Phenotypes,\
+    \ HPO terms, or clinical features of a rare disease\n- Inheritance patterns or age of onset\n- Prevalence\
+    \ or epidemiology of rare diseases\n- Cross-references (OMIM, ICD-10, ICD-11, MONDO, MeSH, GARD, UMLS\
+    \ IDs)\n- Disease classification or disease groupings in Orphanet\n\nRoute to web_search ONLY when\
+    \ the question is clearly outside Orphanet scope:\n- Bioinformatics tool names (ExpansionHunter, PLINK,\
+    \ BWA) → web_search\n- Gene editing tools as a technology topic (CRISPR, TALEN, ZFN) → web_search\n\
+    - Common (non-rare) diseases: Crohn's, Type 2 diabetes, hypertension → web_search\n- External database\
+    \ identification (\"what is PheneBank?\") → web_search\n- NGS or sequencing methodology questions\
+    \ → web_search\n- Genomics terminology definitions (what is a SNP?) → web_search\n- Clinical prognosis,\
+    \ natural history, life expectancy, or clinical course of a disease → web_search\n  (disease_natural_history_orphanet\
+    \ holds taxonomy hierarchy only, not clinical outcome data)\n- Molecular pathogenesis, molecular mechanism,\
+    \ or pathophysiology of a disease → web_search\n  (Orphanet stores gene–disease associations, not\
+    \ molecular mechanisms or biochemical pathways)\n- Differential diagnosis of a disease → web_search\n\
+    \  (Orphanet stores disease subtypes and taxonomy, not clinical differential diagnoses)\n  NOTE: \"\
+    What diseases are in the same Orphanet classification group as X?\" → query_db\n  via disease_classification_orphanet\
+    \ (that is an Orphanet grouping question, not a\n  clinical differential diagnosis).\n"
+  col_selection: "TABLE ROUTING — match question type to the correct Orphanet table:\n\nCRITICAL JOIN\
+    \ RULE: disease_name is stored ONLY in disease_master_table_orphanet. When any non-master table is\
+    \ queried for a NAMED disease (disease_name filter),\n BOTH disease_master_table_orphanet AND the\
+    \ target table MUST appear in plan_tables.\n Omitting disease_master causes disease_name filters to\
+    \ be silently ignored (all rows returned).\n\nINHERITANCE / AGE OF ONSET questions → disease_onset_inheritance_orphanet\
+    \  + disease_master_table_orphanet (required for disease_name filter)\n  Columns: attribute ('inheritance'\
+    \ or 'age_of_onset'), value (the actual answer string)\n  Example: \"What is the mode of inheritance\
+    \ of Marfan syndrome?\"\n           → attribute=[\"inheritance\"], disease_name=[\"Marfan syndrome\"\
+    ], value=requested\n\nPHENOTYPE / CLINICAL FEATURE / CANCER / COMORBIDITY questions → disease_phenotype_association_orphanet\n\
+    \  Columns: hpo_term, frequency\n  Filter disease via disease_name (resolved to disease_id through\
+    \ the pipeline)\n  Example: \"What are the phenotypes of cystic fibrosis?\"\n           → disease_name=[\"\
+    cystic fibrosis\"], hpo_term=requested, frequency=requested\n  NOTE: \"cancers\", \"tumors\", or \"\
+    neoplasms\" associated with a disease ARE phenotypes in Orphanet.\n  Example: \"List cancers associated\
+    \ with Li-Fraumeni syndrome\"\n           → disease_name=[\"Li-Fraumeni syndrome\"], hpo_term=requested,\
+    \ frequency=requested\n  NOTE: \"co-morbidities\", \"comorbid conditions\", \"associated conditions\"\
+    , \"concurrent diseases\",\n        \"concurrent disorders\" → treat as phenotypes. Route to disease_phenotype_association_orphanet.\n\
+    \  Example: \"List co-morbidities of Stiff man Syndrome\"\n           → disease_name=[\"Stiff person\
+    \ spectrum disorder\"], hpo_term=requested, frequency=requested\n\nGENE-DISEASE / HETEROGENEITY questions\
+    \ → gene_disease_association_orphanet + disease_master_table_orphanet\n  Columns: gene_symbol, gene_disease_association_type\
+    \ (causality role),\n           ensembl_accession (Ensembl gene ID), entrez (NCBI Entrez ID)\n  Filter\
+    \ disease via disease_name (resolved to disease_id through the pipeline)\n  Example: \"Which genes\
+    \ are associated with Huntington disease?\"\n           → disease_name=[\"Huntington disease\"], gene_symbol=requested\n\
+    \  \"Is X genetically heterogeneous?\" / \"Is X presented as a heterogeneous disease entity?\"\n \
+    \          → disease_name=[\"X\"], gene_symbol=requested  (count genes returned; >1 = heterogeneous)\n\
+    \  NEVER route heterogeneity questions to disease_master_table_orphanet alone — master has no gene\
+    \ data.\n  NOTE: Orphanet disease-group (umbrella) entries may have 0 direct gene rows;\n        genes\
+    \ are associated at the subtype level. If a disease returns 0 gene rows,\n        the user's query\
+    \ may need to target a specific subtype.\n\nCROSS-REFERENCE / OMIM / ICD questions → disease_xref_orphanet\n\
+    \  Columns: xref_source, xref_id, mapping_relation — 4 full-string values (filter by substring of\
+    \ the code prefix):\n               \"E (Exact…)\" | \"NTBT (ORPHAcode narrower…)\" | \"BTNT (ORPHAcode\
+    \ broader…)\" | \"ND (not yet decided…)\"\n  Filter disease via disease_name (resolved to disease_id\
+    \ through the pipeline)\n  Example: \"What is the OMIM ID for cystic fibrosis?\"\n           → disease_name=[\"\
+    cystic fibrosis\"], xref_source=[\"OMIM\"], xref_id=requested\n\nPREVALENCE / EPIDEMIOLOGY questions\
+    \ → disease_epidemiology_orphanet\n  Columns: prevalence_class, prevalence_type, geographic, val_moy\
+    \ (numeric mean per million for Point/Annual/Birth prevalence types;\n           raw case or family\
+    \ count for the Cases/families type),\n           source (citation reference: PMID string or institutional\
+    \ code), prevalence_qualification\n  disease_epidemiology_validation_status: prefer \"Validated\"\
+    \ rows; \"Not yet validated\" rows\n  (≈20% of Point prevalence) are present but not officially verified.\n\
+    \  Filter disease via disease_name (resolved to disease_id through the pipeline)\n  Example: \"What\
+    \ is the prevalence of Huntington disease?\"\n           → disease_name=[\"Huntington disease\"],\
+    \ prevalence_class=requested\n\nDISEASE CLASSIFICATION questions → disease_classification_orphanet\n\
+    \  Columns: disease_name, disease_id (DIRECT in this table — no JOIN needed),\n           classification\
+    \ (taxonomy name, e.g. 'Orphanet classification of rare neurological diseases'),\n           parent_disease_name\
+    \ (parent category), disorder_type — 11 values: Disease | Clinical group | Clinical syndrome | Clinical\
+    \ subtype | Etiological subtype | Histopathological subtype | Malformation syndrome | Morphological\
+    \ anomaly | Biological anomaly | Category | Particular clinical situation in a disease or syndrome\n\
+    \nDISEASE HIERARCHY / PREFERENTIAL PARENT → disease_natural_history_orphanet\n  Columns: disease_name,\
+    \ target_disease_name, disease_history_association_type (always \"Preferential parent\")\n  Use for:\
+    \ \"What is the parent category of disease X in Orphanet?\"\n  NOTE: contains taxonomy hierarchy only\
+    \ — does NOT hold prognosis, life expectancy, or clinical course.\n        For clinical natural history\
+    \ questions use web_search.\n\nDISEASE NAME / ORPHA ID LOOKUP ONLY → disease_master_table_orphanet\n\
+    \  Only when the question asks solely for the disease name or ORPHA ID — never alone\n  for gene,\
+    \ phenotype, inheritance, or prevalence questions.\n\nNEVER join disease_phenotype_association_orphanet\
+    \ and gene_disease_association_orphanet\nin a single query — the cross-join produces wrong row counts.\
+    \ Use two separate queries.\n"
+  mapper: "ORPHANET CANONICAL DISEASE NAME CONVENTIONS — apply whenever disease_name is extracted:\nOrphanet\
+    \ uses its own canonical rare disease names that often differ from common usage.\nUse your biomedical\
+    \ knowledge to convert the user's term to the Orphanet canonical form:\n- MPS subtypes: Orphanet uses\
+    \ Arabic numerals (\"Mucopolysaccharidosis type 2\"), not Roman (\"type II\")\n- Named syndromes:\
+    \ drop the possessive — \"Marfan syndrome\" not \"Marfan's syndrome\"\n- Named (eponymous) diseases:\
+    \ Orphanet typically preserves the common eponym as the canonical name;\n  emit the name as used in\
+    \ medical literature. The synonym expansion pipeline handles spelling variants.\n- Abbreviations and\
+    \ acronyms: expand to the Orphanet full canonical disease name\n- When a disease has named subtypes\
+    \ in Orphanet, use the broadest matching prefix unless a\n  specific subtype is requested\n\nDISEASE\
+    \ SYNONYM / ALTERNATIVE NAME HANDLING:\nWhen a question uses \"X or Y\" (synonym or alternative name\
+    \ for the same disease), use ONE canonical\nname as the filter — pick the Orphanet canonical form:\n\
+    \  WRONG: disease_name=[\"Hunter disease\", \"mucopolysaccharidosis II\"] (splits the filter)\n  RIGHT:\
+    \ disease_name=[\"Mucopolysaccharidosis type 2\"] (single canonical name)\nALWAYS include disease_name\
+    \ as a FILTER value (not \\\"requested\\\") for questions about a specific disease.\nIf disease_name\
+    \ is \\\"requested\\\", the pipeline returns ALL diseases — always wrong for a named disease query.\n\
+    \nATTRIBUTE FILTER (disease_onset_inheritance_orphanet) — ALWAYS set as a FILTER:\nThe attribute column\
+    \ distinguishes two row types and must always be a filter list:\n  Inheritance questions → attribute=[\"\
+    inheritance\"]\n  Age of onset questions → attribute=[\"age_of_onset\"]\nThe value column holds the\
+    \ actual answer (e.g. \"Autosomal dominant\", \"Neonatal\").\nWRONG: {disease_name: [\"Marfan syndrome\"\
+    ], value: \"requested\"}\nRIGHT: {disease_name: [\"Marfan syndrome\"], attribute: [\"inheritance\"\
+    ], value: \"requested\"}\n\nPHENOTYPE FREQUENCY FILTER:\nfrequency is a STRING ENUM — NOT numeric.\
+    \ Valid values exactly as stored:\n  \"Obligate (100%)\", \"Very frequent (99-80%)\", \"Frequent (79-30%)\"\
+    ,\n  \"Occasional (29-5%)\", \"Very rare (<4-1%)\", \"Excluded (0%)\"\nWhen the question asks for\
+    \ \"hallmark\", \"characteristic\", \"defining\", or \"obligate\" features:\n  → frequency=[\"Obligate\
+    \ (100%)\", \"Very frequent (99-80%)\"]\nWhen the question asks for \"common\", \"main\", or \"frequent\"\
+    \ features:\n  → frequency=[\"Very frequent (99-80%)\", \"Frequent (79-30%)\"]\nWhen listing ALL features\
+    \ (no frequency qualifier), omit the frequency filter.\n\nXREF SOURCE FILTER — set xref_source as\
+    \ a filter when a specific ID type is requested:\n  \"OMIM ID\" / \"OMIM number\"     → xref_source=[\"\
+    OMIM\"]\n  \"ICD-10 code\"                 → xref_source=[\"ICD-10\"]\n  \"ICD-11 code\"         \
+    \        → xref_source=[\"ICD-11\"]\n  \"MONDO ID\"                    → xref_source=[\"MONDO\"]\n\
+    \  \"MeSH ID\" / \"MeSH term\"       → xref_source=[\"MeSH\"]\n  \"UMLS CUI\" / \"UMLS ID\"      \
+    \  → xref_source=[\"UMLS\"]\n  \"GARD ID\"                     → xref_source=[\"GARD\"]\n  \"MedDRA\
+    \ code\"                 → xref_source=[\"MedDRA\"]\n\nYES/NO EXISTENCE QUERIES:\nFor \"Is disease\
+    \ X caused by gene Y?\" or \"Does disease X have phenotype Y?\" —\nALL named entities must be filter\
+    \ values, nothing is \"requested\":\nWRONG: {disease_name: [\"Wilson disease\"], gene_symbol: \"requested\"\
+    }\nRIGHT: {disease_name: [\"Wilson disease\"], gene_symbol: [\"ATP7B\"]}\nThe answer is determined\
+    \ by whether rows are returned, not from an output column.\nNOTE: umbrella disease entries (Clinical\
+    \ group / disease group) may have 0 gene rows\neven when subtypes do. 0 rows for a broad entry ≠ \"\
+    No gene association exists.\"\n\nGENETIC HETEROGENEITY QUERIES:\n\"Is X genetically heterogeneous?\"\
+    \ / \"Is X heterogeneous disease?\" / \"presented as a heterogeneous entity?\"\n→ MUST use gene_disease_association_orphanet\
+    \ + disease_master_table_orphanet:\n RIGHT: {disease_name: [\"Fanconi anemia\"], gene_symbol: \"requested\"\
+    }\n NEVER: {disease_name: [\"Fanconi anemia\"]} alone (disease_master_table only — has NO gene data)\n\
+    \ Count genes returned: >1 gene = genetically heterogeneous.\n"
+  tiebreaker: "PRIORITY 0 — PLACEHOLDER VETO (overrides all other rules):\nIf either candidate has '<value>'\
+    \ or any raw schema placeholder token as a literal string in a filter field (e.g. disease_name: ['<value>']),\
+    \ that candidate FAILED to identify the entity. ALWAYS reject it and choose the other candidate, regardless\
+    \ of table selection.\n\n1. Prefer the mapper result that routes to the most specific table for the\
+    \ question type:\n   inheritance/onset → disease_onset_inheritance_orphanet + disease_master_table_orphanet\n\
+    \   phenotypes → disease_phenotype_association_orphanet + disease_master_table_orphanet\n   genes\
+    \ → gene_disease_association_orphanet + disease_master_table_orphanet\n   xrefs → disease_xref_orphanet\
+    \ + disease_master_table_orphanet\n   prevalence → disease_epidemiology_orphanet + disease_master_table_orphanet\n\
+    \   classification/category → disease_classification_orphanet\n   parent hierarchy → disease_natural_history_orphanet\n\
+    JOIN RULE: ANY plan that includes disease_onset_inheritance, disease_phenotype_association, gene_disease_association,\n\
+    \   disease_xref, or disease_epidemiology WITHOUT disease_master_table_orphanet is WRONG — disease_name\
+    \ filter\n   cannot work without the FK join table. Prefer the plan that includes disease_master.\n\
+    2. Reject any result that selects only disease_master_table_orphanet without a join —\n   the master\
+    \ table alone cannot answer gene, phenotype, or inheritance questions.\n   EXCEPTION: disease_master\
+    \ alone is correct when the question asks solely for a disease\n   name or ORPHA ID lookup (matches\
+    \ the \"DISEASE NAME / ORPHA ID LOOKUP ONLY\" route).\n3. For disease_onset_inheritance queries, prefer\
+    \ the result that includes\n   attribute as a FILTER (not as an output column).\n4. For \"what is\
+    \ the prognosis / natural history / clinical course\" questions, route to\n   web_search — disease_natural_history_orphanet\
+    \ holds taxonomy hierarchy only, not\n   clinical prognosis data.\n"
+  synthesizer: "ORPHANET-SPECIFIC SYNTHESIS RULES — override synthesizer.md defaults where they conflict:\n\
+    \n1. INHERITANCE / AGE OF ONSET (table = disease_onset_inheritance_orphanet):\n   The `value` column\
+    \ IS the complete answer — extract it directly, do not narrate.\n   - Single mode: \"[Disease] has\
+    \ [value] inheritance.\" [cite]\n   - Multiple modes: list ALL values comma-separated.\n     \"Autosomal\
+    \ recessive, X-linked recessive.\" [cite each row]\n   NEVER write \"leading entry is…\" or \"Orphanet\
+    \ records multiple inheritance patterns.\"\n\n2. GENE ASSOCIATION (table = gene_disease_association_orphanet):\n\
+    \   Read the question intent FIRST:\n\n   FACTOID intent — question asks for the genetic basis, cause,\
+    \ lesion, or defect\n   (\"What is the genetic basis/lesion/defect of X?\", \"Which gene causes X?\"\
+    ,\n   \"What is the molecular basis of X?\", \"What mutation underlies X?\"):\n   → De-duplicate gene\
+    \ symbols. Write ONE prose sentence naming the primary causal gene(s).\n     Format: \"[Disease] is\
+    \ caused by mutations in [gene] [cite].\"\n     If multiple association types present, lead with Disease-causing:\n\
+    \     \"The primary causative gene is [X] [cite]; susceptibility genes include [Y] [cite].\"\n   \
+    \  NEVER output a raw numbered gene list for factoid questions.\n\n   LIST intent — question explicitly\
+    \ requests enumeration\n   (\"Which genes are associated with X?\", \"List genes for X\", \"What genes\
+    \ cause X?\"):\n   → List ALL distinct gene_symbol values, ordered by association type:\n     1. Disease-causing\
+    \ (germline/somatic)\n     2. Major susceptibility / Role in phenotype / Fusion gene\n     3. Modifying\
+    \ / Candidate / Biomarker\n   Format: \"Genes associated: [sym1] [cite], [sym2] [cite], …\"\n\n3.\
+    \ PHENOTYPE / HPO TERMS (table = disease_phenotype_association_orphanet):\n   Read the question intent\
+    \ FIRST:\n\n   FACTOID intent — question asks for ONE specific feature, tissue, symptom, or hallmark\n\
+    \   (\"What is the main/hallmark/characteristic/most common symptom of X?\",\n   \"What tissue/organ\
+    \ is primarily affected in X?\", \"What is the defining feature of X?\"):\n   → From the highest-frequency\
+    \ rows (Obligate 100% first, then Very frequent 99-80%),\n     identify the most prominent feature(s).\
+    \ State the answer in ONE sentence, MAX 5 HPO terms.\n     If the question asks about tissue/organ:\
+    \ cluster top-frequency HPO terms by organ system\n     (cardiovascular, connective tissue, musculoskeletal,\
+    \ neurological, ocular, renal, etc.)\n     and name the dominant system — do NOT list all HPO terms.\n\
+    \n   LIST intent — question explicitly requests a list of features/symptoms/characteristics:\n   →\
+    \ Group ALL terms by frequency tier:\n     Obligate / Very frequent → \"Core features: [all terms]\"\
+    \ [cite each]\n     Frequent → \"Frequent features: [all terms]\" [cite each]\n     Occasional / Very\
+    \ rare → \"Occasional features: [all terms]\" [cite each]\n     Excluded (0%) → \"Features explicitly\
+    \ absent: [terms]\" (only if present)\n   → If db_row_count > 30: list ALL Obligate/Very frequent\
+    \ terms fully; for Frequent and\n     Occasional tiers, list the first 8 terms then append \"(and\
+    \ [N] more in Orphanet)\".\n     Never collapse Obligate or Very frequent terms — always enumerate\
+    \ them completely.\n\n4. PREVALENCE (table = disease_epidemiology_orphanet):\n   Report the `prevalence_class`\
+    \ value directly.\n   Prefer Validated rows (disease_epidemiology_validation_status = \"Validated\"\
+    ).\n   Among those, prefer point-prevalence rows (prevalence_type = \"Point prevalence\" or \"Lifetime\
+    \ Prevalence\").\n   If neither is available, report whatever type IS present (\"Annual incidence\"\
+    , \"Prevalence at birth\",\n   or \"Cases/families\"), clearly labeling the type: \"Annual incidence\
+    \ of [disease]: [prevalence_class].\" [cite]\n   Format (when Point/Lifetime available): \"Prevalence\
+    \ of [disease]: [prevalence_class].\" [cite]\n   If val_moy (numeric mean) is present and non-null,\
+    \ append: \"(mean: [val_moy] / million)\"\n   SPECIAL CASE — Cases/families rows always have null\
+    \ prevalence_class.\n   For these rows report: \"[N] [cases/families] reported in Orphanet.\" [cite]\n\
+    \   using val_moy (count) and prevalence_qualification (\"Case(s)\" or \"Family(ies)\").\n\n5. CROSS-REFERENCE\
+    \ / ID LOOKUP (table = disease_xref_orphanet):\n   Return the raw xref_id value(s). Format: \"[source]:\
+    \ [id]\" [cite].\n   For OMIM: preserve the full numeric ID without modification.\n\n6. YES/NO QUESTIONS:\n\
+    \   - \"Is X genetic?\" → Yes if gene_disease_association rows exist for X.\n   - \"Is X inherited\
+    \ as [pattern]?\" or \"Is X a [pattern] disease?\" → compare value column to asked pattern (case-insensitive).\
+    \ TRUST THE ROWS: do NOT check whether the disease name\n       in db_rows matches the disease name\
+    \ in the question — the pipeline's filter guarantees rows belong\n       to the correct disease. EXAMPLE:\
+    \ question asks about \"COACH syndrome\" but rows show data for\n       \"Joubert syndrome with hepatic\
+    \ involvement\" (a canonical alias) → use the row data to answer.\n   - \"Is X autosomal recessive?\"\
+    \ → YES if ANY db_row has attribute='inheritance' AND value contains 'Autosomal recessive'.\n   -\
+    \ \"Does X present with phenotype Y?\" → Yes if hpo_term ≈ Y in returned rows.\n   - \"Is X heterogeneous?\"\
+    \ or \"Is X genetically heterogeneous?\" → Yes if\n       gene_disease_association rows show MORE\
+    \ THAN ONE distinct gene_symbol\n       (multiple causal loci = genetic heterogeneity).\n       Multiple\
+    \ inheritance modes alone do NOT indicate genetic heterogeneity\n       (that is locus homogeneity,\
+    \ not locus heterogeneity).\n     HPO SYNONYM RULE: Orphanet uses HPO canonical terms which may differ\
+    \ from common disease names.\n     Known synonyms (treat as equivalent for yes/no phenotype matching):\n\
+    \       - \"Aganglionic megacolon\" = \"Hirschsprung disease\" / \"aganglionosis\"\n       - \"Congenital\
+    \ sensorineural hearing impairment\" = \"deafness\" / \"hearing loss\"\n     When a row contains hpo_term\
+    \ \"Aganglionic megacolon\" and question asks about Hirschsprung → YES.\n     PHENOTYPE PRESENCE RULE:\
+    \ \"Is [phenotype] a feature of [disease]?\" or \"Does [disease] present with [phenotype]?\"\n   \
+    \    → if ANY row has hpo_term matching (or synonymous with) the phenotype, answer YES with its frequency.\n\
+    \     Do NOT answer from parametric knowledge — 0 rows = \"Not recorded in Orphanet\", not definitively\
+    \ No.\n\n7. ZERO-HALLUCINATION (applies to all branches):\n   Every fact MUST be traced to a specific\
+    \ db_row with a [orphanet:N] citation.\n   Never invent gene names, phenotypes, or prevalence figures\
+    \ not present in db_rows.\n"
+uniprot:
+  router: "ALWAYS route to query_db for ANY question about:\n- UniProt entries, accessions, protein names,\
+    \ gene symbols (Swiss-Prot human proteome)\n- Gene Ontology (GO) annotations, GO terms, molecular\
+    \ function, biological process, cellular component\n- Subcellular localisation of a protein\n- UniProt\
+    \ functional keywords (e.g. \"Kinase\", \"Signal\", \"Zinc-finger\")\n- Natural variants and disease\
+    \ associations in Swiss-Prot (HGVS notation, pathogenic/benign)\n- Post-translational modification\
+    \ keywords (e.g. \"Phosphoprotein\", \"Acetylation\") via protein_keyword_uniprot\n- External ID mapping\
+    \ (Ensembl, RefSeq, HGNC, Entrez, GeneID → UniProt accession)\n\nRoute to web_search for:\n- Current\
+    \ clinical trial data, recent drug approvals, or literature summaries\n- Protein abundance rankings\
+    \ or proteomics quantitation\n- Protein 3D structure questions (use PDB instead)\n- Gene expression\
+    \ levels (use GTEx/HPA instead)\n- Drug-target associations: UniProt has NO drug_target_uniprot table\
+    \ → recommend OpenTargets, HCDT, or TTD\n- Comprehensive kinase-substrate phosphorylation databases\
+    \ beyond UniProt annotation → recommend PhosphoSitePlus\n\nALWAYS route to query_db (do NOT redirect\
+    \ to web) for:\n- Protein function / role / what a protein does → protein_function_uniprot (free-text\
+    \ CC FUNCTION)\n- PTM site positions, residues, modifying enzymes → ptm_sites_uniprot (position, modification,\
+    \ enzymes)\n- Protein-protein interactions, binding partners, subunit composition → protein_interaction_uniprot\n\
+    \  (interaction_type = BINARY for specific partners, SUBUNIT for complex membership text)\n"
+  rewriter: "UNIPROT GENE/PROTEIN ALIAS EXPANSION — expand abbreviations before querying:\n- Gene symbols:\
+    \ if the user provides an informal name, protein synonym, or non-HGNC abbreviation,\n  expand it to\
+    \ the official HGNC gene symbol before querying the gene_symbol column.\n- \"UniProt accession\" /\
+    \ \"UniProt ID\" / \"accession number\" → protein_id column\n- PTM abbreviations: expand shorthand\
+    \ phospho/acetyl/methyl notation to the full UniProt-canonical\n  modification name (the same form\
+    \ used in the modification column of ptm_sites_uniprot).\n"
+  col_selection: "TABLE ROUTING — match question type to the correct UniProt table:\n\nPROTEIN IDENTITY\
+    \ / GENE LOOKUP → protein_master_table_uniprot\n  filter: gene_symbol, protein_id, protein_name  |\
+    \  output: protein_id, protein_name, gene_symbol, entry_name\n\nGO ANNOTATIONS → gene_ontology_uniprot\
+    \ (join via protein_id)\n  filter: gene_symbol, go_id, aspect, qualifier, evidence\n  aspect values:\
+    \ 'F'=molecular function, 'P'=biological process, 'C'=cellular component\n\nKEYWORD annotations →\
+    \ protein_keyword_uniprot JOIN keyword_master_uniprot (on keyword_id)\n  The edge table protein_keyword_uniprot\
+    \ stores only (protein_id, keyword_id).\n  Filter by keyword_name or category via the JOIN to keyword_master_uniprot.\n\
+    \  filter (resolved via JOIN): gene_symbol, keyword_name, category\n\nSUBCELLULAR LOCATION → protein_subcell_uniprot\
+    \ JOIN subcell_location_uniprot (on subcell_id)\n  The edge table protein_subcell_uniprot stores only\
+    \ (protein_id, subcell_id).\n  Filter by subcell_name via the JOIN to subcell_location_uniprot.\n\
+    \  filter (resolved via JOIN): gene_symbol, subcell_name\n\nVARIANT-DISEASE → variant_disease_uniprot\
+    \ (join via protein_id)\n  filter: gene_symbol, variant_type, disease_name, omim_id, swiss_prot_change\n\
+    \nPROTEIN FUNCTION → protein_function_uniprot (join via protein_id)\n  filter: gene_symbol (join from\
+    \ protein_master), function_text (substring match)\n  output: protein_id, function_text\n  Use for:\
+    \ \"What does X do?\", \"What is the function of X?\", \"What is X?\", \"role of X\", \"mechanism\
+    \ of X\"\n\nPTM SITES → ptm_sites_uniprot (join via protein_id)\n  filter: gene_symbol (join from\
+    \ protein_master), modification, position, enzymes\n  output: protein_id, position, modification,\
+    \ enzymes\n  Use for: \"Is X phosphorylated?\", \"phosphorylation sites of X\", \"which kinase phosphorylates\
+    \ X\",\n           \"what residue is modified in X\", \"PTM sites on X\"\n  NOTE: also check protein_keyword_uniprot\
+    \ with keyword_name='Phosphoprotein' for yes/no PTM existence.\n\nPROTEIN-PROTEIN INTERACTIONS → protein_interaction_uniprot\
+    \ (join via protein_id)\n  filter: gene_symbol (join from protein_master), interaction_type, interactor_gene,\
+    \ description\n  output: protein_id, interaction_type, interactor_gene, nb_experiments, description\n\
+    \  interaction_type values: 'BINARY' = direct partner (with gene name), 'SUBUNIT' = complex/subunit\
+    \ free-text\n  Use for: \"What interacts with X?\", \"binding partners of X\", \"subunit composition\"\
+    , \"does X interact with Y?\"\n\nDRUG-TARGET QUERIES → UniProt does NOT have a drug_target table.\
+    \ For drug-target\n  data cross-referenced from DrugBank or ChEMBL, use OpenTargets or ChEMBL instead.\n\
+    \nEXTERNAL ID MAPPING → id_mapping_uniprot\n  filter: db, external_id  |  output: protein_id\n  db\
+    \ enum values: 'Ensembl', 'Ensembl_PRO', 'Ensembl_TRS', 'GeneID', 'Gene_Name', 'Gene_Synonym', 'HGNC',\
+    \ 'RefSeq', 'RefSeq_NT', 'UniProtKB-ID'\n"
+  mapper: "PROTEIN ID COLUMN NAME: the column is `protein_id` — NEVER use `accession` as a key in pv.\n\
+    \nHGNC FORMAT: stored WITH 'HGNC:' prefix (e.g. 'HGNC:11998'). Prepend prefix to bare integers.\n\n\
+    GO ASPECT ENUM: 'F' = molecular function, 'P' = biological process, 'C' = cellular component.\nWhen\
+    \ user says \"molecular function\" → aspect=['F']; \"biological process\" → aspect=['P'];\n\"cellular\
+    \ component\" / \"where is it located\" → aspect=['C'].\n\nVARIANT_TYPE ENUM: 'LP/P' = pathogenic,\
+    \ 'LB/B' = benign, 'US' = uncertain significance.\n\nDRUG QUERIES: UniProt has NO drug_target_uniprot\
+    \ table. Do NOT emit\ndrug_name, source_db, or drug_id as filter keys. For drug-target associations,\
+    \ redirect\nthe user to OpenTargets or ChEMBL (state this in the response).\n\nPPI QUERIES: use protein_interaction_uniprot.\
+    \ Valid filter keys: interaction_type ('BINARY'\nor 'SUBUNIT'), interactor_gene (gene symbol of partner),\
+    \ description (substring for SUBUNIT text).\nFor BINARY rows: interactor_gene holds the partner gene\
+    \ symbol, nb_experiments is the\nIntAct experiment count. For SUBUNIT rows: description holds the\
+    \ free-text; interactor_gene is null.\n\nPTM QUERIES: use ptm_sites_uniprot. Valid filter keys: modification\
+    \ (e.g. 'Phosphoserine',\n'Phosphothreonine', 'Phosphotyrosine', 'N6-acetyllysine'), position (integer\
+    \ as string),\nenzymes (substring, e.g. 'PKA', 'CK2', 'CDK1').\nFor yes/no PTM existence questions,\
+    \ ALSO check protein_keyword_uniprot with keyword_name filter.\n\nPTM KEYWORD NAMES — for protein_keyword_uniprot\
+    \ (keyword-level, not site-level):\n  \"phosphorylation\" → keyword_name=['Phosphoprotein']\n  \"\
+    acetylation\" / \"acetyl-lysine\" → keyword_name=['Acetylation']\n  \"ubiquitination\" → keyword_name=['Ubl\
+    \ conjugation']\n  \"methylation\" → keyword_name=['Methylation']\n\nFUNCTION QUERIES: use protein_function_uniprot.\
+    \ Filter by gene_symbol (join from protein_master).\nfunction_text is substring-matched — do NOT use\
+    \ exact match.\n\nDISEASE_NAME: use LIKE / substring matching — disease names often include MIM numbers\
+    \ in brackets.\nOMIM_ID: bare integer string (no 'OMIM:'/'MIM:' prefix) — e.g. '151623'.\n"
+  tiebreaker: "1. DRUG QUERIES: UniProt has NO drug_target_uniprot table. Reject any mapper result\n \
+    \  that routes to drug_target_uniprot — it does not exist. Drug-target data is out of\n   UniProt\
+    \ scope; prefer a result that states this limitation.\n2. PTM QUERIES: PREFER a mapper result that\
+    \ routes to ptm_sites_uniprot (has position/\n   modification/enzymes columns) over one that only\
+    \ uses protein_keyword_uniprot. Both\n   tables exist — ptm_sites gives site-level detail, keyword\
+    \ gives category-level.\n3. PPI QUERIES: PREFER a mapper result that routes to protein_interaction_uniprot\
+    \ over\n   one that redirects to STRING DB — the table exists with interaction_type/interactor_gene\n\
+    \   columns. Only redirect to STRING for network-wide topology or confidence-scored queries.\n4. FUNCTION\
+    \ QUERIES: PREFER protein_function_uniprot (function_text column, substring match)\n   over GO annotations\
+    \ for \"what does X do\" / \"role of X\" / \"mechanism of X\" questions.\n5. For GO aspect conflicts:\
+    \ 'molecular function' = F, 'biological process' = P, 'location/component' = C.\n6. protein_id column\
+    \ name wins over 'accession' — reject any pv that uses 'accession' as a key.\n"

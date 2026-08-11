@@ -1,0 +1,2 @@
+# All deps in biochirp/base — see requirements-base.txt
+python-dotenv==1.2.1

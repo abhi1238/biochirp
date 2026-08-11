@@ -1,0 +1,188 @@
+name: string
+display_name: STRING
+description: 'STRING. Protein-protein association network with scored confidence. Integrates
+  seven evidence channels: physical interaction, co-expression, text mining, database-curated,
+  gene fusion, genomic neighbourhood, and co-occurrence. Provides association_score (overall
+  functional confidence), physical_score (binding/complex subset), and per-channel scores
+  (channel_combined_score) for any two proteins.
+
+  '
+schema:
+  inputs:
+  - field: gene_symbol
+  outputs:
+  - field: gene_symbol
+  tables:
+    protein_master_table:
+      description: 'Master protein registry: one row per canonical human protein with STRING ID, HGNC gene symbol, amino-acid length, and free-text functional annotation.'
+      key_columns:
+      - name: protein_id
+        description: STRING protein identifier (e.g. "9606.ENSP00000000233"). Users may ask
+          for "STRING ID" or "protein ID".
+      - name: gene_symbol
+        description: HGNC short gene symbol of the protein (e.g. "EGFR"). Users may ask for
+          "gene", "gene symbol", or "protein name".
+      - name: protein_size
+        description: Protein length in amino acids (integer, e.g. 1210 for EGFR). Users may
+          ask for "size", "length", "protein size", or "amino acids".
+      - name: annotation
+        description: Free-text functional protein description (e.g. "Receptor tyrosine kinase").
+          Users may ask for "annotation", "function", or "description".
+    ppi_association:
+      description: 'Functional PPI edges (all seven evidence channels combined); bidirectional
+        at runtime — 236,930 canonical pairs expanded to 473,860 rows; filter on association_gene_symbol
+        returns ALL functional interaction partners of that gene. Use this table for general
+        "who interacts with X" or "interaction partners of X" queries.'
+      key_columns:
+      - name: protein_id
+        description: STRING protein ID for the query-side protein (non-queryable FK to protein_master_table.protein_id).
+      - name: association_gene_symbol
+        description: HGNC gene symbol of the query-side protein in the functional association
+          table (e.g. "EGFR", "TP53"). Filter on this column to find all functional interaction
+          partners — both directions stored so a single filter returns ALL partners.
+      - name: protein_partner_id
+        description: STRING protein ID for the partner-side protein (non-queryable FK to protein_master_table.protein_id).
+      - name: association_partner_gene_symbol
+        description: HGNC gene symbol of the partner-side protein in the functional association
+          table — the interacting partner returned to the user (e.g. "KRAS", "MDM2").
+      - name: association_score
+        description: STRING overall confidence score across all seven evidence channels (integer
+          700-999 in this snapshot; 900+ = highest confidence). Users may ask for "STRING score",
+          "confidence score", or "interaction confidence".
+      - name: association_partner_protein_size
+        description: Protein length in amino acids (string-encoded integer) of the partner-side
+          protein in the functional association, denormalized at load time from protein_master_table
+          via partner_denorm.py. Users may ask for "partner protein size", "partner protein
+          length", or "how long is the partner".
+    ppi_physical:
+      description: 'Physical binding subset of ppi_association (direct binding/complex evidence
+        only); bidirectional at runtime — 86,519 canonical pairs expanded to 173,038 rows;
+        filter on physical_gene_symbol returns ALL physical binding partners of that gene. Use this
+        table for "physically binds", "direct interaction", or "complex" queries.'
+      key_columns:
+      - name: protein_id
+        description: STRING protein ID for the query-side protein (non-queryable FK to protein_master_table.protein_id).
+      - name: physical_gene_symbol
+        description: HGNC gene symbol of the query-side protein in the physical-binding table
+          (e.g. "EGFR", "BRCA1"). Filter on this column for physical binding partners.
+      - name: protein_partner_id
+        description: STRING protein ID for the physical-binding partner (non-queryable FK to protein_master_table.protein_id).
+      - name: physical_partner_gene_symbol
+        description: HGNC gene symbol of the physical-binding partner — the partner that has
+          direct binding or complex evidence with the query gene.
+      - name: physical_score
+        description: STRING physical-interaction confidence from binding and complex evidence
+          only (integer 700-999). Users may ask for "physical interaction", "physical PPI",
+          or "binding evidence".
+      - name: physical_partner_protein_size
+        description: Protein length in amino acids (string-encoded integer) of the partner-side
+          protein in the physical-binding association, denormalized at load time from
+          protein_master_table via partner_denorm.py. Users may ask for "partner protein size",
+          "partner protein length", or "how long is the binding partner".
+    ppi_detailed_channels:
+      description: 'Per-channel evidence breakdown for each functional PPI edge (same edge
+        set as ppi_association); bidirectional at runtime; use this table when the user asks
+        about any specific evidence channel score. channel_gene_symbol/channel_partner_gene_symbol
+        identify the gene pair; neighborhood/fusion/cooccurence/coexpression/experimental/
+        database/textmining are per-channel INTEGER scores (0-1000); channel_combined_score is
+        the overall confidence for context.'
+      key_columns:
+      - name: protein_id
+        description: STRING protein ID for the query-side protein (non-queryable FK to protein_master_table.protein_id).
+      - name: channel_gene_symbol
+        description: HGNC gene symbol of the query-side protein in the per-channel evidence
+          table (e.g. "EGFR", "TP53"). Filter on this to retrieve per-channel scores for a
+          named gene's interaction partners.
+      - name: protein_partner_id
+        description: STRING protein ID for the partner-side protein (non-queryable FK to protein_master_table.protein_id).
+      - name: channel_partner_gene_symbol
+        description: HGNC gene symbol of the partner-side protein in the per-channel evidence
+          table — returned alongside channel scores.
+      - name: neighborhood
+        description: 'Per-channel score: genomic neighbourhood co-location evidence (integer
+          0-1000; observed range 0-357 in this snapshot). Users may ask for "neighborhood score".'
+      - name: fusion
+        description: 'Per-channel score: gene-fusion evidence (integer 0-1000; observed range
+          0-900). Users may ask for "fusion score".'
+      - name: cooccurence
+        description: 'Per-channel score: phylogenetic co-occurrence evidence (integer 0-1000;
+          observed range 0-537; note schema spelling single r). Users may ask for "co-occurrence
+          score" or "phylogenetic profile".'
+      - name: coexpression
+        description: 'Per-channel score: co-expression evidence across organisms (integer 0-1000;
+          observed range 0-999). Users may ask for "co-expression score".'
+      - name: experimental
+        description: 'Per-channel score: experimental/biochemical evidence from BioGRID, IntAct
+          etc. (integer 0-1000; NOT boolean). Users may ask for "experimental score" or
+          "experimental evidence".'
+      - name: database
+        description: 'Per-channel score: curated-database evidence from Reactome, KEGG etc.
+          (integer 0-1000; observed range 0-984). Users may ask for "database score" or
+          "curated evidence".'
+      - name: textmining
+        description: 'Per-channel score: text-mining evidence from PubMed co-mentions (integer
+          0-1000). Users may ask for "text-mining score" or "literature evidence".'
+      - name: channel_combined_score
+        description: STRING combined confidence across all channels for this edge (integer
+          700-999 in this snapshot) — returned alongside per-channel scores for context.
+      - name: channels_partner_protein_size
+        description: Protein length in amino acids (string-encoded integer) of the partner-side
+          protein in the per-channel evidence table, denormalized at load time from
+          protein_master_table via partner_denorm.py. Users may ask for "partner protein size",
+          "partner protein length", or "how long is the partner protein".
+    protein_alias:
+      description: 'Cross-reference alias table: maps STRING protein_id to alternate identifiers (RefSeq, UniProt, Ensembl, HGNC, KEGG, etc.); 90 distinct source databases; 3.89M rows.'
+      key_columns:
+      - name: protein_id
+        description: STRING protein identifier (e.g. "9606.ENSP00000000233"); foreign key
+          joining to protein_master_table.protein_id. Users may ask for "STRING ID" or "protein ID".
+      - name: alias
+        description: Alternate identifier / synonym for the protein (e.g. RefSeq accession,
+          Ensembl ID, gene symbol). Users may ask for "alias", "synonym", or "alternate ID".
+      - name: source
+        description: Source database for the alias. On-disk values are prefixed family names;
+          top sources by row count are "Ensembl_EMBL" (487,265), "Ensembl_protein_id" (455,461),
+          "Ensembl_RefSeq" / "Ensembl_RefSeq_short" (225,974 each), "Ensembl_transcript" (152,417),
+          "Ensembl_HGNC_trans_name" (151,338), "Ensembl_UCSC" (148,513). Other commonly-queried
+          sources include "UniProt_DR_RefSeq" (~109k rows), "UniProt_AC" (~88k rows), "UniProt_ID"
+          (~19k rows), and "Ensembl_HGNC" (~19k rows). 90 distinct source values total. Users
+          may ask for "alias source" or "source database".
+valid_queries:
+- What proteins physically interact with KRAS according to STRING?
+- What are the top interaction partners of EGFR by STRING score?
+- What is the STRING combined score between TP53 and MDM2?
+- What STRING network neighbourhood does BRCA1 have?
+- Which proteins co-express with MYC according to STRING?
+invalid_queries:
+- What drugs target EGFR? (use TTD/DGIdb -- STRING has no drug data)
+- What pathways does KRAS belong to? (use Reactome -- STRING has association scores, not pathway
+  reactions)
+- What variants in EGFR cause resistance? (use CIViC -- STRING has no variant data)
+- What diseases is BRCA1 associated with? (use ClinVar -- STRING has no disease association
+  data)
+- What transcription factors regulate MYC? (use TRRUST/OmniPath for regulatory data)
+force_relations:
+  ppi_interaction: 1.0
+  protein_annotation: 0.9
+explicit_capability_triggers:
+- phrases:
+  - STRING score
+  - combined score
+  - protein-protein interaction
+  - PPI
+  - interaction partners
+  - protein network
+  - STRING database
+  - functional partners
+skip_relations:
+- drug_treatment
+- drug_target
+- clinical_trials
+- variant_pathogenicity
+- gene_expression
+derived: {}
+service:
+  tool:
+    port: 8087
+    memory_limit: 2g
+    module: string_db

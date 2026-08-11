@@ -1,0 +1,14 @@
+{
+  "_comment": "Disease names where WORD ORDER or +/- SIGN is semantically load-bearing. The DB-overlap filter matches THESE exactly (case-insensitive) instead of via order/punctuation-insensitive token matching, so distinct diseases are not wrongly merged. List ALL members of each ambiguous group. Seeded 2026-06 from a concept-value collision audit; append names here to extend (no code change needed).",
+  "names": [
+    "Cone-rod dystrophy",
+    "Rod-cone dystrophy",
+    "Goldberg-Shprintzen syndrome",
+    "Shprintzen-Goldberg syndrome",
+    "T+ B+ severe combined immunodeficiency",
+    "T-B+ severe combined immunodeficiency",
+    "T-B- severe combined immunodeficiency",
+    "SCIANNA BLOOD GROUP SYSTEM, SC:-1,-2",
+    "SCIANNA BLOOD GROUP SYSTEM, SC:-1,2"
+  ]
+}

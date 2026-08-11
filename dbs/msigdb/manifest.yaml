@@ -1,0 +1,225 @@
+name: msigdb
+display_name: MSigDB
+description: 'Molecular Signatures Database (MSigDB). Curated collection of gene sets for
+  gene set enrichment analysis (GSEA). Covers human (Hs), mouse (Mm) and a small amount of
+  rat (Rn) data. All collections use friendly names — Hallmark, Positional, Curated,
+  Regulatory, Computational, Ontology, Oncogenic, Immunologic, CellType, CellLineage — for
+  both human and mouse sets; mouse sets reuse the same friendly names rather than separate
+  codes. Legacy category codes (H, C1..C9, MH, M1..M8) do NOT appear in any served table:
+  the preprocess translates every code to its friendly name. The schema is normalized (3NF):
+  collection / organism live only on geneset_master_table; the membership table
+  gene_geneset_association is a pure FK edge [geneset_id, gene_id]; member gene symbols live
+  on gene_master_table (keyed by a composite gene_id = "<gene_symbol>|<organism>").
+
+  '
+schema:
+  inputs:
+  - field: geneset_name
+  - field: gene_symbol
+  - field: collection
+  - field: sub_collection
+  - field: geneset_organism
+  - field: gene_organism
+  outputs:
+  - field: geneset_name
+  - field: gene_symbol
+  - field: collection
+  - field: sub_collection
+  - field: geneset_organism
+  - field: gene_organism
+  tables:
+    geneset_master_table:
+      description: 'One row per geneset_id with name, collection, URL, gene_count, and organism
+        (52,429 rows). PK = geneset_id.'
+      key_columns:
+      - name: geneset_id
+        description: MSigDB gene-set identifier. Joins to gene_geneset_association.geneset_id
+          and geneset_metadata.geneset_id.
+      - name: geneset_name
+        description: 'MSigDB gene-set / signature name (e.g. "HALLMARK_APOPTOSIS",
+          "KEGG_MAPK_SIGNALING_PATHWAY"). Users may ask for "gene set", "signature",
+          "geneset name", or "pathway name". geneset_id is the true unique key; the
+          same geneset_name may appear multiple times within an organism (876 cases:
+          869 Mus musculus M-prefix vs MM-prefix pairs, 5 Homo sapiens anomalous
+          MM-prefix IDs (MM17, MM1334-MM1337), 2 Rattus norvegicus pairs). Filter
+          by geneset_id for unambiguous joins.'
+      - name: collection
+        description: 'MSigDB collection (friendly-name vocabulary). The canonical and ONLY home
+          of the collection attribute (normalized — not mirrored into the membership or
+          metadata tables). The 10 observed values on disk: Hallmark, Positional, Curated,
+          Regulatory, Computational, Ontology, Oncogenic, Immunologic, CellType, CellLineage.
+          Both human and mouse sets use these SAME friendly names. Legacy category codes (H,
+          C1..C9, MH, M1..M8) do NOT appear in any served table — the preprocess translates
+          every code to its friendly name. Users may ask for "collection" or "MSigDB category".'
+      - name: url
+        description: 'MSigDB URL for the gene set. Null for 11,237 sets (~21.4%),
+          including all Hallmark Homo sapiens sets and portions of Immunologic,
+          Curated, M2, and Regulatory collections; filter with col.is_not_null()
+          before using as a link.'
+      - name: gene_count
+        description: Number of unique genes in the set, stored as a String representation
+          of the integer (e.g. "131"; observed numeric range 5–1998). Users may ask for "gene count",
+          "set size", or "pathway size". Exactly 6 gene sets have a NULL gene_count (M40000, M41754,
+          M41755, M41756, M45033, M45034) — zero-member sets absent from gene_geneset_association
+          because their upstream identifiers did not map to gene symbols.
+      - name: geneset_organism
+        description: 'Organism the gene set was defined for. Observed values: "Homo sapiens"
+          (~34k sets), "Mus musculus" (~18k sets), "Rattus norvegicus" (~31 sets). Users may
+          ask for "organism" or "species".'
+    gene_geneset_association:
+      description: 'Normalized gene↔geneset membership edge — a pure FK junction carrying ONLY
+        [geneset_id, gene_id] (5,762,353 rows after deduplication; 52,423 distinct genesets x
+        105,301 distinct genes). gene_symbol / collection / organism are NOT stored here — they
+        join from gene_master_table (gene_symbol/organism) and geneset_master_table
+        (collection/organism). PK = (geneset_id, gene_id).'
+      key_columns:
+      - name: geneset_id
+        description: MSigDB gene-set identifier (FK / join key to geneset_master_table.geneset_id
+          and geneset_metadata.geneset_id). Join key only.
+      - name: gene_id
+        description: Member gene — FK to gene_master_table.gene_id, the composite
+          "<gene_symbol>|<organism>" key (e.g. "MYC|Homo sapiens"). Join key only; display the
+          symbol via gene_master_table.gene_symbol.
+    gene_master_table:
+      description: 'Master catalog of genes indexed in MSigDB (105,301 rows). PK = composite
+        gene_id "<gene_symbol>|<organism>" — the bare gene_symbol is NOT unique (17,458 symbols
+        occur under more than one organism), so the composite keeps the membership join 1:1.'
+      key_columns:
+      - name: gene_id
+        description: Composite primary key "<gene_symbol>|<organism>" (e.g. "MYC|Homo sapiens").
+          Unique FK target for gene_geneset_association.gene_id. Join key only — filter/display
+          via gene_symbol / organism.
+      - name: gene_symbol
+        description: HGNC (human) or MGI (mouse) gene symbol (e.g. MYC, EGFR, TP53; Myc, Egfr
+          for mouse). Users may ask for "gene", "member gene", or "gene symbol".
+      - name: gene_organism
+        description: Organism for this gene entry ("Homo sapiens", "Mus musculus", "Rattus
+          norvegicus"). Users may ask for "organism" or "species".
+    geneset_metadata:
+      description: 'Per-geneset metadata: PMID, GEO id, contributor, descriptions (52,429 rows,
+        one per geneset_id). Optional fields are stored as NULL when missing (not empty strings)
+        — filter with col.is_not_null() before use; full_description
+        is null for ~34.3k of 52,429 sets (only ~18,106 carry one; all 6 zero-member sets are
+        among the nulls). Two columns (historical_name,
+        tags) exist on disk but are effectively unused in the 2026.1 snapshot (both 100% null).'
+      key_columns:
+      - name: geneset_id
+        description: MSigDB gene-set identifier (FK / join key to geneset_master_table.geneset_id
+          and gene_geneset_association.geneset_id). geneset_name / organism / collection are NOT
+          stored here — they are normalized onto geneset_master_table (join on geneset_id).
+      - name: historical_name
+        description: Historical or legacy name for the gene set. Effectively unused in the 2026.1
+          snapshot (100% null/empty); retained for schema completeness.
+      - name: chip
+        description: 'Identifier / annotation platform used to define the gene-set membership
+          (e.g. "Human_NCBI_Gene_ID", "Mouse_NCBI_Gene_ID", "HUMAN_GENE_SYMBOL"). Useful for
+          interpreting how genes were mapped to symbols.'
+      - name: pmid
+        description: PubMed ID of the source publication. Users may ask for "PubMed ID" or
+          "PMID".
+      - name: authors
+        description: Authors of the source publication.
+      - name: geo_id
+        description: GEO dataset identifier the set was derived from (e.g. "GSE12345"). Users
+          may ask for "GEO ID" or "GEO accession".
+      - name: exact_source
+        description: Exact upstream source / dataset for the set. Vocabulary varies by collection
+          (e.g. Ensembl genome annotation for C1 positional sets, KEGG pathway ID for the
+          CP:KEGG_MEDICUS sub-collection, figure/table citation strings like "Table 2" or
+          "Fig. 6A" for C2:CGP and M2:CGP).
+      - name: external_url
+        description: External URL with more information.
+      - name: sub_collection
+        description: Sub-collection within the parent collection (e.g. "CGP" for chemical/genetic
+          perturbations under C2 (human) and M2 (mouse)). Users may ask for "sub-collection".
+      - name: contributor
+        description: Person who contributed the set.
+      - name: contributor_org
+        description: Organization of the contributor.
+      - name: brief_description
+        description: Short description of the gene set. Users may ask for "description" or
+          "brief description".
+      - name: full_description
+        description: Full free-text description of the gene set. Users may ask for "full description"
+          or "long description".
+      - name: tags
+        description: Tags for the gene set. Effectively unused in the 2026.1 snapshot (100%
+          null/empty); retained for schema completeness.
+valid_queries:
+- What gene sets contain the MYC gene?
+- Which genes are members of the HALLMARK_APOPTOSIS gene set?
+- What canonical pathway gene sets does EGFR belong to?
+- What oncogenic signatures contain KRAS?
+- Which MSigDB gene sets are enriched in immune response genes?
+- What genes are in the KEGG_CELL_CYCLE pathway gene set?
+- Which MSigDB gene sets involve interferon signaling or IFN signatures?
+- What gene sets in MSigDB are related to lupus or SLE?
+- Are there Notch pathway gene sets in MSigDB?
+- Which REACTOME gene sets contain TP53?
+- How many genes are in the MammaPrint breast cancer signature?
+invalid_queries:
+- What is the reaction mechanism in the apoptosis pathway? (use Reactome for pathway topology/reactions)
+- What drugs target genes in the apoptosis pathway? (use TTD/DGIdb — MSigDB has no drug data)
+- What variants in apoptosis genes are pathogenic? (use ClinVar — MSigDB has no variant data)
+- What diseases are caused by EGFR mutations? (use ClinVar — MSigDB has no disease association
+  data)
+- Which proteins interact with MYC? (use BioGRID/STRING — MSigDB has no PPI data)
+- What is the GSEA p-value for my gene list? (MSigDB stores gene set definitions, not enrichment results)
+force_relations:
+  pathway_membership: 0.85
+explicit_capability_triggers:
+- phrases:
+  - msigdb
+  - molecular signatures database
+  - gene set enrichment
+  - hallmark gene sets
+  - gene signature
+  - gene set membership
+  - geneset
+skip_relations:
+- drug_target
+- drug_indication
+- variant_clinical
+- protein_interaction
+- protein_structure
+- gene_expression
+- trial_search
+derived:
+  capability_card:
+    valid_queries:
+    - What gene sets contain the MYC gene?
+    - Which genes are members of the HALLMARK_APOPTOSIS gene set?
+    - What canonical pathway gene sets does EGFR belong to?
+    - What oncogenic signatures contain KRAS?
+    - Which MSigDB gene sets are enriched in immune response genes?
+    - What genes are in the KEGG_CELL_CYCLE pathway gene set?
+    - Which MSigDB gene sets involve interferon signaling or IFN signatures?
+    - What gene sets in MSigDB are related to lupus or SLE?
+    - Are there Notch pathway gene sets in MSigDB?
+    - Which REACTOME gene sets contain TP53?
+    - How many genes are in the MammaPrint breast cancer signature?
+    invalid_queries:
+    - What is the reaction mechanism in the apoptosis pathway? (use Reactome for pathway topology/reactions)
+    - What drugs target genes in the apoptosis pathway? (use TTD/DGIdb — MSigDB has no drug data)
+    - What variants in apoptosis genes are pathogenic? (use ClinVar — MSigDB has no variant data)
+    - What diseases are caused by EGFR mutations? (use ClinVar — MSigDB has no disease association data)
+    - Which proteins interact with MYC? (use BioGRID/STRING — MSigDB has no PPI data)
+    - What is the GSEA p-value for my gene list? (MSigDB stores gene set definitions, not enrichment results)
+    embed_text_len: 2078
+  relation_weights:
+    pathway_membership: 0.85
+    gene_lookup: 0.60
+    literature: 0.12
+    alias_resolution: 0.10
+  auto_triggers:
+  - msigdb
+  manifest_hash: 13860ba14f90072b
+service:
+  tool:
+    port: 8079
+    memory_limit: 8g
+    memory_reservation: 512m
+    extra_depends_on:
+    - biochirp_synonyms_expander
+    - biochirp_fuzzy_tool
+    - biochirp_semantic_tool

@@ -1,0 +1,1116 @@
+# REVIEW before use: verify dtypes, factor `questions.literal` into params/templates,
+# and confirm exec_schema/kg_schema flags on denormalised columns.
+db: ttd
+display_name: TTD
+description: Therapeutic Target Database — curated drug/target/disease/pathway associations with approval
+  status, mechanism of action, synonyms, bioactivity data, and UniProt cross-references
+parquet_dir: ttd
+decoration_tables:
+- drug_crossmatching_association
+- target_uniprot_association
+tables:
+  biomarker_disease_association:
+    parquet: P1-08-Biomarker_disease_v2.parquet
+    role: association
+    columns:
+    - {name: biomarker_id, key_column: true}
+    - {name: disease_id, key_column: true}
+  biomarker_master_table:
+    parquet: biomarker_master_table_ttd_v2.parquet
+    role: master
+    columns:
+    - {name: biomarker_id, key_column: true, description: internal TTD biomarker identifier — join key
+        only}
+    - {name: biomarker_name, queryable: true, key_column: true, concept_type: protein_name, description: 'name
+        of the biomarker associated with a disease, stored as a full protein descriptor with the symbol
+        in parentheses; e.g. ''Erbb2 tyrosine kinase receptor (HER2)'', ''GTPase KRas (KRAS)'', ''Tyrosine-protein
+        kinase Kit (SCFR)'', ''Programmed cell death protein 1 (PD-1)''; used when asking for disease
+        biomarkers'}
+  disease_master_table:
+    parquet: disease_master_table_ttd_v2.parquet
+    role: master
+    columns:
+    - {name: disease_id, key_column: true, description: internal TTD disease identifier — join key only}
+    - {name: disease_name, queryable: true, key_column: true, concept_type: disease_name, description: 'name
+        of the disease, medical condition, or therapeutic indication (TTD uses British spelling, e.g.
+        ''leukaemia''); e.g. Non-small-cell lung cancer, Chronic myelogenous leukaemia, Type 2 diabetes
+        mellitus, Breast cancer, Alzheimer disease, Hypertension'}
+  drug_crossmatching_association:
+    parquet: drug_crossmatching_association_ttd_v2.parquet
+    role: decoration
+    description: Cross-DB identifier bridge for TTD drugs (PubChem / ChEBI / CAS / SuperDrug).
+    columns:
+    - {name: drug_id, key_column: true}
+    - {name: crossmatch_drug_name, parquet_name: drug_name, exec_schema: false, kg_schema: false, key_column: false, description: drug name — canonical source is drug_master_table_ttd.drug_name}
+    - {name: formula, queryable: true, key_column: true, concept_type: mol_formula, description: molecular
+        formula of the drug; e.g. C29H31N7O; used when asking for elemental composition}
+    - {name: crossmatch_pubchem_cid, parquet_name: pubchem_cid, queryable: true, key_column: true, concept_type: compound_xref_id, description: PubChem
+        compound identifier stored as a STRING of digits (not an integer); e.g. "5291" for imatinib; used
+        when looking up PubChem CID — filter values must be quoted strings}
+    - {name: pubchem_sid, queryable: true, key_column: true, concept_type: xref_id, description: PubChem
+        substance identifier — xref/join key}
+    - {name: cas_number, queryable: true, key_column: true, concept_type: xref_id, description: CAS Registry
+        Number for the drug; 99.8% of values carry a literal 'CAS ' prefix on disk (e.g. "CAS 152459-95-5");
+        filter values MUST include the 'CAS ' prefix to match}
+    - {name: chebi_xref, queryable: true, key_column: true, concept_type: xref_id, description: 'ChEBI
+        compound identifier cross-reference; e.g. CHEBI:45783; used when asking for ChEBI ID'}
+    - {name: superdrug_atc, queryable: true, key_column: true, concept_type: xref_id, description: SuperDrug
+        ATC code cross-reference — xref/join key}
+    - {name: superdrug_cas, queryable: true, key_column: true, concept_type: xref_id, description: SuperDrug
+        CAS number cross-reference — xref/join key}
+  drug_disease_association:
+    parquet: P1-05-Drug_disease_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true}
+    - {name: disease_id, key_column: true}
+    - {name: approval_status, queryable: true, key_column: true, concept_type: approval_status, enum: [
+        Phase 2, Phase 1, Investigative, Approved, Patented, Phase 3, Phase 1/2, Terminated, Discontinued
+          in Phase 2, Discontinued in Phase 1, Preclinical, Phase 2/3, Discontinued in Phase 3, Clinical
+          trial, Withdrawn from market, Application submitted, Phase 4, Discontinued in Phase 1/2, Discontinued
+          in Preregistration, Preregistration, Phase 2a, Registered, Phase 0, Phase 2b, Phase 1b, Approved
+          in EU, IND submitted, Discontinued in Phase 2/3, NDA filed, Approved in China, Approved (orphan
+          drug), Phase 1b/2a, Phase 1/2a, Discontinued in Phase 2b, Discontinued in Phase 4, Discontinued
+          in Phase 2a, BLA submitted, Approval submitted], llm_note: TTD development-stage vocabulary
+        — e.g. Approved | Phase 1 | Phase 2 | Phase 3 | Phase 1/2 | Investigative | Preclinical | Patented
+        | Discontinued in Phase 2 | Terminated | Withdrawn from market; map 'FDA-approved'/'marketed'
+        → Approved, description: 'clinical approval or development stage of the drug for this indication;
+        e.g. Approved, Phase 1, Phase 2, Phase 3, Investigative, Patented, Preclinical, Terminated, Discontinued
+        in Phase 2, Withdrawn from market'}
+  drug_master_table:
+    parquet: drug_master_table_ttd_v2.parquet
+    role: master
+    columns:
+    - {name: drug_id, key_column: true, description: internal TTD drug identifier (e.g. D0Y2ZZ) — join
+        key only}
+    - {name: drug_name, queryable: true, key_column: true, concept_type: drug_name, llm_note: 'individual
+        drug name (INN or brand) — NOT drug class terms like TKI, mAb, checkpoint inhibitor, BRAF inhibitor;
+        brand names are resolved to INN via trade_name_map before querying', description: 'name of the
+        drug, compound, or therapeutic agent; e.g. imatinib, erlotinib, pembrolizumab, nivolumab, bevacizumab,
+        gefitinib, cetuximab, trastuzumab'}
+  drug_synonyms_association:
+    parquet: drug_synonyms_association_ttd_v2.parquet
+    role: association
+    description: Long-form drug synonyms (one row per drug_id × synonym).
+    columns:
+    - {name: drug_id, key_column: true}
+    - {name: synonym_drug_name, parquet_name: drug_name, exec_schema: false, kg_schema: false, key_column: false, description: drug name — canonical source is drug_master_table_ttd.drug_name}
+    - {name: synonym, queryable: true, key_column: true, concept_type: drug_name, description: 'alternate
+        name, brand name, or trade name for the drug; e.g. Gleevec for imatinib, Herceptin for trastuzumab,
+        Keytruda for pembrolizumab'}
+  drug_target_association:
+    parquet: P1-07-Drug-TargetMapping_v2.parquet
+    role: association
+    columns:
+    - {name: target_id, key_column: true}
+    - {name: drug_id, key_column: true}
+    - {name: drug_mechanism_of_action_on_target, queryable: true, key_column: true, concept_type: interaction_type,
+      enum: [Inhibitor, Modulator, Antagonist, Agonist, Activator, Binder, CAR-T-Cell-Therapy, Modulator
+          (allosteric modulator), Blocker, Ligand, Blocker (channel blocker), CAR-T-Cell-Therapy(Dual
+          specific), Replacement, Stimulator, Opener, Inhibitor (gating inhibitor), Inducer, Degrader,
+        Immunomodulator, Enhancer, Breaker, Reactivator, Suppressor, Cofactor, Intercalator, Partial agonist,
+        Regulator, Inverse agonist, Stabilizer, Regulator (upregulator), Binder (minor groove binder),
+        Inactivator, Immunostimulant, Immunomodulator (Immunostimulant), Disrupter, Co-agonist, Antisense,
+        Chelator, Antagonist/GLP1 agonist, Silencer, Immune response agent, Mimetic, Potentiator], llm_note: 'TTD
+        MoA enum — e.g. Inhibitor, Agonist, Antagonist, Blocker, Activator, Modulator, Binder, Ligand;
+        NOT free-text phrases', description: 'mechanism by which the drug acts on its target; e.g. Inhibitor,
+        Agonist, Antagonist, Blocker, Activator, Modulator, Binder; used when asking how a drug works
+        or its mode of action (MoA). 2,251 of 45,234 rows (5.0%) have an empty-string MoA (no mechanism
+        recorded) — these are valid drug-target links where the mechanism is unknown. Filter with != ''''
+        to restrict to named MoAs.'}
+  pathway_master_table:
+    parquet: pathway_master_table_ttd_v2.parquet
+    role: master
+    columns:
+    - {name: pathway_id, key_column: true, description: internal TTD/KEGG pathway identifier — join key
+        only}
+    - {name: pathway_name, queryable: true, key_column: true, concept_type: pathway_name, description: 'name
+        of the biological signaling or metabolic pathway; e.g. MAPK signaling pathway, PI3K-Akt signaling
+        pathway, Apoptosis, Wnt signaling, mTOR signaling pathway'}
+  target_compound_activity_association:
+    parquet: target_compound_activity_association_ttd_v2.parquet
+    role: association
+    description: Quantitative target-compound bioactivity (IC50 / Ki / EC50, nM). drug_compound_id covers
+      both TTD drug IDs (D-prefix) and raw compound IDs (C-prefix) not in drug_master_table.
+    columns:
+    - {name: target_id, key_column: true}
+    - {name: drug_compound_id, key_column: true, description: TTD drug ID (D-prefix) or raw compound ID
+        (C-prefix) for the compound — internal xref key}
+    - {name: compound_activity_pubchem_cid, parquet_name: pubchem_cid, key_column: true, description: PubChem compound identifier for the tested compound
+        — xref/join key}
+    - {name: activity_raw, key_column: true, description: 'raw activity value string as reported in the
+        source literature, e.g. ''0.5 nM'', ''10 uM'' — internal provenance column'}
+    - {name: activity_type, queryable: true, key_column: true, concept_type: enum_value, enum: [IC50,
+        Ki, EC50], description: 'type of bioactivity measurement; exactly three values on disk: IC50,
+        Ki, EC50 (Kd does not appear in TTD); used when asking for activity type'}
+    - {name: activity_operator, key_column: true, description: 'relational operator on the activity value;
+        e.g. =, <, >; internal precision qualifier'}
+    - {name: activity_value, dtype: float, queryable: true, key_column: true, concept_type: bioactivity_value,
+      description: 'numeric bioactivity value (Float64 on disk); e.g. 0.5, 10, 100; used when filtering
+        by potency or activity value'}
+    - {name: activity_unit, queryable: true, key_column: true, concept_type: enum_value, enum: [nM], description: unit
+        of the bioactivity measurement; the only non-null value on disk is nM (all potency stored in nanomolar);
+        used when filtering by unit or scale}
+    - {name: compound_activity_gene_symbol, parquet_name: gene_symbol, exec_schema: false, exec_note: 'canonical source is target_master_table.gene_symbol;
+        keeping it in the exec schema too caused a Polars _right join collision on multi-table plans',
+      queryable: true, key_column: false, concept_type: gene_symbol,
+      llm_note: 'HGNC official symbol — p53→TP53, PD-1→PDCD1, PD-L1→CD274', description: HGNC gene symbol
+        (denormalised) for the target — used for gene-level filtering without a join; multi-gene targets
+        are stored as a single '; '-joined value (e.g. 'TNNI1; TNNI2; TNNI3')}
+  target_disease_association:
+    parquet: P1-06-Target_disease_v2.parquet
+    role: association
+    columns:
+    - {name: target_id, key_column: true}
+    - {name: disease_id, key_column: true}
+  target_master_table:
+    parquet: target_master_table_ttd_v2.parquet
+    role: master
+    columns:
+    - {name: target_id, key_column: true, description: internal TTD target identifier (e.g. T47101) —
+        join key only}
+    - {name: target_name, queryable: true, key_column: true, concept_type: protein_name, description: 'full
+        name of the biological target (protein, receptor, enzyme, ion channel) INCLUDING the gene symbol
+        in parentheses as stored on disk; e.g. Epidermal growth factor receptor (EGFR), Serine/threonine-protein
+        kinase B-raf (BRAF), Programmed cell death protein 1 (PDCD1)'}
+    - {name: gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: 'HGNC
+        official symbol — p53→TP53, PD-1→PDCD1, PD-L1→CD274', description: 'official HGNC gene symbol
+        for the target; e.g. EGFR, BRAF, PDCD1, ABL1, KDR; root column for gene-level queries — multi-gene
+        target complexes carry one row per constituent gene, so a single symbol resolves its target'}
+  target_pathway_association:
+    parquet: P4-01-Target-KEGGpathway_all_v2.parquet
+    role: association
+    columns:
+    - {name: target_id, key_column: true}
+    - {name: pathway_id, key_column: true}
+  target_uniprot_association:
+    parquet: target_uniprot_association_ttd_v2.parquet
+    role: decoration
+    description: Target ↔ UniProt mapping (bridges TTD targets to UniProt / HGNC / Ensembl downstream).
+    columns:
+    - {name: target_id, key_column: true}
+    - {name: uniprot_xref, queryable: true, key_column: true, concept_type: protein_id, description: 'UniProt
+        entry name / mnemonic (NOT accession) cross-reference for the target; e.g. EGFR_HUMAN, BRAF_HUMAN,
+        ABL1_HUMAN; multiple values are joined with ''; ''; used when asking for the UniProt entry name
+        / protein identifier. 613 rows carry the sentinel value ''NOUNIPROTAC'' indicating the target has
+        no UniProt accession assigned. Filter with != ''NOUNIPROTAC'' to restrict to real accessions.'}
+    - {name: target_type, queryable: true, key_column: true, concept_type: enum_value, enum: [Successful
+          target, Clinical trial target, Literature-reported target, Patented-recorded target, Discontinued
+          target, Preclinical target], llm_note: 'TTD target development stage (long form in target_uniprot_association)
+        — Successful target, Clinical trial target, Literature-reported target, Patented-recorded target,
+        Discontinued target, Preclinical target', description: 'TTD target development class; exactly
+        six long-form values: Successful target, Clinical trial target, Literature-reported target, Patented-recorded
+        target, Discontinued target, Preclinical target; used when filtering by target development stage'}
+    - {name: uniprot_target_name, parquet_name: target_name, exec_schema: false, exec_note: 'comes from target_master_table via the target_id
+        FK; duplicating it here caused Polars _right suffix collisions on multi-table plans',
+      key_column: false, description: target name (denormalised)
+        — used to identify the target in UniProt context}
+    - {name: uniprot_gene_symbol, parquet_name: gene_symbol, exec_schema: false, exec_note: 'comes from target_master_table via the target_id
+        FK; duplicating it here caused Polars _right suffix collisions on multi-table plans',
+      key_column: false, llm_note: 'HGNC official symbol — p53→TP53,
+        PD-1→PDCD1, PD-L1→CD274', description: HGNC gene symbol (denormalised mirror) for the target —
+        decoration column; multi-gene targets are stored as a single '; '-joined value; do not use as
+        root for gene-symbol queries (prefer target_master_table)}
+loader:
+  keep_native: [pubchem_cid, activity_value]
+  renames:
+    DRUG_NAME: drug_name
+    Drug_Name: drug_name
+    GENE_SYMBOL: gene_symbol
+    Target: gene_symbol
+    Disease_Name: disease_name
+    "# Disease_Name": disease_name
+    PathwayID: pathway_id
+    PATH_NAME: pathway_name
+    path_name: pathway_name
+    Pubchem_CID: pubchem_cid
+    Biomarker_Name: biomarker_name
+    TTDID: target_id
+    "KEGG pathway ID": pathway_id
+    "KEGG pathway name": pathway_name
+    TargetID: target_id
+    DrugID: drug_id
+    MOA: drug_mechanism_of_action_on_target
+    moa: drug_mechanism_of_action_on_target
+rules:
+  mandatory_entity_columns:
+    drug:
+    - drug_name
+    gene:
+    - gene_symbol
+    - target_name
+    disease:
+    - disease_name
+    pathway:
+    - pathway_name
+  xref_id_columns:
+  - target_id
+  - drug_id
+  - disease_id
+  - pathway_id
+  - biomarker_id
+  - crossmatch_pubchem_cid
+  - compound_activity_pubchem_cid
+  - pubchem_sid
+  - cas_number
+  - chebi_xref
+  - uniprot_xref
+  - superdrug_atc
+  - superdrug_cas
+  - drug_compound_id
+  - activity_raw
+  - activity_operator
+  gene_xref_id_columns:
+  - uniprot_xref
+  schema_grounding_notes:
+  - 'pathway vs disease MUTUAL EXCLUSION: pathway_name and disease_name must NEVER both be ''requested''
+    — they are separate tables. pathway/signaling/KEGG/gene set → pathway_name only. disease/indication/disorder/condition
+    → disease_name only. Mixing causes a cross-join explosion.'
+  - 'drug CLASS queries (TKI, kinase inhibitor, checkpoint inhibitor, etc.): when a query asks for drugs
+    of a specific CLASS, the class definition becomes FILTER values — NOT ''requested'' outputs. E.g.
+    ''List TKIs'' → drug_mechanism_of_action_on_target: [''Inhibitor''], target_name: [''tyrosine kinase'']
+    as filters, drug_name: ''requested'' as output. Do NOT mark drug_mechanism_of_action_on_target or
+    target_name as ''requested'' when they define the class being queried.'
+  - 'approval_status co-output rule: approval_status is ALWAYS a co-output column alongside disease_name
+    when the join path includes drug_disease_association (i.e., whenever disease_name is a SELECT output
+    from a drug→disease or disease→drug query). This enables clinical-maturity ranking (sort_order:
+    Approved first, Discontinued/Withdrawn last). Omit it only for pure gene→disease or biomarker→disease
+    queries that do NOT involve drug_disease_association.'
+  - 'approval_status: controlled vocabulary of development stages — Approved family (Approved, Approved
+    in EU, Approved in China, Approved (orphan drug), Registered), submission family (NDA filed, BLA submitted,
+    IND submitted, Application submitted, Approval submitted, Preregistration), Phase family (Phase 0,
+    Phase 1, Phase 1/2, Phase 2, Phase 2/3, Phase 3, Phase 4, Clinical trial), discontinued family (Discontinued
+    in Phase 1/2/3, Terminated, Withdrawn from market), and early family (Investigative, Preclinical,
+    Patented). Map ''FDA approved''/''marketed'' → Approved; ''clinical trial''/''in clinical trials''
+    → ''Clinical trial'' (lowercase ''t'' as stored on disk); map ''in trials'' to the matching Phase
+    value'
+  - 'drug_mechanism_of_action_on_target: maps free-text MoA to canonical TTD enum values; ''inhibitor''
+    → Inhibitor, ''antagonist'' → Antagonist, ''agonist'' → Agonist, ''blocker'' → Blocker (note: ''Antibody''
+    is NOT a valid value in this column — TTD does not encode antibody modality in the MoA column)'
+  - 'gene_symbol: use HGNC official symbol only — p53→TP53, PD-1→PDCD1, PD-L1→CD274'
+  - 'target_name vs gene_symbol: target_name is the full protein name INCLUDING the gene symbol in parentheses
+    as stored on disk (e.g. ''Epidermal growth factor receptor (EGFR)''); gene_symbol is the short HGNC
+    symbol (e.g. ''EGFR''); both columns exist on target_master_table — do NOT strip the parenthetical
+    from target_name filters'
+  - brand/trade name lookup (Herceptin, Keytruda, Avastin, etc.) is resolved internally via trade_name_map
+    → drug_name before querying; do NOT emit synonym as a filter field — drug_name is the correct output
+    column
+  - drug_crossmatching_association and target_uniprot_association are decoration tables (LEFT-joined)
+    — ~40.3% of drugs (17,295/42,938, largely biologics) have no crossmatching row, so do not use chemical-identifier
+    columns as a primary filter anchor
+  - 'disease_name normalization: TTD uses canonical disease name strings that may differ from common usage
+    (specific terminology, British spelling variants, specificity levels). Use medical knowledge to map
+    user terms to their likely TTD-canonical forms; the entity resolver handles final fuzzy-matching,
+    so an exact literal match is not required.'
+  - 'drug_mechanism_of_action_on_target interpretation: "Modulator" is TTD''s broad catch-all for mechanisms
+    not precisely curated. When the query is a mechanism-of-action question and TTD returns "Modulator",
+    the synthesizer should supplement with pharmacological knowledge — for small-molecule enzyme/kinase
+    drugs "Modulator" is functionally an Inhibitor; for monoclonal antibodies it is typically a Blocker
+    or Antagonist. Always surface the TTD value plus the likely specific mechanism.'
+  - 'antibody target annotation: TTD may record either the molecular ligand OR the receptor as the primary
+    target of an antibody drug — both refer to the same pharmacological pathway. Anti-ligand antibodies
+    (e.g. anti-cytokine mAbs) bind the secreted peptide; anti-receptor antibodies bind the cell-surface
+    receptor. When interpreting TTD target rows for antibody drugs, use pharmacological knowledge to clarify
+    whether the annotated target is the ligand or its receptor.'
+  - 'drug_name FORBIDDEN in pure gene-disease and gene-pathway outputs: when the query asks ONLY for (gene
+    ↔ disease) or (gene ↔ pathway) associations with no drug context, drug_name must be ABSENT from parsed_value
+    — it is a JOIN KEY not an answer column. Exception: if the query explicitly asks about drugs alongside
+    genes/diseases (e.g. ''which genes and drugs are linked to breast cancer?''), drug_name: ''requested''
+    is correct. This rule does NOT block drug_name when drug_mechanism_of_action_on_target is present
+    (that is a drug-target context, not a pure gene-disease context)'
+  co_output_rules:
+  - trigger_columns:
+    - formula
+    - crossmatch_pubchem_cid
+    - cas_number
+    - chebi_xref
+    require_columns:
+    - drug_name
+    require_behavior: infer_from_question
+    reason: 'chemical identifiers are not interpretable without the drug name — if question names a specific
+      drug emit drug_name: ["<name>"], otherwise emit drug_name: "requested"'
+  - trigger_columns:
+    - uniprot_xref
+    - target_type
+    require_columns:
+    - target_name
+    - gene_symbol
+    require_behavior: requested
+    reason: UniProt xref and target type need the target name for context
+  - trigger_columns:
+    - activity_value
+    - activity_type
+    - activity_unit
+    require_columns:
+    - gene_symbol
+    require_behavior: requested
+    reason: bioactivity values need the target gene symbol for interpretation
+  - trigger_columns:
+    - drug_mechanism_of_action_on_target
+    require_columns:
+    - drug_name
+    - target_name
+    - gene_symbol
+    require_behavior: requested
+    reason: mechanism of action needs the drug name, gene_symbol for context
+  - trigger_columns:
+    - approval_status
+    require_columns:
+    - drug_name
+    require_behavior: infer_from_question
+    reason: 'approval status needs the drug name to be meaningful — if question names a specific drug
+      emit drug_name: ["<name>"], otherwise emit drug_name: "requested"'
+  - trigger_columns:
+    - drug_name
+    require_columns:
+    - approval_status
+    require_behavior: requested
+    trigger_behavior: output_only
+    reason: 'drug-disease co-output: whenever drug_name is a SELECT output (disease→drug query),
+      approval_status is always included — enables clinical-maturity sort_order (Approved first).
+      Fires only when drug_name is in the output, not when it is a filter — so pure gene→disease
+      and biomarker→disease paths are not affected.'
+  - trigger_columns:
+    - target_name
+    require_columns:
+    - gene_symbol
+    require_behavior: requested
+    trigger_behavior: output_only
+    reason: protein name and gene symbol are companion identifiers for the same target — only when target_name
+      is an OUTPUT (= "requested"), NOT when it is a filter value like ["tyrosine kinase"]
+  - trigger_columns:
+    - gene_symbol
+    require_columns:
+    - target_name
+    require_behavior: requested
+    trigger_behavior: output_only
+    reason: gene symbol and target name are companion identifiers on target_master_table — when gene_symbol
+      is an OUTPUT, target_name must accompany it; only when gene_symbol is 'requested' (output intent),
+      NOT when it is a filter like ["EGFR"]
+  abbreviation_map:
+    HCV: Hepatitis C virus infection
+    ALS: amyotrophic lateral sclerosis
+  few_shot_examples:
+  - question: List TKIs
+    parsed_value:
+      drug_name: requested
+      drug_mechanism_of_action_on_target:
+      - Inhibitor
+      target_name:
+      - tyrosine kinase
+    note: 'drug CLASS query (TKI/checkpoint inhibitor/mAb): class keywords become FILTERS on MoA + target_name;
+      drug_name is the output — never mark target_name as ''requested'' when it defines the class'
+  - question: What drugs inhibit EGFR in TTD?
+    parsed_value:
+      drug_name: requested
+      gene_symbol:
+      - EGFR
+      drug_mechanism_of_action_on_target:
+      - Inhibitor
+    note: 'specific-target inhibitor query: gene_symbol + MoA as filters, drug_name as output'
+  - question: Which pathways is JAK2 involved in?
+    parsed_value:
+      gene_symbol:
+      - JAK2
+      pathway_name: requested
+    note: pathway query → pathway_name only. disease_name MUST be omitted — separate tables, mixing causes
+      cross-join explosion
+  - question: What biological processes involve EGFR?
+    parsed_value:
+      gene_symbol:
+      - EGFR
+      pathway_name: requested
+    note: '''biological processes'' / ''signaling cascades'' / ''KEGG'' / ''gene sets'' = pathway_name,
+      NOT disease_name'
+  - question: Which diseases are associated with the APP gene?
+    parsed_value:
+      gene_symbol:
+      - APP
+      disease_name: requested
+    note: disease query → disease_name only, pathway_name MUST be omitted; drug_name must also be ABSENT
+      (it is a join key, not an output)
+  - question: What conditions does CFTR mutation cause?
+    parsed_value:
+      gene_symbol:
+      - CFTR
+      disease_name: requested
+    note: '''conditions'' = disease_name, not pathway_name'
+  - question: Which drugs are used to treat breast cancer?
+    parsed_value:
+      disease_name:
+      - Breast cancer
+      drug_name: requested
+      approval_status: requested
+    note: disease→drug query — disease_name is the filter, drug_name + approval_status are co-outputs.
+      approval_status is ALWAYS included alongside drug_name in drug-disease joins (enables clinical-maturity
+      ranking — Approved first). Do NOT add gene_symbol or pathway_name unless explicitly requested.
+  - question: What are the known targets of imatinib?
+    parsed_value:
+      drug_name:
+      - imatinib
+      target_name: requested
+      gene_symbol: requested
+    note: 'drug→target query: drug_name is the FILTER, target_name + gene_symbol are both output (co-output
+      rule: target_name always travels with gene_symbol)'
+  - question: List FDA-approved drugs targeting VEGFR
+    parsed_value:
+      target_name:
+      - VEGFR
+      approval_status:
+      - Approved
+      drug_name: requested
+    note: 'VEGFR is a receptor FAMILY (KDR/FLT1/FLT4), NOT an HGNC gene symbol — use target_name: ["VEGFR"],
+      not gene_symbol. ''FDA approved'' → ''Approved''; drug_name is the output'
+  - question: What biomarkers are associated with breast cancer?
+    parsed_value:
+      disease_name:
+      - Breast cancer
+      biomarker_name: requested
+    note: biomarker query → biomarker_name + disease_name as the output pair; NOT gene_symbol or drug_name
+  - question: Which pathways does imatinib affect?
+    parsed_value:
+      drug_name:
+      - imatinib
+      pathway_name: requested
+    note: 'drug→pathway query: drug_name is the filter anchor, pathway_name is the output; do NOT add
+      disease_name (separate table)'
+  - question: Which genes are associated with Alzheimer's disease?
+    parsed_value:
+      disease_name:
+      - Alzheimer disease
+      gene_symbol: requested
+    note: 'pure disease→gene query: disease_name (filter) + gene_symbol (output) ONLY. drug_name MUST
+      be absent — even if drug_mechanism_of_action_on_target appeared in nearby ANN columns, adding drug_name
+      creates a 3-way cross-join explosion. This rule applies to all pure gene↔disease and gene↔pathway
+      queries with no explicit drug context in the question.'
+  - question: What is the mechanism of action of imatinib?
+    parsed_value:
+      drug_name:
+      - imatinib
+      gene_symbol: requested
+      target_name: requested
+      drug_mechanism_of_action_on_target: requested
+    note: 'mechanism-of-action query: drug is the FILTER, all three of gene_symbol + target_name +
+      drug_mechanism_of_action_on_target are OUTPUT columns. Never omit drug_mechanism_of_action_on_target
+      when the question explicitly asks about mechanism, pharmacology, or how a drug works.'
+  - question: Describe the mechanism of action of trastuzumab.
+    parsed_value:
+      drug_name:
+      - trastuzumab
+      gene_symbol: requested
+      target_name: requested
+      drug_mechanism_of_action_on_target: requested
+    note: 'mechanism-of-action query for a biologic: same pattern as small molecules — drug is FILTER,
+      gene_symbol + target_name + drug_mechanism_of_action_on_target are all OUTPUT. Do NOT add
+      disease_name or approval_status unless the question explicitly asks for them.'
+  - question: what approved drugs targeting ALK treat lung cancer?
+    parsed_value:
+      gene_symbol:
+      - ALK
+      disease_name:
+      - lung cancer
+      drug_name: requested
+      approval_status:
+      - Approved
+    note: '''approved'' is an ADJECTIVE restricting which drugs to return → approval_status: [''Approved'']
+      as FILTER, NOT ''requested''. Co-output rule does NOT apply when the question constrains the
+      approval stage. gene_symbol + disease_name are also filters; drug_name is the output.'
+  - question: Is the MAPK signaling pathway altered by imatinib?
+    parsed_value:
+      drug_name:
+      - imatinib
+      pathway_name:
+      - MAPK signaling
+    note: 'NAMED PATHWAY + NAMED DRUG → both are FILTERS. The question names a specific pathway
+      (''MAPK signaling'') AND a specific drug (''imatinib'') — both become filter lists. pathway_name
+      is NOT ''requested'' here. Contrast with ''which pathways does imatinib affect?'' (no named
+      pathway) → pathway_name: ''requested''.'
+  - question: cell cycle pathways involving CDK4
+    parsed_value:
+      gene_symbol:
+      - CDK4
+      pathway_name:
+      - cell cycle
+    note: 'NAMED PATHWAY CATEGORY + NAMED GENE → both are FILTERS. ''cell cycle'' is the pathway
+      filter, CDK4 is the gene filter. CRITICAL: pathway_name is [''cell cycle''], NOT ''requested''.'
+  - question: PubChem CID of drugs used to treat tuberculosis
+    parsed_value:
+      disease_name:
+      - tuberculosis
+      drug_name: requested
+      crossmatch_pubchem_cid: requested
+    note: 'disease-drug PubChem query: no specific drug named → drug_name: ''requested'' (output).
+      disease_name is the filter. crossmatch_pubchem_cid is always ''requested'' (ID output).
+      CONTRAST with ''PubChem CID of aspirin'' → drug_name: [''aspirin''] (filter, specific drug named).'
+  _orchestrator_examples_comment: Few-shot examples for the orchestrator (disagreement resolver). Show
+    correct output when one mapper hallucinates extra columns the question never requested.
+  orchestrator_examples:
+  - question: which diseases are associated with EGFR?
+    mapper_1:
+      gene_symbol:
+      - EGFR
+      disease_name: requested
+    mapper_2:
+      gene_symbol:
+      - EGFR
+      disease_name: requested
+      drug_name: requested
+    correct:
+      gene_symbol:
+      - EGFR
+      disease_name: requested
+    reasoning: drug_name not in query — it is a join-key intermediate in TTD's target→disease path, never
+      an output when only gene + disease are asked. Reject mapper_2's extra column.
+  - question: what diseases does imatinib treat?
+    mapper_1:
+      drug_name:
+      - imatinib
+      disease_name: requested
+      approval_status: requested
+    mapper_2:
+      drug_name:
+      - imatinib
+      disease_name: requested
+      drug_mechanism_of_action_on_target: requested
+    correct:
+      drug_name:
+      - imatinib
+      disease_name: requested
+      approval_status: requested
+    reasoning: drug→disease query. disease_name + approval_status are always co-outputs for drug-disease
+      joins — approval_status enables clinical-maturity ranking (Approved first). MoA was NOT requested
+      — mapper_2 hallucinated it. drug_mechanism_of_action_on_target belongs only when explicitly asked.
+  - question: what targets does gefitinib bind to?
+    mapper_1:
+      drug_name:
+      - gefitinib
+      target_name: requested
+      gene_symbol: requested
+    mapper_2:
+      drug_name:
+      - gefitinib
+      target_name: requested
+      gene_symbol: requested
+      approval_status: requested
+    correct:
+      drug_name:
+      - gefitinib
+      target_name: requested
+      gene_symbol: requested
+    reasoning: User asked for targets only. approval_status not in query — mapper_2 hallucinated it. approval_status
+      is relevant only when the user asks about clinical status, approval, or phase.
+  - question: which drugs target VEGFR?
+    mapper_1:
+      target_name:
+      - VEGFR
+      drug_name: requested
+    mapper_2:
+      target_name:
+      - VEGFR
+      gene_symbol:
+      - VEGFR
+      drug_name: requested
+    correct:
+      target_name:
+      - VEGFR
+      drug_name: requested
+    reasoning: VEGFR is a receptor family name (KDR/FLT1/FLT4), NOT an HGNC gene symbol — use target_name
+      only. mapper_2 incorrectly set gene_symbol to the same family token, which is not a valid HGNC symbol
+      and will return zero rows.
+  - question: which pathways does imatinib regulate?
+    mapper_1:
+      drug_name:
+      - imatinib
+      pathway_name: requested
+    mapper_2:
+      drug_name:
+      - imatinib
+      pathway_name: requested
+      disease_name: requested
+    correct:
+      drug_name:
+      - imatinib
+      pathway_name: requested
+    reasoning: pathway_name and disease_name are mutually exclusive in TTD — they live in separate tables
+      and mixing them causes a cross-join explosion. User asked for pathways only; omit disease_name entirely.
+  - question: which genes are linked to Alzheimer's disease?
+    mapper_1:
+      disease_name:
+      - Alzheimer disease
+      gene_symbol: requested
+    mapper_2:
+      disease_name:
+      - Alzheimer disease
+      gene_symbol: requested
+      drug_name: requested
+    correct:
+      disease_name:
+      - Alzheimer disease
+      gene_symbol: requested
+    reasoning: 'pure disease→gene query: output is gene_symbol ONLY. drug_name is NOT an output here —
+      it is a join-key intermediate in TTD''s disease→target path. mapper_2 hallucinated drug_name because
+      drug_mechanism_of_action_on_target appeared in nearby ANN columns, but the question never asked
+      about drugs. Adding drug_name would produce a 3-way cross-join explosion.'
+  class_entity_rules:
+  - '"TKI" expands to "tyrosine kinase inhibitor" — do NOT replace with a specific drug like imatinib'
+  - '"checkpoint inhibitor" stays as-is — do NOT replace with pembrolizumab or nivolumab'
+  - '"mAb" expands to "monoclonal antibody" — do NOT replace with a specific antibody'
+  - 'For named-gene inhibitor classes (e.g. "BRAF inhibitor", "PARP inhibitor", "CDK4/6 inhibitor",
+    "EGFR inhibitor"): extract the gene symbol(s) from the class name using standard HGNC nomenclature,
+    emit as gene_symbol filter, set drug_mechanism_of_action_on_target: ["Inhibitor"] as filter, and
+    drug_name: "requested" as output — do NOT substitute specific drug names for the class'
+  class_column: drug_name
+  filter_few_shot_examples:
+  - question: Which pathways is DRD2 involved in?
+    keep:
+    - gene_symbol
+    - pathway_name
+    drop:
+    - drug_name
+    - disease_name
+    - approval_status
+    - drug_mechanism_of_action_on_target
+    note: 'gene+pathway query: gene_symbol (WHERE filter on DRD2), pathway_name (SELECT output). drug_name
+      and disease_name are IRRELEVANT — this is a pathway membership question, not drug or disease question.'
+  - question: Which KEGG pathways are associated with the BRAF gene?
+    keep:
+    - gene_symbol
+    - pathway_name
+    - target_name
+    drop:
+    - drug_name
+    - disease_name
+    - approval_status
+    note: 'gene+pathway: gene_symbol + pathway_name are the core pair; target_name is a useful JOIN bridge.
+      drug_name / disease_name / approval_status are irrelevant — do NOT include them.'
+  - question: Which diseases are associated with the EGFR gene?
+    keep:
+    - gene_symbol
+    - disease_name
+    - target_name
+    drop:
+    - drug_name
+    - pathway_name
+    - approval_status
+    - drug_mechanism_of_action_on_target
+    note: 'gene+disease query: gene_symbol (WHERE), disease_name (SELECT). drug_name is a JOIN-key intermediate
+      NOT an answer column — MUST be dropped even if drug_mechanism_of_action_on_target appears in candidates.'
+  - question: What drugs inhibit EGFR?
+    keep:
+    - drug_name
+    - gene_symbol
+    - target_name
+    - drug_mechanism_of_action_on_target
+    drop:
+    - disease_name
+    - pathway_name
+    - approval_status
+    note: 'drug+target query: drug_name (SELECT output), gene_symbol + target_name (WHERE filter on EGFR),
+      drug_mechanism_of_action_on_target (WHERE filter on Inhibitor). disease_name and pathway_name are
+      irrelevant.'
+  - question: What are the approved drugs for breast cancer?
+    keep:
+    - drug_name
+    - disease_name
+    - approval_status
+    drop:
+    - gene_symbol
+    - target_name
+    - pathway_name
+    - drug_mechanism_of_action_on_target
+    note: 'drug+disease query: drug_name (SELECT), disease_name (WHERE filter), approval_status (WHERE
+      filter). gene_symbol / pathway_name are irrelevant intermediate tables.'
+questions:
+  literal:
+  - label: drug+formula
+    question: give the chemical formula of pembrolizumab
+    required:
+    - drug_name
+    - formula
+  - label: drug+gene+disease
+    question: what drugs target TP53 and are used to treat chronic myeloid leukemia?
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+  - label: drug+gene+IC50
+    question: what is the IC50 of imatinib against EGFR?
+    required:
+    - drug_name
+    - gene_symbol
+    - activity_value
+    - activity_type
+  - label: drug+gene+disease
+    question: what drugs target EGFR and are used to treat breast cancer?
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+  - label: gene+pathway
+    question: what biological processes include BRAF?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: gene+pathway
+    question: what biological processes include TP53?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: drug+gene
+    question: what genes does pembrolizumab target?
+    required:
+    - drug_name
+    - gene_symbol
+  - label: drug+pathway
+    question: which KEGG pathways include targets of vemurafenib?
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+pathway
+    question: which KEGG pathways include targets of imatinib?
+    required:
+    - drug_name
+    - pathway_name
+  - label: gene+uniprot
+    question: what is the UniProt accession for BRAF?
+    required:
+    - gene_symbol
+    - uniprot_xref
+  - label: drug+pathway
+    question: which KEGG pathways include targets of imatinib?
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+disease
+    question: what are the indications for trastuzumab?
+    required:
+    - drug_name
+    - disease_name
+  - label: gene+uniprot
+    question: UniProt ID of BRAF
+    required:
+    - gene_symbol
+    - uniprot_xref
+  - label: gene+disease
+    question: what diseases is EGFR associated with in TTD?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: drug+gene+disease+moa
+    question: drugs that inhibit EGFR for breast cancer treatment
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+    - drug_mechanism_of_action_on_target
+  - label: gene+uniprot
+    question: UniProt ID of MYC
+    required:
+    - gene_symbol
+    - uniprot_xref
+  - label: drug+formula
+    question: give the chemical formula of imatinib
+    required:
+    - drug_name
+    - formula
+  - label: drug+gene+disease+moa
+    question: drugs that inhibit MYC for colorectal cancer treatment
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+    - drug_mechanism_of_action_on_target
+  - label: drug+gene+disease
+    question: what drugs target BRAF and are used to treat lung cancer?
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+  - label: drug+gene+IC50
+    question: IC50 of imatinib for EGFR
+    required:
+    - drug_name
+    - gene_symbol
+    - activity_value
+    - activity_type
+  - label: drug+gene+IC50
+    question: what is the IC50 of pembrolizumab against MYC?
+    required:
+    - drug_name
+    - gene_symbol
+    - activity_value
+    - activity_type
+  - label: drug+pathway
+    question: which KEGG pathways include targets of vemurafenib?
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+pathway
+    question: which KEGG pathways include targets of trastuzumab?
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+disease+approval
+    question: what diseases is imatinib approved to treat?
+    required:
+    - drug_name
+    - disease_name
+    - approval_status
+  - label: gene+disease
+    question: what diseases are associated with TP53?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: what diseases are associated with MYC?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: drug+gene+IC50
+    question: what is the IC50 of trastuzumab against BRAF?
+    required:
+    - drug_name
+    - gene_symbol
+    - activity_value
+    - activity_type
+  - label: drug+gene+disease+moa
+    question: drugs that inhibit BRAF for lung cancer treatment
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+    - drug_mechanism_of_action_on_target
+  - label: drug+gene
+    question: which proteins does trastuzumab bind to?
+    required:
+    - drug_name
+    - gene_symbol
+  - label: gene+pathway
+    question: what biological processes include EGFR?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: drug+disease
+    question: what are the indications for pembrolizumab?
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+gene+disease+moa
+    question: drugs that inhibit TP53 for chronic myeloid leukemia treatment
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+    - drug_mechanism_of_action_on_target
+  - label: drug+gene
+    question: what genes does imatinib target?
+    required:
+    - drug_name
+    - gene_symbol
+  - label: drug+gene
+    question: what genes does trastuzumab target?
+    required:
+    - drug_name
+    - gene_symbol
+  - label: gene+pathway
+    question: what biological processes include MYC?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: drug+gene+IC50
+    question: IC50 of vemurafenib for TP53
+    required:
+    - drug_name
+    - gene_symbol
+    - activity_value
+    - activity_type
+  - label: drug+gene
+    question: which proteins does imatinib bind to?
+    required:
+    - drug_name
+    - gene_symbol
+  - label: drug+gene
+    question: which proteins does pembrolizumab bind to?
+    required:
+    - drug_name
+    - gene_symbol
+  - label: gene+uniprot
+    question: UniProt ID of TP53
+    required:
+    - gene_symbol
+    - uniprot_xref
+  - label: drug+disease+approval
+    question: what diseases is vemurafenib approved to treat?
+    required:
+    - drug_name
+    - disease_name
+    - approval_status
+  - label: gene+uniprot
+    question: what is the UniProt accession for EGFR?
+    required:
+    - gene_symbol
+    - uniprot_xref
+  - label: drug+formula
+    question: what is the molecular formula of trastuzumab?
+    required:
+    - drug_name
+    - formula
+  - label: drug+disease
+    question: what are the indications for imatinib?
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+gene
+    question: which proteins does vemurafenib bind to?
+    required:
+    - drug_name
+    - gene_symbol
+  - label: gene+disease
+    question: what diseases is TP53 associated with in TTD?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+pathway
+    question: which pathways involve TP53?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: drug+pathway
+    question: which KEGG pathways include targets of pembrolizumab?
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+disease+approval
+    question: what diseases is trastuzumab approved to treat?
+    required:
+    - drug_name
+    - disease_name
+    - approval_status
+  - label: gene+uniprot
+    question: UniProt ID of EGFR
+    required:
+    - gene_symbol
+    - uniprot_xref
+  - label: gene+pathway
+    question: which pathways involve EGFR?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: drug+formula
+    question: give the chemical formula of trastuzumab
+    required:
+    - drug_name
+    - formula
+  - label: gene+pathway
+    question: which pathways involve MYC?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: drug+gene+IC50
+    question: IC50 of pembrolizumab for MYC
+    required:
+    - drug_name
+    - gene_symbol
+    - activity_value
+    - activity_type
+  - label: gene+uniprot
+    question: what is the UniProt accession for TP53?
+    required:
+    - gene_symbol
+    - uniprot_xref
+  - label: drug+gene+disease
+    question: what drugs target MYC and are used to treat colorectal cancer?
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+  - label: drug+pathway
+    question: which KEGG pathways include targets of trastuzumab?
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+formula
+    question: what is the molecular formula of imatinib?
+    required:
+    - drug_name
+    - formula
+  - label: gene+pathway
+    question: which pathways involve BRAF?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: drug+disease
+    question: what are the indications for vemurafenib?
+    required:
+    - drug_name
+    - disease_name
+  - label: gene+disease
+    question: what diseases is MYC associated with in TTD?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: drug+gene+IC50
+    question: what is the IC50 of vemurafenib against TP53?
+    required:
+    - drug_name
+    - gene_symbol
+    - activity_value
+    - activity_type
+  - label: gene+disease
+    question: what diseases are associated with BRAF?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: drug+formula
+    question: give the chemical formula of vemurafenib
+    required:
+    - drug_name
+    - formula
+  - label: drug+gene
+    question: what genes does vemurafenib target?
+    required:
+    - drug_name
+    - gene_symbol
+  - label: drug+gene+IC50
+    question: IC50 of trastuzumab for BRAF
+    required:
+    - drug_name
+    - gene_symbol
+    - activity_value
+    - activity_type
+  - label: drug+formula
+    question: what is the molecular formula of vemurafenib?
+    required:
+    - drug_name
+    - formula
+  - label: drug+disease+approval
+    question: what diseases is pembrolizumab approved to treat?
+    required:
+    - drug_name
+    - disease_name
+    - approval_status
+  - label: gene+disease
+    question: what diseases are associated with EGFR?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+uniprot
+    question: what is the UniProt accession for MYC?
+    required:
+    - gene_symbol
+    - uniprot_xref
+  - label: gene+disease
+    question: what diseases is BRAF associated with in TTD?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: drug+formula
+    question: what is the molecular formula of pembrolizumab?
+    required:
+    - drug_name
+    - formula
+  - label: drug+pathway
+    question: which KEGG pathways include targets of pembrolizumab?
+    required:
+    - drug_name
+    - pathway_name

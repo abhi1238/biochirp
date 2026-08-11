@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm" viewBox="0 0 100 100" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ah" markerUnits="userSpaceOnUse" markerWidth="3.2" markerHeight="3.2" refX="2.6" refY="1.6" orient="auto">
+      <path d="M0,0 L3.2,1.6 L0,3.2 Z" fill="#5a6b85"/>
+    </marker>
+  </defs>
+
+  <!-- canvas -->
+  <rect x="0.6" y="0.6" width="98.8" height="98.8" rx="3" fill="#ffffff" stroke="#dfe3ea" stroke-width="0.6"/>
+
+  <!-- title -->
+  <text x="50" y="7.2" font-size="3.7" font-weight="700" fill="#15233f" text-anchor="middle">BioChirp — One Engine, Many Datasets</text>
+  <text x="50" y="11.3" font-size="2.05" fill="#5a6b85" text-anchor="middle">A shared core answers every question — new datasets plug in with no rework</text>
+
+  <!-- question -->
+  <rect x="37" y="14.2" width="26" height="6" rx="3" fill="#eef1f6" stroke="#9aa6ba" stroke-width="0.4"/>
+  <text x="50" y="18.2" font-size="2.25" fill="#15233f" text-anchor="middle">User question</text>
+  <line x1="50" y1="20.4" x2="50" y2="23.4" stroke="#5a6b85" stroke-width="0.5" marker-end="url(#ah)"/>
+
+  <!-- shared engine -->
+  <rect x="8" y="24.4" width="84" height="20.4" rx="3" fill="#e8f0fe" stroke="#2f63cf" stroke-width="0.75"/>
+  <text x="50" y="29.4" font-size="3.25" font-weight="700" fill="#1d4ed8" text-anchor="middle">SHARED ENGINE</text>
+  <text x="50" y="32.9" font-size="2" fill="#5a6b85" text-anchor="middle" font-style="italic">built once &#183; reused by every dataset</text>
+
+  <!-- engine inner concept pills -->
+  <g font-size="2.05" fill="#1d4ed8" text-anchor="middle">
+    <rect x="9.5"  y="35.3" width="18" height="6.4" rx="3" fill="#ffffff" stroke="#2f63cf" stroke-width="0.45"/>
+    <text x="18.5" y="39.3">Understand</text>
+    <rect x="30.5" y="35.3" width="18" height="6.4" rx="3" fill="#ffffff" stroke="#2f63cf" stroke-width="0.45"/>
+    <text x="39.5" y="39.3">Retrieve</text>
+    <rect x="51.5" y="35.3" width="18" height="6.4" rx="3" fill="#ffffff" stroke="#2f63cf" stroke-width="0.45"/>
+    <text x="60.5" y="39.3">Compose</text>
+    <rect x="72.5" y="35.3" width="18" height="6.4" rx="3" fill="#ffffff" stroke="#2f63cf" stroke-width="0.45"/>
+    <text x="81.5" y="39.3">Self-check</text>
+  </g>
+  <g stroke="#5a6b85" stroke-width="0.45">
+    <line x1="27.7" y1="38.5" x2="30.3" y2="38.5" marker-end="url(#ah)"/>
+    <line x1="48.7" y1="38.5" x2="51.3" y2="38.5" marker-end="url(#ah)"/>
+    <line x1="69.7" y1="38.5" x2="72.3" y2="38.5" marker-end="url(#ah)"/>
+  </g>
+
+  <line x1="50" y1="44.8" x2="50" y2="48.6" stroke="#5a6b85" stroke-width="0.5" marker-end="url(#ah)"/>
+
+  <!-- datasets header -->
+  <text x="50" y="52.2" font-size="2.45" font-weight="700" fill="#15233f" text-anchor="middle">MANY DATASETS — each a small, identical plug-in</text>
+
+  <!-- dataset cards -->
+  <g>
+    <!-- card template repeated -->
+    <g>
+      <rect x="9"  y="54" width="13" height="11.6" rx="2" fill="#fff4e6" stroke="#dd8a2c" stroke-width="0.5"/>
+      <path d="M12.9,56.9 v3 a2.6,0.95 0 0 0 5.2,0 v-3" fill="#f6c98a" stroke="#dd8a2c" stroke-width="0.35"/>
+      <ellipse cx="15.5" cy="56.9" rx="2.6" ry="0.95" fill="#fcdcab" stroke="#dd8a2c" stroke-width="0.35"/>
+      <text x="15.5" y="63.6" font-size="1.95" fill="#8a5a16" text-anchor="middle">Dataset</text>
+    </g>
+    <g>
+      <rect x="25" y="54" width="13" height="11.6" rx="2" fill="#fff4e6" stroke="#dd8a2c" stroke-width="0.5"/>
+      <path d="M28.9,56.9 v3 a2.6,0.95 0 0 0 5.2,0 v-3" fill="#f6c98a" stroke="#dd8a2c" stroke-width="0.35"/>
+      <ellipse cx="31.5" cy="56.9" rx="2.6" ry="0.95" fill="#fcdcab" stroke="#dd8a2c" stroke-width="0.35"/>
+      <text x="31.5" y="63.6" font-size="1.95" fill="#8a5a16" text-anchor="middle">Dataset</text>
+    </g>
+    <g>
+      <rect x="41" y="54" width="13" height="11.6" rx="2" fill="#fff4e6" stroke="#dd8a2c" stroke-width="0.5"/>
+      <path d="M44.9,56.9 v3 a2.6,0.95 0 0 0 5.2,0 v-3" fill="#f6c98a" stroke="#dd8a2c" stroke-width="0.35"/>
+      <ellipse cx="47.5" cy="56.9" rx="2.6" ry="0.95" fill="#fcdcab" stroke="#dd8a2c" stroke-width="0.35"/>
+      <text x="47.5" y="63.6" font-size="1.95" fill="#8a5a16" text-anchor="middle">Dataset</text>
+    </g>
+    <g>
+      <rect x="57" y="54" width="13" height="11.6" rx="2" fill="#fff4e6" stroke="#dd8a2c" stroke-width="0.5"/>
+      <path d="M60.9,56.9 v3 a2.6,0.95 0 0 0 5.2,0 v-3" fill="#f6c98a" stroke="#dd8a2c" stroke-width="0.35"/>
+      <ellipse cx="63.5" cy="56.9" rx="2.6" ry="0.95" fill="#fcdcab" stroke="#dd8a2c" stroke-width="0.35"/>
+      <text x="63.5" y="63.6" font-size="1.95" fill="#8a5a16" text-anchor="middle">Dataset</text>
+    </g>
+    <text x="73" y="61.2" font-size="3.4" fill="#8a93a5" text-anchor="middle">&#183;&#183;&#183;</text>
+    <!-- new dataset -->
+    <rect x="76" y="54" width="16" height="11.6" rx="2" fill="#eafaf0" stroke="#2faf63" stroke-width="0.6" stroke-dasharray="1.3 1"/>
+    <text x="84" y="59.6" font-size="5" font-weight="700" fill="#2faf63" text-anchor="middle">+</text>
+    <text x="84" y="63.4" font-size="1.95" font-weight="700" fill="#1a7a44" text-anchor="middle">NEW dataset</text>
+  </g>
+
+  <text x="50" y="68.9" font-size="2" fill="#5a6b85" text-anchor="middle">Adding a dataset = drop in its data + a short notes block. The engine is never changed.</text>
+
+  <line x1="8" y1="71.6" x2="92" y2="71.6" stroke="#e3e7ee" stroke-width="0.4"/>
+
+  <!-- 3-tier instructions -->
+  <text x="50" y="75.4" font-size="2.45" font-weight="700" fill="#15233f" text-anchor="middle">TAILORED INSTRUCTIONS — assembled in 3 tiers, no code changes</text>
+
+  <g text-anchor="middle">
+    <rect x="8"  y="77.8" width="18" height="8" rx="2.4" fill="#f0ecfb" stroke="#6f54c4" stroke-width="0.45"/>
+    <text x="17" y="81.4" font-size="2" fill="#4a3a8f">Generic rules</text>
+    <text x="17" y="84"   font-size="1.6" fill="#8a82ad">shared &#183; once</text>
+
+    <rect x="29" y="77.8" width="18" height="8" rx="2.4" fill="#f0ecfb" stroke="#6f54c4" stroke-width="0.45"/>
+    <text x="38" y="81.4" font-size="2" fill="#4a3a8f">Dataset notes</text>
+    <text x="38" y="84"   font-size="1.6" fill="#8a82ad">per dataset</text>
+
+    <rect x="50" y="77.8" width="18" height="8" rx="2.4" fill="#f0ecfb" stroke="#6f54c4" stroke-width="0.45"/>
+    <text x="59" y="81.4" font-size="2" fill="#4a3a8f">Live data</text>
+    <text x="59" y="84"   font-size="1.6" fill="#8a82ad">this query</text>
+
+    <rect x="73" y="77.8" width="19" height="8" rx="2.4" fill="#6f54c4" stroke="#6f54c4" stroke-width="0.45"/>
+    <text x="82.5" y="81.4" font-size="2" font-weight="700" fill="#ffffff">Tailored</text>
+    <text x="82.5" y="84"   font-size="1.7" fill="#ddd4f3">guidance</text>
+  </g>
+  <g fill="#6f54c4" font-size="3" font-weight="700" text-anchor="middle">
+    <text x="27.5" y="82.8">+</text>
+    <text x="48.5" y="82.8">+</text>
+  </g>
+  <line x1="68.2" y1="81.8" x2="72.6" y2="81.8" stroke="#5a6b85" stroke-width="0.5" marker-end="url(#ah)"/>
+
+  <!-- takeaway -->
+  <text x="50" y="92.6" font-size="2.35" font-weight="700" font-style="italic" fill="#1d4ed8" text-anchor="middle">Scales by adding datasets — not by adding code.</text>
+</svg>

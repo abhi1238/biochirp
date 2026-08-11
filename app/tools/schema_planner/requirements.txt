@@ -1,0 +1,6 @@
+# schema_planner service — the LEAN, deterministic schema_kg planner.
+# Pure graph work: networkx comes from biochirp/base; build_graph (schema_kg/src)
+# is stdlib-only. No torch / sentence-transformers / qdrant here — that is what
+# makes this the cheap tool to extract first.
+# python-dotenv for env loading parity with the other services.
+python-dotenv==1.2.1

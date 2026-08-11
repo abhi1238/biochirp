@@ -1,0 +1,34 @@
+# Per-DB chat WebSocket rate-limit overlay (sample).
+#
+# The 28 *_chat routes live in the apex nginx config (/etc/nginx/sites-
+# available/biochirp), proxied to the corresponding *_chat_service containers.
+# This snippet is NOT auto-included anywhere — copy the `limit_req` /
+# `limit_conn` lines into each chat location block alongside the existing
+# proxy_pass directives.
+#
+# Requires deploy/nginx-rate-limits.conf to be loaded at http{} scope
+# (typically via /etc/nginx/conf.d/biochirp-rate-limits.conf).
+#
+# Example — apply to /ttd_chat (repeat for the other 27 DB chat routes):
+#
+#   location /ttd_chat {
+#       # NEW: rate-limit WS opens + cap concurrent connections per IP.
+#       limit_req  zone=biochirp_ws  burst=6  nodelay;
+#       limit_conn biochirp_conn     16;
+#
+#       proxy_pass         http://biochirp_ttd_chat:8000;
+#       proxy_http_version 1.1;
+#       proxy_set_header   Upgrade           $http_upgrade;
+#       proxy_set_header   Connection        "upgrade";
+#       proxy_set_header   Host              $host;
+#       proxy_set_header   X-Real-IP         $remote_addr;
+#       proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+#       proxy_set_header   X-Forwarded-Proto $scheme;
+#       proxy_read_timeout 24h;
+#       proxy_send_timeout 24h;
+#   }
+#
+# Note on WS + limit_req: nginx only counts the HTTP upgrade request against
+# the rate limit, not the steady stream of WS frames. That's the right
+# behaviour — it bounds reconnect-storm abuse without throttling an
+# established conversation.

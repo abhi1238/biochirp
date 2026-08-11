@@ -1,0 +1,5 @@
+# orchestrator service — LEAN single coordinator over the tool fleet.
+# No heavy deps: it only holds thin httpx clients (*_tool.py) + the routing LLM
+# call. fastapi / httpx come from biochirp/base. No torch / polars / qdrant.
+# python-dotenv for env loading parity with the other services.
+python-dotenv==1.2.1

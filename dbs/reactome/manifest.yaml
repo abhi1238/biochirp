@@ -1,0 +1,151 @@
+name: reactome
+display_name: Reactome
+description: 'Reactome. Manually curated human pathway knowledgebase. This snapshot exposes pathway-level
+  annotations only (pathway ID, pathway name, parent/child hierarchy, and participant gene/protein/chemical/Ensembl
+  identifiers with evidence codes). No reaction-level, substrate/product, or kinetic data is stored on
+  disk. Species is Homo sapiens only.
+
+  '
+schema:
+  inputs:
+  - field: pathway_name
+  - field: gene_symbol
+  outputs:
+  - field: pathway_name
+  - field: gene_symbol
+  tables:
+    pathway_master_table_reactome:
+      description: Master list of 2870 Reactome pathways (all Homo sapiens in this snapshot). One row
+        per stable pathway_id. pathway_name is not strictly unique (11 duplicates, mostly SARS-CoV-1/2
+        lifecycle stages).
+      key_columns:
+      - name: pathway_id
+        description: Reactome stable identifier in the format "R-HSA-" + integer for human (e.g. "R-HSA-109581"
+          = Apoptosis). Users may ask for "Reactome ID", "pathway ID", or "stable ID".
+      - name: pathway_name
+        description: Reactome pathway preferred name (e.g. "Apoptosis", "Signaling by EGFR", "Cell Cycle").
+          Not strictly unique — 11 pathway_names (mostly viral lifecycle stages duplicated across SARS-CoV-1
+          / SARS-CoV-2, e.g. "Maturation of spike protein", "Attachment and Entry") appear twice under
+          distinct pathway_ids; use pathway_id for unique resolution. Users may ask for "pathway", "pathway
+          name", "biological pathway", or just type the name.
+    gene_master_table_reactome:
+      description: Master list of 11668 unique gene records in the Reactome snapshot, one row per gene_id
+        (NCBIGene:N form). gene_symbol carries the HGNC symbol when available; 384 rows (~3.3%) have a
+        null gene_symbol where no HGNC symbol could be resolved.
+      key_columns:
+      - name: gene_id
+        description: 'NCBI gene ID for the Reactome gene record, formatted as NCBIGene:N where N is an
+          integer (e.g. NCBIGene:1, NCBIGene:9130). All 11668 rows carry a plain integer in the NCBIGene:
+          namespace (no RefSeq/GenBank accessions remain in this served snapshot). Joins to gene_pathway_association_reactome.gene_id.'
+      - name: gene_symbol
+        description: HGNC short gene symbol (e.g. "A1BG", "TP53", "EGFR"). 11284 distinct symbols across
+          11668 rows; 384 rows are null where no HGNC symbol exists. A couple of legitimate HGNC symbols
+          contain an underscore (e.g. "APOBEC3A_B", "C4B_2"). No bare-Entrez-integer or RefSeq/GenBank
+          accession fallbacks occur in this served snapshot. Users may ask for "gene", "gene symbol",
+          or "gene name".
+    gene_pathway_association_reactome:
+      description: Gene-to-pathway membership edges (156146 rows). Joins gene_master_table_reactome (11668 unique
+        genes) to pathway_master_table_reactome (2841 unique pathways). The 29-pathway gap to the master (2870)
+        are top-level root pathways (e.g. 'Disease', 'Drug ADME') that carry no direct gene annotations;
+        their gene members annotate the child sub-pathways instead. Evidence is TAS (~80.0%) or IEA (~20.0%).
+      key_columns:
+      - name: gene_id
+        description: NCBI gene identifier in "NCBIGene:N" form (e.g. "NCBIGene:1"). Joins to gene_master_table_reactome.gene_id.
+      - name: pathway_id
+        description: Reactome stable pathway ID in "R-HSA-N" form (e.g. "R-HSA-109582"). Joins to pathway_master_table_reactome.pathway_id.
+      - name: gene_pathway_evidence
+        description: Evidence code for the gene-pathway annotation (e.g. "IEA", "TAS"). Users may ask
+          for "evidence" or "evidence code".
+    pathway_hierarchy_reactome:
+      description: Parent/child edges over the 2870 Reactome pathways (2886 rows; 843 unique parent pathways,
+        2841 unique child pathways). Self-contained for hierarchy traversal via denormalized parent_pathway_name /
+        child_pathway_name (no join to pathway_master needed). "Sub-pathways of X" = filter parent_pathway_name=X, output
+        child_pathway_name; "parent of X" = filter child_pathway_name=X, output parent_pathway_name.
+      key_columns:
+      - name: parent_id
+        description: Parent pathway stable ID in the Reactome hierarchy ("R-HSA-N" form, e.g. "R-HSA-109581").
+          Opaque join key only (FK to pathway_master_table_reactome.pathway_id); filter/display via parent_pathway_name.
+      - name: parent_pathway_name
+        description: Human-readable name of the PARENT (broader / super) pathway, denormalized from
+          pathway_master_table. Filter on this for "sub-pathways / children of <pathway>" and return child_pathway_name.
+      - name: child_id
+        description: Child pathway stable ID ("R-HSA-N" form). Opaque join key only (FK to
+          pathway_master_table_reactome.pathway_id); filter/display via child_pathway_name.
+      - name: child_pathway_name
+        description: Human-readable name of the CHILD (narrower / sub) pathway, denormalized from
+          pathway_master_table. Filter on this for "parent / super-pathway of <pathway>" and return parent_pathway_name.
+    uniprot_pathway_reactome:
+      description: UniProt-to-pathway participant edges (159114 rows; 12136 unique UniProt accessions
+        across 2854 pathways). Evidence is TAS (~80.1%) or IEA (~19.9%).
+      key_columns:
+      - name: uniprot_accession
+        description: UniProt accession participating in the pathway (e.g. "P04637"). Users may ask for
+          "UniProt ID", "UniProt accession", or "protein ID".
+      - name: pathway_id
+        description: Reactome stable pathway ID in "R-HSA-N" form. Joins to pathway_master_table_reactome.pathway_id.
+      - name: uniprot_pathway_evidence
+        description: Evidence code for the UniProt–pathway annotation. Enum {TAS (traceable author statement,
+          ~80.1%), IEA (inferred from electronic annotation, ~19.9%)}.
+    chebi_pathway_reactome:
+      description: ChEBI chemical-to-pathway participant edges (42272 rows; 3229 unique ChEBI ids across
+        2520 pathways). Evidence is TAS (~85.7%) or IEA (~14.3%).
+      key_columns:
+      - name: chebi_id
+        description: ChEBI chemical participating in the pathway. Stored in the served parquet as a "CHEBI:"-prefixed
+          string (e.g. "CHEBI:15377", "CHEBI:456216"); all 42272 rows carry the prefix. Do NOT strip the
+          "CHEBI:" prefix when filtering or joining — match the full prefixed value. Users may ask for
+          "ChEBI ID" or "chemical entity".
+      - name: pathway_id
+        description: Reactome stable pathway ID in "R-HSA-N" form. Joins to pathway_master_table_reactome.pathway_id.
+      - name: chebi_pathway_evidence
+        description: Evidence code for the chemical-pathway annotation; enum {TAS, IEA}.
+    ensembl_pathway_reactome:
+      description: Ensembl-to-pathway participant edges (1109952 rows; 76469 unique Ensembl IDs, mixing
+        ENSG/ENST/ENSP, across 2826 pathways). Evidence is TAS (~79.8%) or IEA (~20.2%).
+      key_columns:
+      - name: ensembl_id
+        description: Ensembl identifier participating in the pathway. The column mixes ENSG (gene, ~16%),
+          ENST (transcript, ~42%), and ENSP (protein, ~42%) IDs — do NOT assume gene-only semantics.
+          Users may ask for "Ensembl ID", "Ensembl gene", "Ensembl transcript", or "Ensembl protein".
+      - name: pathway_id
+        description: Reactome stable pathway ID in "R-HSA-N" form. Joins to pathway_master_table_reactome.pathway_id.
+      - name: ensembl_pathway_evidence
+        description: Evidence code for the Ensembl-pathway annotation; enum {TAS, IEA}.
+    ncbi_pathway_reactome:
+      description: NCBI Entrez gene-to-pathway participant edges. 156,146 rows served, all numeric Entrez
+        IDs (verified). The `^\d+$` filter that removes non-Entrez accessions runs at PREPROCESS time
+        (notebook cell 14), so 0 rows are dropped at load; database_loader.py re-applies the same filter
+        only as a no-op safety backstop. 11668 unique Entrez gene IDs across 2841 pathways. Evidence is
+        TAS (~80.0%) or IEA (~20.0%).
+      key_columns:
+      - name: ncbi_gene_id
+        description: NCBI Entrez gene ID participating in the pathway. Stored as a bare integer string
+          (e.g. "1956" for EGFR, "7157" for TP53); NOT prefixed with "NCBIGene:". Non-numeric
+          RefSeq/GenBank/mitochondrial accessions (e.g. NR_030583, U39662, MN908947.3) are excluded
+          at PREPROCESS time (notebook cell 14 applies the `^\d+$` filter), so the served parquet is
+          already all-numeric; the loader re-applies the filter as a no-op safety backstop.
+          Users may ask for "Entrez ID" or "NCBI gene ID".
+      - name: pathway_id
+        description: Reactome stable pathway ID in "R-HSA-N" form. Joins to pathway_master_table_reactome.pathway_id.
+      - name: ncbi_pathway_evidence
+        description: Evidence code for the Entrez-pathway annotation; enum {TAS, IEA}.
+valid_queries:
+- What pathways does the BRCA2 gene participate in?
+- Which proteins are members of the PIP3 activates AKT signaling pathway?
+- What biological processes is TP53 involved in according to Reactome?
+- Which pathways are involved in DNA damage repair?
+- What are the sub-pathways (children) of the Apoptosis pathway?
+- Which ChEBI chemicals participate in the TCA cycle?
+invalid_queries:
+- What drugs inhibit the PI3K pathway? (use TTD/DGIdb — Reactome has no drug-target data)
+- What variants disrupt BRCA2 pathway participation? (use ClinVar — Reactome has no variant data)
+- What diseases are caused by PI3K pathway dysregulation? (use ClinVar — Reactome has no disease associations)
+- What TFs regulate EGFR expression? (use TRRUST/OmniPath for TF-target regulation)
+- What gene sets are in the Reactome collection? (use MSigDB for gene set membership)
+force_relations:
+  pathway_membership: 1.0
+service:
+  tool:
+    port: 8064
+    memory_limit: 2g
+    memory_reservation: 256m

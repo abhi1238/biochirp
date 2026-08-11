@@ -1,0 +1,32 @@
+# BioChirp shared .dockerignore template.
+# Keeps build context lean — no bytecode, notebook checkpoints, OS junk, or
+# editor caches. Each per-service context directory carries a copy of this
+# file. Edit `scripts/sync_dockerignore.sh` (or the one in scripts/) to roll
+# changes out to all contexts.
+
+# Python bytecode / pip / pytest noise
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Notebooks & their checkpoints — the build never needs them
+**/*.ipynb
+**/.ipynb_checkpoints/
+
+# Local dev / editor scratch
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# Logs and build artefacts that may leak in via mount paths
+**/logs/
+**/*.log
+**/dist/
+**/build/
+**/.venv/

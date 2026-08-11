@@ -1,0 +1,55 @@
+name: prompt-invariants
+
+# Gate on PRs / pushes that touch prompts or the prompt-invariant scripts.
+# Lives in its own workflow file (not appended to ci.yml) so the path filter
+# only suppresses this job, not the rest of CI.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'resources/prompts/**'
+      - 'resources/db_field_aliases.md'
+      - 'resources/db_column_descriptions.md'
+      - 'scripts/check_prompt_*'
+      - '.github/workflows/prompt-invariants.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'resources/prompts/**'
+      - 'resources/db_field_aliases.md'
+      - 'resources/db_column_descriptions.md'
+      - 'scripts/check_prompt_*'
+      - '.github/workflows/prompt-invariants.yml'
+
+# Enforces the four prompt-consistency invariants surfaced by the
+# 2026-05-23 audit:
+#   1. gene_symbol/gene_name canonical (YAML-block-aware) — Python
+#   2. medical-advice disclaimer = 5 byte-identical occurrences — Bash
+#   3. provenance disclaimer = 10 byte-identical occurrences — Bash
+#   4. no live miRBase references (only the intentional tombstone) — Bash
+#
+# Background: audit_reports/prompt_consistency_audit_2026-05-23/FINAL_REPORT.md
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        run: pip install --quiet pyyaml
+
+      - name: Gene-field canonical (YAML-block-aware)
+        run: python scripts/check_prompt_gene_field_canonical.py
+
+      - name: Disclaimer counts + miRBase ghost
+        # LC_ALL=C.UTF-8 ensures grep handles the em-dash (U+2014) and
+        # ⚠️ (U+26A0 U+FE0F) in the provenance string consistently across
+        # the runner's default locale.
+        env:
+          LC_ALL: C.UTF-8
+        run: bash scripts/check_prompt_invariants.sh

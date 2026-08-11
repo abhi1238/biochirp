@@ -1,0 +1,754 @@
+# REVIEW before use: verify dtypes, factor `questions.literal` into params/templates,
+# and confirm exec_schema/kg_schema flags on denormalised columns.
+db: ctd
+display_name: CTD
+description: Comparative Toxicogenomics Database — chemical/drug interactions with genes, diseases, and
+  pathways across multiple organisms; includes curated direct evidence and inferred associations
+parquet_dir: ctd
+tables:
+  chemical_gene_association:
+    parquet: _loader_derived_:chemical_gene_interaction_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true, description: CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id}
+    - {name: gene_id, key_column: true, description: NCBI Entrez gene ID — FK to gene_master_table_ctd.gene_id}
+    - {name: interaction_text, key_column: true, description: free-text description of the gene interaction
+        mechanism}
+    - {name: chemical_gene_interaction_actions, queryable: true, key_column: true, concept_type: interaction_type,
+      llm_note: 'chemical-GENE action codes (chemical_gene_association_ctd), pipe-joined like increases^expression,
+        decreases^activity; search with LIKE ''%<fragment>%''. Common verb mappings: upregulate/overexpress
+        → increases^expression; downregulate/silence/suppress → decreases^expression; activate/stimulate
+        → increases^activity; inhibit/block/suppress → decreases^activity; bind → affects^binding; methylate
+        → affects^methylation; phosphorylate → affects^phosphorylation or increases^phosphorylation; ubiquitinate
+        → affects^ubiquitination; stabilize → increases^stability; degrade → decreases^stability or decreases^abundance',
+      description: pipe-separated CTD action codes for the chemical-GENE interaction; e.g. increases^expression|decreases^activity.
+        Search with LIKE '%expression%'.}
+    - {name: chemical_gene_organism_id, exec_schema: false, kg_schema: false, description: NCBI taxonomy ID for the organism; predominant value is '9606' (Homo sapiens); ~1.1% of collapsed pairs have NULL organism_id; not a join key — there is no organism master table in CTD}
+    - {name: pubmed_count, key_column: true, description: number of distinct PubMed publications supporting this chemical-gene
+        pair; computed at load time by collapsing multi-row pairs; use for evidence-strength ranking}
+    - {name: gene_forms, queryable: true, key_column: true, concept_type: enum_value, description: 'gene form involved in interaction
+        (protein, mRNA, etc.)'}
+    - {name: chemical_gene_organism, exec_schema: false, llm_note: 'full organism name — predominant value ''Homo sapiens''; ~1.1% of collapsed pairs have NULL organism — NOT taxonomy ID', description: organism in which the
+        interaction was observed; predominant value is 'Homo sapiens'; ~1.1% of collapsed pairs have NULL organism_id}
+    - {name: chem_gene_pubmed_ids, exec_schema: false, description: pipe-separated PubMed IDs supporting this interaction}
+  gene_pathway_association:
+    parquet: _loader_derived_:genes_pathways_v2.parquet
+    role: association
+    columns:
+    - {name: gene_id, key_column: true, description: FK to gene_master_table_ctd.gene_id}
+    - {name: pathway_id, key_column: true, description: FK to pathway_master_table_ctd.pathway_id}
+  gene_disease_association:
+    parquet: _loader_derived_:gene_disease_association_v2.parquet
+    role: association
+    columns:
+    - {name: gene_id, key_column: true, description: NCBI Entrez gene ID — FK to gene_master_table_ctd.gene_id}
+    - {name: disease_id, key_column: true, description: CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id}
+    - {name: gene_disease_direct_evidence, queryable: true, key_column: true, concept_type: enum_value, enum: [
+        marker/mechanism, therapeutic], description: type of curated direct
+        evidence for the gene-disease link; observed values 'marker/mechanism' (31,993 rows) and 'therapeutic'
+        (1,950 rows); never null in the served table (full curated DirectEvidence subset, 33,943 rows; refreshed 2026-06-27)}
+    - {name: evidence_rank, queryable: false, key_column: true, description: integer encoding of gene_disease_direct_evidence
+        (0=therapeutic, 2=marker/mechanism, 3=other); computed at load
+        time — use ORDER BY evidence_rank ASC to surface most curated associations first}
+    - {name: pubmed_count, key_column: true, description: count of supporting PubMed IDs (study depth);
+        computed at load time from gene_disease_pubmed_ids — higher = better-studied; used as a within-tier
+        ORDER BY pubmed_count DESC sort key}
+    - {name: omim_ids, exec_schema: false, key_column: false, description: 'pipe-separated OMIM identifiers
+        for the associated disease; e.g. ''309610'', ''616469''; ~84.5% NULL (28,668 of 33,943 rows)'}
+    - {name: gene_disease_pubmed_ids, exec_schema: false, key_column: false, description: pipe-separated PubMed IDs
+        supporting the gene-disease association; ~13% of rows are NULL (4,385 of 33,943)}
+  chemical_disease_association:
+    parquet: _loader_derived_:chemical_disease_association_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true, description: CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id}
+    - {name: disease_id, key_column: true, description: CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id}
+    - {name: chem_disease_direct_evidence, queryable: true, key_column: true, concept_type: enum_value, enum: [marker/mechanism,
+        therapeutic], description: 'type of curated direct evidence (e.g. marker/mechanism, therapeutic);
+        null if only inferred'}
+    - {name: evidence_rank, queryable: false, key_column: true, description: integer encoding of chem_disease_direct_evidence
+        (0=therapeutic, 2=marker/mechanism, 3=null/inferred); computed at load time — use ORDER BY
+        evidence_rank ASC to surface curated therapeutic associations first}
+    - {name: pubmed_count, key_column: true, description: count of supporting PubMed IDs (study depth);
+        computed at load time from chem_disease_pubmed_ids — higher = better-studied; used as a within-tier
+        ORDER BY pubmed_count DESC sort key}
+    - {name: inference_gene, queryable: true, key_column: true, concept_type: gene_symbol, description: gene symbol
+        mediating the inferred chemical-disease association}
+    - {name: inference_score, queryable: true, key_column: true, concept_type: bioactivity_value, description: confidence score for inferred
+        associations; higher means stronger evidence}
+    - {name: omim_ids, exec_schema: false, kg_schema: false, key_column: false, description: pipe-separated OMIM identifiers for the associated
+        disease}
+    - {name: chem_disease_pubmed_ids, exec_schema: false, description: pipe-separated PubMed IDs supporting the chemical-disease
+        association}
+  disease_pathway_association:
+    parquet: _loader_derived_:disease_pathway_association_v2.parquet
+    role: association
+    columns:
+    - {name: disease_id, key_column: true, description: CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id}
+    - {name: pathway_id, key_column: true, description: KEGG or Reactome pathway identifier — FK to pathway_master_table_ctd.pathway_id}
+    - {name: disease_pathway_inference_gene, queryable: true, key_column: true, concept_type: gene_symbol,
+      description: 'gene symbol whose participation in the pathway underlies this inferred disease-pathway
+        link; e.g. HRAS, KRAS, VCP; not NULL'}
+  chemical_master_table:
+    parquet: chemical_master_v2.parquet
+    role: master
+    columns:
+    - {name: drug_id, key_column: true, role: pk, description: CTD/MeSH chemical identifier — join key only}
+    - {name: drug_name, queryable: true, key_column: true, concept_type: drug_name, llm_note: 'chemical
+        or drug name — may include environmental compounds (BPA, dioxin, arsenic) not just approved drugs',
+      description: 'canonical name of the chemical or drug; e.g. Cisplatin, bisphenol A, irsogladine'}
+    - {name: cas_rn, queryable: true, key_column: true, concept_type: xref_id, description: CAS Registry
+        Number for the chemical; e.g. 15663-27-1 for cisplatin}
+    - {name: pubchem_cid, queryable: true, key_column: true, concept_type: xref_id, description: 'PubChem
+        Compound ID cross-reference, bare digits with no ''CID:'' prefix; e.g. 2244 for aspirin'}
+    - {name: inchikey, queryable: true, key_column: true, concept_type: xref_id, description: InChIKey
+        structural hash for the chemical; used for structure-based lookups}
+    - {name: chemical_definition, parquet_name: definition, key_column: true, description: textual definition or description of the chemical
+        from CTD}
+    - {name: chemical_synonyms, parquet_name: synonyms, exec_schema: false, kg_schema: false, key_column: false, description: pipe-separated synonym names for the chemical; use chemical_synonyms_association_ctd for exact synonym lookup}
+    - {name: parent_ids, exec_schema: false, kg_schema: false, key_column: false, description: MeSH parent term IDs in the chemical hierarchy — join key only}
+    - {name: tree_numbers, exec_schema: false, kg_schema: false, key_column: false, description: pipe-separated MeSH tree number classification
+        codes locating the chemical in the MeSH hierarchy (e.g. 'D09.894/C000709011'); 0% NULL — join
+        key only}
+  chemical_synonyms_association:
+    parquet: chemical_synonyms_association_ctd_v2.parquet
+    role: association
+    description: Chemical/drug synonym lookup — one row per drug_id × synonym, derived at load time by
+      exploding chemical_master_table_ctd.chemical_synonyms. Use for exact synonym-to-chemical mapping.
+    columns:
+    - {name: drug_id, key_column: true, description: CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id}
+    - {name: chemical_synonym, parquet_name: synonym, queryable: true, key_column: true, concept_type: alias_id, description: 'alternate
+        name or synonym for the chemical/drug; e.g. ''Gleevec'' for imatinib, ''Aspirin'' for acetylsalicylic
+        acid; use for exact synonym lookup to resolve a synonym to its canonical drug_id and drug_name'}
+  gene_synonyms_association:
+    parquet: gene_synonyms_association_ctd_v2.parquet
+    role: association
+    description: Gene synonym/alias lookup — one row per gene_id × synonym, derived at load time by
+      exploding gene_master_table_ctd.gene_synonyms (~42% of genes have synonyms). Use for exact alias-to-gene mapping.
+    columns:
+    - {name: gene_id, key_column: true, description: NCBI Entrez gene ID — FK to gene_master_table_ctd.gene_id}
+    - {name: gene_synonym, parquet_name: synonym, queryable: true, key_column: true, concept_type: alias_id, description: 'alternate
+        symbol or alias for the gene; e.g. ''p53'' for TP53, ''HER2'' for ERBB2; use for exact alias
+        lookup to resolve an alias to its canonical gene_id and gene_symbol'}
+  disease_synonyms_association:
+    parquet: disease_synonyms_association_ctd_v2.parquet
+    role: association
+    description: Disease synonym lookup — one row per disease_id × synonym, derived at load time by
+      exploding disease_master_table_ctd.disease_synonyms (~85% of diseases have synonyms). Use for exact synonym-to-disease mapping.
+    columns:
+    - {name: disease_id, key_column: true, description: CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id}
+    - {name: disease_synonym, parquet_name: synonym, queryable: true, key_column: true, concept_type: alias_id, description: 'alternate
+        name or synonym for the disease; e.g. ''Hyperesthesia'', ''Tactile Hyperesthesia''; use for exact
+        synonym lookup to resolve a synonym to its canonical disease_id and disease_name'}
+  pathway_master_table:
+    parquet: pathway_master_v2.parquet
+    role: master
+    columns:
+    - {name: pathway_id, key_column: true, description: KEGG or Reactome pathway identifier — join key
+        only}
+    - {name: pathway_name, queryable: true, key_column: true, concept_type: pathway_name, description: 'name
+        of the KEGG or Reactome biological pathway; e.g. MAPK signaling pathway, Apoptosis, Cell cycle'}
+  gene_master_table:
+    parquet: gene_master_v2.parquet
+    role: master
+    columns:
+    - {name: gene_id, key_column: true, description: 'NCBI Entrez gene ID (numeric string, e.g. ''3642'',
+        ''10111'') — join key only'}
+    - {name: gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: HGNC
+        official symbol — p53→TP53, description: 'official HGNC gene symbol; e.g. BRCA1, EGFR, TP53, TNF,
+        VEGFA (CTD is multi-organism, so non-human/locus-style symbols also occur); 1 row NULL'}
+    - {name: gene_name, concept_type: protein_name, queryable: true, key_column: true, description: 'full descriptive
+        gene/protein name; e.g. ''Gamma-aminobutyric acid receptor subunit delta'', ''tRNA-Arg''; ~0.4%
+        of rows are NULL'}
+    - {name: alt_gene_ids, exec_schema: false, kg_schema: false, key_column: false, description: pipe-separated alternate
+        NCBI Entrez gene IDs cross-referencing the same gene across organisms; ~92% of rows are NULL —
+        join key only}
+    - {name: gene_synonyms, parquet_name: synonyms, exec_schema: false, kg_schema: false, key_column: false, description: pipe-separated alternate gene
+        symbols / aliases for the gene; ~58% of rows are NULL}
+    - {name: uniprot_ids, queryable: true, key_column: true, concept_type: protein_id,
+      description: 'pipe-separated UniProt protein accessions for the gene''s protein products; e.g. ''A0A075A1F1'',
+        ''A8X7P0''; ~55% of rows are NULL'}
+  disease_master_table:
+    parquet: disease_master_v2.parquet
+    role: master
+    columns:
+    - {name: disease_id, key_column: true, description: CTD/MeSH disease identifier (e.g. MeSH D-code
+        D003920) — join key only}
+    - {name: disease_name, queryable: true, key_column: true, concept_type: disease_name, description: 'canonical
+        disease name from CTD; e.g. Carcinoma, Non-Small-Cell Lung; Diabetes Mellitus; Alzheimer Disease;
+        Glomerulonephritis; Stroke'}
+    - {name: alt_disease_ids, exec_schema: false, kg_schema: false, key_column: false, description: 'pipe-separated cross-reference IDs to other
+        vocabularies, each prefixed by source; e.g. ''DO:DOID:14761|OMIM:175700'', ''OMIM:613855'' — ~58%
+        of rows are NULL — join key only'}
+    - {name: disease_definition, parquet_name: definition, key_column: true, description: free-text definition of the disease from CTD/MeSH;
+        e.g. 'Infections with bacteria of the family MORAXELLACEAE.'; ~61% of rows are NULL}
+    - {name: disease_synonyms, parquet_name: synonyms, exec_schema: false, kg_schema: false, key_column: false, description: pipe-separated synonym names for the disease; e.g.
+        'Hyperesthesias|Tactile Hyperesthesia|Thermal Hyperesthesia'; ~15% of rows are NULL; use disease_synonyms_association_ctd for exact synonym lookup}
+    - {name: slim_mappings, key_column: true, description: pipe-separated high-level CTD MEDIC disease-slim
+        categories; e.g. 'Mental disorder|Metabolic disease|Nervous system disease'; near-complete (0.1%
+        NULL)}
+    - {name: parent_ids, exec_schema: false, kg_schema: false, key_column: false, description: 'pipe-separated MeSH parent disease IDs in the
+        hierarchy; e.g. ''MESH:D000690|MESH:D003704'' — only 1 row NULL — join key only'}
+    - {name: tree_numbers, exec_schema: false, kg_schema: false, key_column: false, description: pipe-separated MeSH tree number classification
+        codes locating the disease in the MeSH hierarchy; e.g. 'C10.228.140.380/C565956|...' — join key
+        only}
+  chemical_pathway_enriched:
+    parquet: _loader_derived_:chemical_pathway_enriched_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true, description: CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id}
+    - {name: pathway_id, key_column: true, description: pathway identifier — FK to pathway_master_table_ctd.pathway_id}
+    - {name: p_value, concept_type: bioactivity_value, queryable: true, key_column: true, description: p-value for pathway enrichment by
+        this chemical}
+    - {name: corrected_p_value, concept_type: bioactivity_value, queryable: true, key_column: true, description: FDR-corrected p-value
+        for the enrichment}
+    - {name: target_match, concept_type: bioactivity_value, queryable: true, key_column: true, description: number of matching target genes
+        in this pathway}
+    - {name: target_total, concept_type: bioactivity_value, queryable: true, key_column: true, description: total number of genes in this
+        pathway}
+  chemical_phenotype_ixn:
+    parquet: _loader_derived_:chemical_phenotype_ixn_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true, description: CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id}
+    - {name: phenotype_id, key_column: true, description: GO phenotype term ID — join key only}
+    - {name: chemical_phenotype_organism_id, key_column: true, description: NCBI taxonomy ID — join key only}
+    - {name: chemical_phenotype_interaction_text, key_column: true, description: free-text describing the chemical-phenotype interaction}
+    - {name: interaction_actions, queryable: true, key_column: true, concept_type: interaction_type,
+      llm_note: 'chemical-PHENOTYPE action codes (chemical_phenotype_ixn_ctd), pipe-joined like increases^abnormal
+        morphology; search with LIKE ''%<fragment>%''. Distinct from chemical_gene_interaction_actions
+        (chemical-gene).', description: pipe-separated CTD action codes for the chemical-PHENOTYPE interaction;
+        e.g. increases^abnormal morphology. Distinct from chemical_gene_interaction_actions (chemical-gene).
+        Search with LIKE '%<fragment>%'.}
+    - {name: anatomy_terms, concept_type: phenotype_name, queryable: true, key_column: true, description: 'pipe-joined anatomy terms
+        in internal ''rank^name^MeSH_ID'' format (e.g. ''1^Lung^D008168|2^Cell Line, Tumor^D045744'');
+        substring-match the name segment with ILIKE — do NOT expect bare names'}
+    - {name: inference_genes, concept_type: gene_symbol, queryable: true, key_column: true, description: pipe-joined gene mediators
+        in 'gene_symbol^entrez_id^GENE' format (e.g. 'KCNQ2^3785^GENE'); substring-match the symbol segment
+        with ILIKE}
+    - {name: chemical_phenotype_name, concept_type: phenotype_name, queryable: true, key_column: true, description: 'name of the GO
+        biological process phenotype; e.g. apoptotic process, cell population proliferation'}
+    - {name: co_mentioned_terms, concept_type: keyword, queryable: true, key_column: true, description: pipe-joined co-mentioned
+        CTD terms in 'name^id^source' format (e.g. 'mancozeb^C013099^MESH'); substring-match the name
+        segment with ILIKE}
+    - {name: chemical_phenotype_organism, exec_schema: false, llm_note: 'full organism name — served interaction tables are
+        human-only, sole value ''Homo sapiens'' — NOT taxonomy ID', description: organism in which the
+        phenotype interaction was observed}
+    - {name: chem_phenotype_pubmed_ids, exec_schema: false, description: pipe-separated PubMed IDs supporting the interaction}
+  exposure_studies_ctd:
+    parquet: exposure_studies_v2.parquet
+    role: association
+    columns:
+    - {name: study_reference, parquet_name: reference, key_column: true, description: PubMed ID of the source study publication (e.g.
+        '31639604'); not NULL}
+    - {name: study_factors, concept_type: keyword, queryable: true, key_column: true, description: 'free-text study design factors/covariates
+        (e.g. ''tobacco'', ''genetics''); ~66% NULL'}
+    - {name: exposure_stressors, concept_type: drug_name, queryable: true, key_column: true, llm_note: 'exposure_studies column:
+        pipe-joined chemicals in ''name^id^source'' caret format (e.g. ''Nitrates^D009566^MESH|perchlorate^C494474^MESH'').
+        NEVER match the whole value — use ILIKE ''%<chemical>%'' on the name segment.', description: pipe-joined
+        chemical stressors in 'name^id^source' format (e.g. 'Nitrates^D009566^MESH|perchlorate^C494474^MESH');
+        substring-match the name segment with ILIKE — do NOT expect bare names; not NULL}
+    - {name: study_receptors, concept_type: enum_value, parquet_name: receptors, queryable: true, key_column: true, llm_note: 'study population
+        type stored as free text; e.g. ''General population'', ''Children'', ''Workers'', ''Pregnant women'',
+        ''Patients''. Use ILIKE ''%children%'' for pediatric studies. ~5% NULL.', description: 'study
+        population type in internal ''^^^^value'' caret-padded format (e.g. ''^^^^Study subjects'', ''^^^^Pregnant
+        females''); substring-match the trailing value with ILIKE; ~5% NULL'}
+    - {name: exposure_study_countries, concept_type: keyword, parquet_name: study_countries, queryable: true, key_column: true, description: 'country/countries
+        where the study was conducted (e.g. ''United States'', ''Norway''); ~0.2% NULL'}
+    - {name: mediums, concept_type: keyword, queryable: true, key_column: true, description: 'exposure media (e.g.
+        ''urine'', ''plasma'', ''air'', ''water''); ~19% NULL'}
+    - {name: exposure_markers, concept_type: drug_name, queryable: true, key_column: true, llm_note: 'exposure_studies column:
+        pipe-joined biomarkers in ''name^id^source'' caret format. Use ILIKE ''%<marker>%'' on the name
+        segment.', description: pipe-joined biomarkers in 'name^id^source' format (e.g. 'perfluorohexanesulfonic
+        acid^C...^MESH'); substring-match the name segment with ILIKE; ~14% NULL}
+    - {name: diseases, concept_type: disease_name, queryable: true, key_column: true, llm_note: 'exposure_studies column: pipe-joined
+        diseases in ''name^MeSH_ID^MESH'' caret format (e.g. ''Obesity^D009765^MESH''). Use ILIKE ''%<disease>%''
+        on the name segment.', description: pipe-joined diseases in 'name^MeSH_ID^MESH' format (e.g. 'Obesity^D009765^MESH');
+        substring-match the name segment with ILIKE; ~54% NULL}
+    - {name: phenotypes, concept_type: phenotype_name, queryable: true, key_column: true, llm_note: 'exposure_studies column: pipe-joined
+        GO phenotypes in ''name^GO:ID^GO'' caret format (e.g. ''methylation^GO:0032259^GO''). Use ILIKE
+        ''%<phenotype>%'' on the name segment.', description: 'pipe-joined GO phenotypes in ''name^GO:ID^GO''
+        format (e.g. ''methylation^GO:0032259^GO''); substring-match the name segment with ILIKE; ~71%
+        NULL'}
+    - {name: author_summary, key_column: true, description: free-text author-provided summary of the exposure
+        study; not NULL}
+  exposure_events_ctd:
+    parquet: _loader_derived_:exposure_events_v2.parquet
+    role: association
+    columns:
+    - {name: stressor_name, queryable: true, key_column: true, concept_type: drug_name, llm_note: 'environmental
+        chemical or agent name in exposure_events. Individual congener names (e.g. ''2,2'',3,3'',4,4'',5-heptachlorobiphenyl'')
+        are stored verbatim. For chemical CLASS queries use LIKE on the class fragment — see stressor_class_map.
+        For specific named chemicals use exact ILIKE match.', description: 'name of the chemical stressor/exposure
+        agent; e.g. Manganese, ''Diethylhexyl Phthalate'', Arsenic; not NULL'}
+    - {name: stressor_id, key_column: true, description: 'CTD/MeSH stressor chemical identifier; e.g. C005563, D004051 —
+        join key only'}
+    - {name: disease_id, key_column: true, description: 'CTD/MeSH disease identifier for the measured chemical-exposure
+        outcome — join key only; bare MeSH D-codes only (no OMIM); 0% NULL in the served v2 table (disease-bearing
+        event subset). NOTE: this is the OUTCOME disease of a stressor→outcome event, NOT the study''s
+        disease scope'}
+    - {name: event_phenotype_name, concept_type: phenotype_name, queryable: true, key_column: true, description: 'GO biological-process phenotype
+        outcome; e.g. growth, ''DNA methylation on cytosine within a CG sequence''; ~98% NULL'}
+    - {name: phenotype_id, key_column: true, description: GO term identifier for the phenotype outcome — join key only}
+    - {name: phenotype_action_type, concept_type: enum_value, queryable: true, key_column: true, llm_note: 'direction of the phenotype
+        outcome; observed values: ''increases'', ''decreases'', ''affects''. Use = for exact match. ~98%
+        NULL — only filter when phenotype_name is also in the query.', description: 'action/direction
+        qualifier for phenotype outcome; e.g. ''increases'', ''decreases'', ''affects''; ~98% NULL'}
+    - {name: exposure_marker, queryable: true, key_column: true, concept_type: drug_name, description: 'biomarker
+        chemical used to measure exposure; e.g. ''mono(2-ethyl-5-oxohexyl)phthalate'', Manganese; ~63%
+        NULL (4,757 of 7,534 rows)'}
+    - {name: exposure_marker_id, key_column: true, description: CTD/MeSH identifier for the exposure biomarker — join
+        key only}
+    - {name: outcome_relationship, concept_type: enum_value, queryable: true, key_column: true, llm_note: 'pipe from exposure to
+        outcome; four exact values (case-sensitive): ''positive correlation'', ''negative correlation'',
+        ''no correlation'', ''prediction/hypothesis''. Use = for exact match. ''positive'' or ''associated''
+        → ''positive correlation''; ''no association''/''null'' → ''no correlation''.', description: 'direction
+        of the exposure-outcome relationship; observed values: ''positive correlation'', ''negative correlation'',
+        ''no correlation'', ''prediction/hypothesis''; ~1% NULL'}
+    - {name: event_reference, key_column: true, description: PubMed ID of the source publication; e.g. 32353757; not NULL}
+    - {name: sex, key_column: true, description: 'sex of the exposed study population; e.g. ''Both Males
+        and Females'', ''Females'', ''Males''; ~18.6% NULL'}
+    - {name: age, key_column: true, description: 'age value or range of the study cohort; e.g. ''18-65'',
+        ''6'', ''0-10''; ~40.6% NULL (3,056 of 7,534 rows)'}
+    - {name: age_units, key_column: true, description: 'units for the age field; e.g. ''years'', ''months'',
+        ''weeks''; ~40.6% NULL (3,056 of 7,534 rows)'}
+    - {name: race, key_column: true, description: 'race/ethnicity of the study cohort; e.g. ''White'',
+        ''Black'', ''Hispanic'', ''Asian'', ''Mixed''; ~75% NULL'}
+    - {name: smoking_status, key_column: true, description: 'smoking status of the cohort; e.g. ''Nonsmokers'',
+        ''Smokers'', ''Mixed''; ~71.8% NULL'}
+    - {name: medium, concept_type: keyword, queryable: true, key_column: true, description: 'biological/environmental
+        matrix in which exposure was measured; e.g. urine, blood, air, water; ~65.3% NULL'}
+    - {name: event_study_countries, concept_type: keyword, queryable: true, key_column: true, description: 'country/countries
+        where the exposure study was conducted; e.g. Germany, Denmark, ''United States''; ~1% NULL'}
+    - {name: anatomy, concept_type: phenotype_name, queryable: true, key_column: true, llm_note: 'anatomical site stored as free text;
+        e.g. ''blood'', ''liver'', ''brain'', ''urine'', ''placenta''. Use ILIKE for substring match.
+        ~98.3% NULL.', description: 'anatomical site of the exposure effect; e.g. ''blood'', ''liver'',
+        ''brain''; ~98.3% NULL'}
+    - {name: enrollment_start_year, key_column: true, description: year enrollment in the study began;
+        e.g. 2005; ~12.5% NULL}
+    - {name: enrollment_end_year, key_column: true, description: year enrollment in the study ended; e.g.
+        2012; ~12.5% NULL (943 of 7,534 rows)}
+    - {name: stressor_source_category, concept_type: enum_value, queryable: true, key_column: true, llm_note: 'categorical
+        source type; common observed values: ''industrial'', ''dietary'', ''occupational'', ''environmental'',
+        ''pharmaceutical'', ''personal care product''. ~0.9% NULL — filter only when user explicitly asks
+        for a source type.', description: 'category of exposure source; e.g. ''industrial'', ''dietary'',
+        ''occupational'', ''environmental''; ~0.9% NULL'}
+    - {name: event_receptors, concept_type: enum_value, queryable: true, key_column: true, llm_note: 'study
+        population type stored as free text; e.g. ''General population'', ''Children'', ''Workers'', ''Pregnant
+        women'', ''Patients''. Use ILIKE ''%children%'' for pediatric studies. ~2.1% NULL.', description: 'study
+        population type; e.g. ''General population'', ''Children'', ''Workers'', ''Pregnant women''; ~2.1%
+        NULL'}
+    - {name: age_qualifier, exec_schema: false, description: 'statistical qualifier for the age value;
+        e.g. ''minimum'', ''maximum'', ''mean'', ''median'', ''range''; ~45% NULL'}
+    - {name: detection_frequency, exec_schema: false, description: proportion of samples in which the
+        chemical was detected; numeric 0.0–1.0; ~97.3% NULL (7,331 of 7,534 rows)}
+    - {name: marker_level, exec_schema: false, description: measured level of the exposure biomarker;
+        numeric; ~91% NULL}
+    - {name: marker_units, exec_schema: false, description: 'units for the marker_level value; e.g. ''ug/L'',
+        ''ng/mL'', ''nmol/L''; ~91% NULL'}
+    - {name: marker_stat, exec_schema: false, description: 'statistical summary type for marker_level;
+        e.g. ''mean'', ''median'', ''geometric mean''; ~91% NULL'}
+  exposure_study_disease_association:
+    parquet: exposure_study_disease_association_v2.parquet
+    role: association
+    exec_schema: true
+    kg_schema: false
+    description: Many-to-many cross-reference between exposure studies (by PubMed reference) and the
+      diseases they study; derived from exposure_studies_v2. 2,836 rows.
+    columns:
+    - {name: reference, key_column: true, description: PubMed ID of the source exposure study — FK to
+        exposure_studies_ctd.study_reference}
+    - {name: disease_id, key_column: true, description: CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id}
+  exposure_study_stressor_association:
+    parquet: exposure_study_stressor_association_v2.parquet
+    role: association
+    exec_schema: true
+    kg_schema: false
+    description: Many-to-many cross-reference between exposure studies (by PubMed reference) and the
+      chemical stressors examined; derived from exposure_studies_v2. 12,003 rows.
+    columns:
+    - {name: reference, key_column: true, description: PubMed ID of the source exposure study — FK to
+        exposure_studies_ctd.study_reference}
+    - {name: drug_id, key_column: true, description: CTD/MeSH chemical identifier for the stressor — FK
+        to chemical_master_table_ctd.drug_id}
+loader:
+  generated: false      # bespoke hand-written loader (DuckDB views + per-parquet reads; no _CTD_TABLES tuple)
+  renames: {'# ChemicalName': drug_name, ChemicalName: drug_name, ChemicalID: drug_id, GeneSymbol: gene_symbol,
+    '# GeneSymbol': gene_symbol, GeneID: gene_id, GeneForms: gene_forms, DiseaseName: disease_name, '# DiseaseName': disease_name,
+    DiseaseID: disease_id, PathwayName: pathway_name, '# PathwayName': pathway_name, PathwayID: pathway_id,
+    InferenceGeneSymbol: gene_symbol}
+rules:
+  mandatory_entity_columns:
+    drug:
+    - drug_name
+    gene:
+    - gene_symbol
+    disease:
+    - disease_name
+    pathway:
+    - pathway_name
+  xref_id_columns:
+  - drug_id
+  - gene_id
+  - disease_id
+  - pathway_id
+  - chemical_gene_organism_id
+  - chemical_phenotype_organism_id
+  - phenotype_id
+  - stressor_id
+  - cas_rn
+  - pubchem_cid
+  - inchikey
+  - omim_ids
+  schema_grounding_notes:
+  - 'chem_disease_direct_evidence (chemical_disease_association_ctd): valid values ''marker/mechanism''
+    and ''therapeutic''; gene_disease_direct_evidence (gene_disease_association_ctd): valid values
+    ''marker/mechanism'' (31,993 rows) and ''therapeutic'' (1,950 rows); null = inferred-only in both'
+  - 'chemical_gene_interaction_actions (chemical_gene_association_ctd) / interaction_actions
+    (chemical_phenotype_ixn_ctd): pipe-separated compound codes, e.g. ''increases^expression'' or ''decreases^activity'';
+    use LIKE ''%expression%'' for text search'
+  - 'pubmed_ids columns (chem_gene_pubmed_ids, gene_disease_pubmed_ids, chem_disease_pubmed_ids, chem_phenotype_pubmed_ids): pipe-separated string of PMIDs; for single-PMID lookup use LIKE ''%<pmid>%'''
+  - 'inference_score: numeric; higher scores indicate stronger inferred associations'
+  co_output_rules:
+  - trigger_columns:
+    - chemical_gene_interaction_actions
+    - interaction_actions
+    - interaction_text
+    require_column: drug_name
+    require_behavior: requested
+    reason: interaction details are not interpretable without identifying the chemical
+  - trigger_columns:
+    - chemical_gene_interaction_actions
+    - interaction_text
+    require_column: gene_symbol
+    require_behavior: requested
+    reason: interaction details are not interpretable without identifying the target gene
+  - trigger_columns:
+    - gene_disease_direct_evidence
+    - chem_disease_direct_evidence
+    - inference_score
+    require_column: disease_name
+    require_behavior: requested
+    reason: evidence fields require disease context
+  - trigger_columns:
+    - corrected_p_value
+    - p_value
+    - target_match
+    require_column: pathway_name
+    require_behavior: requested
+    reason: enrichment statistics require pathway context
+  stressor_class_map:
+    PCB: stressor_name ILIKE '%biphenyl%'
+    polychlorinated biphenyl: stressor_name ILIKE '%biphenyl%'
+    dioxin: stressor_name ILIKE '%dioxin%'
+    furan: stressor_name ILIKE '%furan%'
+    phthalate: stressor_name ILIKE '%phthalate%'
+    PAH: stressor_name ILIKE '%pyrene%' OR stressor_name ILIKE '%fluorene%' OR stressor_name ILIKE '%phenanthrene%'
+      OR stressor_name ILIKE '%anthracene%'
+    polycyclic aromatic hydrocarbon: stressor_name ILIKE '%pyrene%' OR stressor_name ILIKE '%fluorene%'
+      OR stressor_name ILIKE '%phenanthrene%'
+    PBDE: stressor_name ILIKE '%diphenyl ether%'
+    brominated flame retardant: stressor_name ILIKE '%diphenyl ether%' OR stressor_name ILIKE '%bromo%'
+    organophosphate: stressor_name ILIKE '%phosphate%' OR stressor_name ILIKE '%phosphorus%'
+    heavy metal: stressor_name ILIKE 'Lead' OR stressor_name ILIKE 'Arsenic' OR stressor_name ILIKE 'Mercury'
+      OR stressor_name ILIKE 'Cadmium' OR stressor_name ILIKE 'Chromium' OR stressor_name ILIKE 'Nickel'
+      OR stressor_name ILIKE 'Manganese'
+    organotin: stressor_name ILIKE '%tributyltin%' OR stressor_name ILIKE '%triphenyltin%' OR stressor_name
+      ILIKE 'organotin%'
+    pesticide: stressor_name ILIKE '%chlordane%' OR stressor_name ILIKE '%aldrin%' OR stressor_name ILIKE
+      '%dieldrin%' OR stressor_name ILIKE '%DDT%' OR stressor_name ILIKE '%endrin%'
+    PFAS: stressor_name ILIKE '%perfluoro%' OR stressor_name ILIKE '%PFOA%' OR stressor_name ILIKE '%PFOS%'
+    per- and polyfluoroalkyl: stressor_name ILIKE '%perfluoro%'
+  action_synonym_map:
+    upregulates: increases^expression
+    upregulate: increases^expression
+    overexpresses: increases^expression
+    overexpress: increases^expression
+    induces expression: increases^expression
+    downregulates: decreases^expression
+    downregulate: decreases^expression
+    silences: decreases^expression
+    suppresses: decreases^expression
+    activates: increases^activity
+    stimulates: increases^activity
+    inhibits: decreases^activity
+    blocks: decreases^activity
+    binds: affects^binding
+    methylates: affects^methylation
+    phosphorylates: increases^phosphorylation
+    ubiquitinates: affects^ubiquitination
+    stabilizes: increases^stability
+    degrades: decreases^abundance
+  abbreviation_map:
+    AD: Alzheimer Disease
+  trade_name_map:
+    Glivec: imatinib
+    Herceptin: trastuzumab
+    Keytruda: pembrolizumab
+    Avastin: bevacizumab
+  gene_alias_map:
+    p53: TP53
+    PD-1: PDCD1
+  class_entity_rules:
+  - '"TKI" expands to "tyrosine kinase inhibitor" — do NOT replace with a specific drug like imatinib'
+  - '"checkpoint inhibitor" stays as-is — do NOT replace with pembrolizumab or nivolumab'
+  - '"mAb" expands to "monoclonal antibody" — do NOT replace with a specific antibody'
+  class_column: drug_name
+  pathway_alias_map:
+    MAPK: MAPK signaling pathway
+    PI3K/AKT: PI3K-Akt signaling pathway
+    NF-kB: NF-kappa B signaling pathway
+    Wnt: Wnt signaling pathway
+    mTOR pathway: mTOR signaling pathway
+questions:
+  literal:
+  - label: chemical+gene
+    question: "what genes does arsenic interact with?"
+    required:
+    - drug_name
+    - gene_symbol
+  - label: chemical+gene
+    question: "what genes does cadmium upregulate?"
+    required:
+    - drug_name
+    - gene_symbol
+    - chemical_gene_interaction_actions
+  - label: chemical+gene
+    question: "which genes does TCDD interact with in humans?"
+    required:
+    - drug_name
+    - gene_symbol
+  - label: chemical+gene
+    question: "what is the effect of bisphenol A on AHR expression?"
+    required:
+    - drug_name
+    - gene_symbol
+    - chemical_gene_interaction_actions
+  - label: chemical+gene
+    question: "which genes does mercury decrease the activity of?"
+    required:
+    - drug_name
+    - gene_symbol
+    - chemical_gene_interaction_actions
+  - label: chemical+gene
+    question: "what genes does benzene affect?"
+    required:
+    - drug_name
+    - gene_symbol
+  - label: chemical+gene
+    question: "which genes does aflatoxin B1 interact with?"
+    required:
+    - drug_name
+    - gene_symbol
+  - label: chemical+gene
+    question: "what genes does lead interact with?"
+    required:
+    - drug_name
+    - gene_symbol
+  - label: chemical+gene
+    question: "which genes does formaldehyde increase the expression of?"
+    required:
+    - drug_name
+    - gene_symbol
+    - chemical_gene_interaction_actions
+  - label: chemical+gene
+    question: "what genes does paraquat interact with?"
+    required:
+    - drug_name
+    - gene_symbol
+  - label: chemical+gene
+    question: "which genes does acrylamide interact with?"
+    required:
+    - drug_name
+    - gene_symbol
+  - label: chemical+gene
+    question: "what genes does sodium arsenite affect?"
+    required:
+    - drug_name
+    - gene_symbol
+  - label: chemical+disease
+    question: "what diseases are linked to bisphenol A?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "what cancers are associated with benzene exposure?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "which diseases are associated with arsenic exposure?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "what diseases does cadmium cause?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "which neurological diseases are associated with mercury?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "what diseases are linked to TCDD exposure?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "which diseases are associated with polychlorinated biphenyls?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "what liver diseases are associated with aflatoxin B1?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "what diseases does lead exposure cause?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "which diseases are linked to vinyl chloride exposure?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "what diseases are associated with toluene exposure?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+disease
+    question: "which diseases are associated with methylmercury?"
+    required:
+    - drug_name
+    - disease_name
+  - label: gene+chemical
+    question: "what chemicals interact with TP53?"
+    required:
+    - gene_symbol
+    - drug_name
+  - label: gene+chemical
+    question: "which chemicals upregulate SOD1?"
+    required:
+    - gene_symbol
+    - drug_name
+    - chemical_gene_interaction_actions
+  - label: gene+chemical
+    question: "what chemicals interact with AHR?"
+    required:
+    - gene_symbol
+    - drug_name
+  - label: gene+chemical
+    question: "which chemicals increase the expression of CYP1A1?"
+    required:
+    - gene_symbol
+    - drug_name
+    - chemical_gene_interaction_actions
+  - label: gene+chemical
+    question: "what chemicals affect HMOX1?"
+    required:
+    - gene_symbol
+    - drug_name
+  - label: gene+chemical
+    question: "which chemicals interact with NFE2L2?"
+    required:
+    - gene_symbol
+    - drug_name
+  - label: gene+chemical
+    question: "what chemicals interact with TNF?"
+    required:
+    - gene_symbol
+    - drug_name
+  - label: gene+chemical
+    question: "which chemicals decrease the activity of CASP3?"
+    required:
+    - gene_symbol
+    - drug_name
+    - chemical_gene_interaction_actions
+  - label: gene+disease
+    question: "what diseases are associated with TREM2?"
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: "which diseases involve AHR?"
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: "what diseases are associated with NFE2L2?"
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: "which diseases are linked to HMOX1?"
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: "what diseases are associated with IL6?"
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: "which diseases involve BRCA1?"
+    required:
+    - gene_symbol
+    - disease_name
+  - label: chemical+pathway
+    question: "what pathways does mercury affect?"
+    required:
+    - drug_name
+    - pathway_name
+  - label: chemical+pathway
+    question: "what pathways does TCDD disrupt?"
+    required:
+    - drug_name
+    - pathway_name
+  - label: chemical+pathway
+    question: "which biological pathways are enriched for arsenic?"
+    required:
+    - drug_name
+    - pathway_name
+  - label: chemical+pathway
+    question: "what signaling pathways does cadmium affect?"
+    required:
+    - drug_name
+    - pathway_name
+  - label: exposure+study
+    question: "what exposure studies involve arsenic?"
+    required:
+    - exposure_stressors
+    - study_receptors
+  - label: exposure+study
+    question: "what organism exposures involve cadmium and are linked to kidney disease?"
+    required:
+    - exposure_stressors
+    - diseases
+  - label: exposure+events
+    question: "what diseases have a positive correlation with arsenic exposure in children?"
+    required:
+    - stressor_name
+    - disease_name
+    - outcome_relationship
+  - label: chemical+disease+gene
+    question: "what chemicals cause both cancer and neurological disease?"
+    required:
+    - drug_name
+    - disease_name
+  - label: chemical+gene+disease
+    question: "what chemicals interact with TP53 and are associated with lung cancer?"
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+  - label: chemical+gene+pathway
+    question: "what chemicals affect CYP1A1 and which pathways does CYP1A1 belong to?"
+    required:
+    - drug_name
+    - gene_symbol
+    - pathway_name

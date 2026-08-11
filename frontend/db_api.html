@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<script src="/assets/tracker.min.js" data-page="db_api"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title id="pageTitleTag">BioChirp — DB Service Console</title>
+
+  <style>
+    :root[data-theme="dark"]{
+      --bg0:#0A0F1C; --bg1:#0B1222; --bg2:#0E1626; --bg3:#121C2E;
+      --card:#0F1828; --txt:#EAF2FF; --mut:#9FB0C4;
+      --brd:rgba(255,255,255,.12); --hover:rgba(255,255,255,.06);
+      --ok:#00E38C; --err:#ff6b6b;
+      --shadow:0 10px 28px rgba(0,0,0,.28);
+    }
+    :root[data-theme="light"]{
+      --bg0:#F6FAFF; --bg1:#FFFFFF; --bg2:#FFFFFF; --bg3:#F1F5FA;
+      --card:#FFFFFF; --txt:#0B1624; --mut:#4C6278;
+      --brd:rgba(0,0,0,.10); --hover:rgba(0,0,0,.05);
+      --ok:#0FB27A; --err:#E25050;
+      --shadow:0 8px 22px rgba(17,24,39,.10);
+    }
+    :root{ --chat-max:1800px; --radius:14px; --radius-lg:18px }
+    /* --accent / --accent2 / --btn-primary-text are set inline on <html> by
+       console-bootstrap.js once /configs/db_apis.json resolves — see the
+       per-DB "accent"/"accent2"/"btnPrimaryText" fields. Fallback values
+       here only cover the brief pre-fetch flash. */
+    :root{ --accent:#1FA4FF; --accent2:#A78BFA; --btn-primary-text:#00162a; }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      min-height:100vh; color:var(--txt); background:var(--bg0);
+      font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+      display:flex; flex-direction:column;
+      background:
+        radial-gradient(800px 520px at -20% -10%, color-mix(in oklab, var(--accent) 8%, transparent) 0%, transparent 60%),
+        radial-gradient(800px 520px at 120% 120%, color-mix(in oklab, var(--accent2) 8%, transparent) 0%, transparent 55%),
+        linear-gradient(135deg,var(--bg0) 0%,var(--bg1) 100%);
+    }
+    @media (min-width: 960px){
+      .bg-grid{ position:fixed; inset:0; pointer-events:none; z-index:-2; opacity:.08;
+        background-image: linear-gradient(to right, var(--brd) 1px, transparent 1px), linear-gradient(to bottom, var(--brd) 1px, transparent 1px);
+        background-size: 48px 48px; }
+    }
+
+    .app{display:flex; min-height:100vh}
+    .chat{flex:1; display:flex; flex-direction:column; min-width:0}
+
+    .chat-header{
+      position:sticky; top:0; z-index:5; padding:10px 12px; border-bottom:1px solid var(--brd);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      background:color-mix(in oklab, var(--bg1) 92%, transparent); backdrop-filter: blur(6px);
+    }
+    .brand{ display:flex; align-items:center; gap:10px; min-width:0 }
+    .brand img{ display:block; width:28px; height:28px }
+    .title{ display:flex; flex-direction:column; min-width:0 }
+    .title .main{ font-size:16px; font-weight:800; line-height:1 }
+    .title .sub{ font-size:12px; font-weight:700; color:var(--mut) }
+
+    .status-wrap{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .connection-status{display:flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid var(--brd); background:var(--bg2); font-size:12px}
+    .status-dot{width:9px;height:9px;border-radius:50%}
+    .dot.online{background:var(--ok)} .dot.offline{background:var(--err)} .dot.degraded{background:#ffd76a}
+
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid var(--brd);background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px;text-decoration:none;display:inline-flex;align-items:center}
+    .btn:hover{background:var(--hover)}
+    .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:var(--btn-primary-text); border:none; font-weight:800}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+
+    .container{max-width:var(--chat-max); width:100%; margin:0 auto; padding:12px 12px 28px}
+    .cards{display:grid; grid-template-columns:1fr; gap:12px}
+    @media (min-width: 980px){ .cards{ grid-template-columns: 1fr 1fr } }
+
+    .quick-asks{
+      margin: 6px 0 2px;
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:10px;
+    }
+    .qa-card{
+      appearance:none;
+      text-align:left;
+      width:100%;
+      font-family:inherit;
+      border:1px solid var(--brd);
+      background:radial-gradient(circle at top left, color-mix(in oklab, var(--accent) 12%, transparent), transparent 55%), var(--card);
+      color:var(--txt);
+      padding:12px 14px;
+      border-radius:14px;
+      font-size:13px;
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      transition: transform .06s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+      user-select:none;
+    }
+    .qa-card:hover{
+      background:radial-gradient(circle at bottom right, color-mix(in oklab, var(--accent2) 18%, transparent), transparent 55%), var(--bg2);
+      border-color: color-mix(in oklab, var(--accent) 35%, var(--brd));
+      box-shadow: 0 16px 45px rgba(0,0,0,.18);
+    }
+    .qa-card:active{ transform: translateY(1px) scale(.99); }
+    @media (max-width: 1100px){ .quick-asks{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 640px){ .quick-asks{ grid-template-columns: 1fr; } }
+
+    .card{ border:1px solid var(--brd); background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; transition:border-color .25s ease, transform .25s ease, box-shadow .25s ease }
+    .card:hover{ border-color: color-mix(in oklab, var(--accent) 28%, var(--brd)); transform: translateY(-1px) }
+
+    .row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Courier New",monospace}
+    .badge{font-size:11px;padding:3px 8px;border-radius:10px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-weight:700}
+
+    pre{ white-space:pre-wrap; word-break:break-word; background:var(--bg3); color:var(--txt); border:1px solid var(--brd); padding:12px; border-radius:10px; max-height:420px; overflow:auto }
+    .pre-head{display:flex; align-items:center; justify-content:space-between; margin:8px 0 0}
+    .copy-btn{font-size:11px; padding:3px 8px; border-radius:8px; border:1px solid var(--brd); background:var(--bg2)}
+    .copy-btn:hover{ background:var(--hover) }
+    /* Dark-mode visibility for Copy buttons */
+    :root[data-theme="dark"] .copy-btn{ background:var(--bg1); color:var(--txt); border-color:var(--brd) }
+    :root[data-theme="dark"] .copy-btn:hover{ background:var(--hover) }
+
+    textarea{ width:100%; background:var(--bg3); color:var(--txt); border:1px solid var(--brd); border-radius:10px; padding:10px 12px; min-height:140px; resize:vertical }
+    .help{font-size:12px;color:var(--mut);margin-top:6px}
+    .kbd{padding:.15rem .35rem;border:1px solid var(--brd);border-radius:.35rem;font-size:.75rem}
+
+    table{width:100%;border-collapse:collapse;border:1px solid var(--brd);border-radius:10px;overflow:hidden}
+    th,td{border-bottom:1px solid var(--brd); text-align:left; padding:8px 10px; font-size:13px}
+    thead th{background:var(--bg3); color:var(--mut)}
+    .table-wrap{overflow:auto}
+
+    .method{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--brd);background:var(--bg2);font-weight:700}
+    .get{color:#ffd76a} .post{color:#63ffb3}
+
+    .field-block{margin-top:10px}
+    .field-head{display:flex; align-items:center; gap:6px; font-weight:800}
+    .field-sub{display:flex; align-items:center; gap:8px; color:var(--mut); font-size:12px; margin-top:4px}
+
+    .warning{display:none; margin-top:8px; padding:8px 10px; border:1px solid var(--brd); border-radius:10px; background:var(--bg2); color:var(--mut)}
+
+    .visually-hidden{
+      position:absolute !important; width:1px; height:1px; padding:0; margin:-1px;
+      overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="app">
+    <main class="chat" role="main" aria-labelledby="pageTitle">
+      <header class="chat-header">
+        <div class="brand">
+          <img src="/assets/brand/logo.svg" alt="BioChirp logo" width="28" height="28" loading="eager">
+          <div class="title">
+            <div id="pageTitle" class="main">BioChirp DB Service Console</div>
+            <div class="sub" id="pageSub">Loading…</div>
+          </div>
+        </div>
+        <div class="status-wrap">
+          <a class="btn" id="chatLink" href="#" style="display:none">💬 Chat UI</a>
+          <button class="btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">🌓 Theme</button>
+          <button class="btn" id="pingBtn" title="Ping /health">Ping</button>
+          <div class="connection-status" role="status" aria-live="polite">
+            <span class="status-dot dot" id="statusDot" aria-hidden="true"></span>
+            <span id="connectionStatus">Unknown</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="container">
+
+        <!-- Service Status -->
+        <section class="card" aria-labelledby="svcStatusH">
+          <div class="row" style="align-items:flex-start">
+            <div style="flex:1; min-width:260px">
+              <div id="svcStatusH" class="badge">Service Status</div>
+              <div class="help" style="margin-top:8px">Health checks run against <code class="mono" id="endpointLabel"></code></div>
+              <div id="protoWarn" class="warning">⚠ Mixed-content likely: page is <span class="mono" id="pageProto"></span> but API is <span class="mono" id="apiProto"></span>.</div>
+              <div id="corsWarn"  class="warning">⚠ CORS blocked. Allow this origin or proxy same-origin.</div>
+              <div id="fileWarn"  class="warning">⚠ Opened via <span class="mono">file://</span>. Serve via HTTP.</div>
+              <div id="netWarn"   class="warning">⚠ Network error/timeout. Check API reachability.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div>
+                <div style="font-weight:800" id="statusText">Unknown</div>
+                <div class="help" id="statusMeta">—</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Quick Questions -->
+        <section aria-labelledby="quickH">
+          <div class="row" style="margin:6px 0 10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="badge" id="quickH">Quick Questions</span>
+              <h3 style="font-size:16px">Starter queries</h3>
+            </div>
+          </div>
+          <div id="quickAsks" class="quick-asks" aria-label="Quick questions"></div>
+          <div class="help" style="margin-top:8px">Click a card to populate the request body.</div>
+        </section>
+
+        <!-- Schema -->
+        <section class="card" aria-labelledby="schemaH">
+          <div class="row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="badge" id="schemaH">Schema</span>
+              <h3 style="font-size:16px">Input / Output Models</h3>
+            </div>
+          </div>
+
+          <div class="cards" style="margin-top:10px">
+            <!-- Request model -->
+            <div class="card" style="padding:12px" aria-labelledby="reqModelH">
+              <div class="row">
+                <div id="reqModelH" style="font-weight:800">QueryInterpreterOutputGuardrail</div>
+                <span class="badge">Body • JSON</span>
+              </div>
+              <div class="table-wrap" style="margin-top:8px">
+                <table aria-label="QueryInterpreterOutputGuardrail fields">
+                  <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">cleaned_query</td><td class="mono">string | null</td><td>No</td><td>Natural-language question</td></tr>
+                    <tr><td class="mono">status</td><td class="mono">string | null</td><td>No</td><td>Optional</td></tr>
+                    <tr><td class="mono">route</td><td class="mono">string | null</td><td>No</td><td>Optional</td></tr>
+                    <tr><td class="mono">message</td><td class="mono">string | null</td><td>No</td><td>Optional</td></tr>
+                    <tr><td class="mono">parsed_value</td><td class="mono">dict</td><td>Yes</td><td id="parsedValueNotes">—</td></tr>
+                    <tr><td class="mono">tool</td><td class="mono">string | null</td><td>No</td><td>e.g., "interpreter"</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div id="extraParsedValueBlock" style="margin-top:10px; display:none">
+                <div class="help" style="margin-bottom:4px"><strong id="extraParsedValueTitle">parsed_value keys</strong></div>
+                <div class="table-wrap">
+                  <table aria-label="parsed_value keys">
+                    <thead><tr><th>Key</th><th>Notes</th></tr></thead>
+                    <tbody id="extraParsedValueBody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="pre-head">
+                <div class="help">Example request</div>
+                <button class="copy-btn" id="copySingleEx">Copy</button>
+              </div>
+              <pre class="mono" id="example-input"></pre>
+            </div>
+
+            <!-- Response model -->
+            <div class="card" style="padding:12px" aria-labelledby="respModelH">
+              <div class="row">
+                <div id="respModelH" style="font-weight:800">DatabaseTable</div>
+                <span class="badge">Response • JSON</span>
+              </div>
+              <div class="table-wrap" style="margin-top:8px">
+                <table aria-label="DatabaseTable fields">
+                  <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes / Example</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">database</td><td class="mono">string</td><td>Yes</td><td class="mono" id="respDbExample">—</td></tr>
+                    <tr><td class="mono">table</td><td class="mono">list[object] | null</td><td>Yes</td><td>Rows (dictionaries) from the DB</td></tr>
+                    <tr><td class="mono">csv_path</td><td class="mono">string | null</td><td>Yes</td><td>Server path to CSV dump</td></tr>
+                    <tr><td class="mono">row_count</td><td class="mono">integer | null</td><td>Yes</td><td>Number of rows returned</td></tr>
+                    <tr><td class="mono">tool</td><td class="mono">string</td><td>Yes</td><td class="mono" id="respToolExample">—</td></tr>
+                    <tr><td class="mono">message</td><td class="mono">string | null</td><td>Yes</td><td id="respMessageNote">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="pre-head">
+                <div class="help">Example response</div>
+                <button class="copy-btn" id="copyExampleOutput">Copy</button>
+              </div>
+              <pre class="mono" id="example-output"></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- GET / -->
+        <section class="card" aria-labelledby="rootH">
+          <div class="row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="method mono get" aria-hidden="true">GET</span>
+              <span id="rootH" class="mono" style="font-weight:800">/</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn" data-curl="GET /">cURL</button>
+              <button class="btn primary" data-try="GET /">Try it</button>
+            </div>
+          </div>
+          <div class="help" style="margin-top:6px"><strong>Purpose:</strong> Service banner.</div>
+          <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-root">Copy</button></div>
+          <pre id="out-root" class="mono" aria-live="polite"></pre>
+        </section>
+
+        <!-- GET /health -->
+        <section class="card" aria-labelledby="healthH">
+          <div class="row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="method mono get" aria-hidden="true">GET</span>
+              <span id="healthH" class="mono" style="font-weight:800">/health</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" data-curl="GET /health">cURL</button>
+              <button class="btn primary" data-try="GET /health">Try it</button>
+            </div>
+          </div>
+          <div class="help" style="margin-top:6px"><strong>Purpose:</strong> Liveness/readiness probe.</div>
+          <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-health">Copy</button></div>
+          <pre id="out-health" class="mono" aria-live="polite"></pre>
+        </section>
+
+        <!-- POST /<db> -->
+        <section class="card" aria-labelledby="postH">
+          <div class="row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="method mono post" aria-hidden="true">POST</span>
+              <span id="postH" class="mono" style="font-weight:800">/</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" id="postCurlBtn">cURL</button>
+              <button class="btn" id="fillExample">Fill example</button>
+              <button class="btn primary" id="postTryBtn">Try it</button>
+            </div>
+          </div>
+
+          <!-- Optional query param: connection_id -->
+          <div class="field-block">
+            <div class="field-head">connection_id (optional)</div>
+            <div class="field-sub"><span>string</span><span>(query)</span></div>
+            <div style="margin-top:6px">
+              <label class="visually-hidden" for="connId">connection_id</label>
+              <input id="connId" class="select" style="min-width:280px" placeholder="Leave empty unless provided by orchestrator" />
+            </div>
+          </div>
+
+          <div class="help" id="postPurpose" style="margin-top:10px"></div>
+
+          <div class="cards" style="margin-top:8px">
+            <div class="card" style="padding:10px">
+              <div class="help">Request body (JSON)</div>
+              <textarea id="in-body" class="mono" placeholder='Click "Fill example" to insert the template.' aria-label="POST request body"></textarea>
+              <div class="help">Tip: Press <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> to send.</div>
+            </div>
+            <div class="card" style="padding:10px">
+              <div class="pre-head"><div class="help">Response</div><button class="copy-btn" data-copy-target="#out-body">Copy</button></div>
+              <pre id="out-body" class="mono" aria-live="polite"></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- cURL modal -->
+        <section id="curlModal" class="card" style="display:none" role="dialog" aria-modal="true" aria-labelledby="curlTitle">
+          <div class="row">
+            <div id="curlTitle" style="font-weight:800">cURL</div>
+            <button class="btn" id="curlClose" aria-label="Close cURL modal">Close</button>
+          </div>
+          <pre id="curlText" class="mono"></pre>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <button class="btn primary" id="curlCopy">Copy</button>
+          </div>
+        </section>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- Per-slug bootstrap: fetches /configs/db_apis.json, patches title/colors/
+       tables/examples for ?db=<slug>, THEN loads console-main.js which reads
+       window.__BC_API_CONFIG for the generic Try-it/cURL/copy logic. -->
+  <script src="assets/console-bootstrap.js"></script>
+  <script src="assets/console-main.js"></script>
+</body>
+</html>

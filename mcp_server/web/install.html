@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BioChirp — Add to Claude Desktop</title>
+<meta name="description" content="Direct access to 11 curated biomedical databases, integrated with Claude Desktop and claude.ai via the Model Context Protocol.">
+
+<!-- machine-discoverable connector metadata -->
+<link rel="alternate" type="application/json" href="/mcp/manifest.json" title="BioChirp MCP manifest">
+
+<style>
+  :root{
+    --bg:#0b0d10; --fg:#e6eaef; --muted:#8b95a4; --card:#11151b;
+    --accent:#7aa2ff; --accent-2:#5cdc97; --warn:#ffb86b;
+    --border:#1d232c; --code-bg:#070a0d;
+    --maxw: 880px;
+  }
+  html,body{background:var(--bg);color:var(--fg);margin:0;padding:0;
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;}
+  main{max-width:var(--maxw);margin:0 auto;padding:48px 22px 96px;}
+  h1{font-size:28px;letter-spacing:-0.01em;margin:0 0 4px}
+  h2{font-size:18px;margin:0 0 8px;color:var(--accent)}
+  p{color:var(--muted);margin:6px 0 18px}
+  .tag{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:99px;
+    font-size:12px;color:var(--muted);margin-right:6px;margin-bottom:6px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:22px 22px 18px;margin:18px 0}
+  button{cursor:pointer;background:var(--accent);color:#001;border:0;border-radius:9px;
+    padding:9px 14px;font-weight:600;font-size:14px;text-decoration:none;display:inline-block}
+  button:hover{filter:brightness(1.06)}
+  pre,code{font-family:"SF Mono",Menlo,Consolas,ui-monospace,monospace;font-size:13px}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-radius:9px;
+    padding:12px 14px;overflow:auto;max-height:280px;color:#dde3eb;margin:0}
+  .copy{position:relative}
+  .copy button.copy-btn{position:absolute;top:8px;right:8px;padding:4px 9px;font-size:12px}
+  .small{color:var(--muted);font-size:13px}
+  .ok{color:var(--accent-2)}
+  .warn{color:var(--warn)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:14px}
+  .pill{padding:8px 12px;background:#0e1219;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--muted)}
+  .pill b{color:var(--fg)}
+  hr{border:0;border-top:1px solid var(--border);margin:32px 0}
+  footer{color:var(--muted);font-size:13px;text-align:center;margin-top:32px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>BioChirp <span class="small">→ Claude Desktop</span></h1>
+  <p>Direct access to 11 curated biomedical databases, each with per-query provenance (database version + snapshot date). One line of config — no Python, no Docker, nothing to install.</p>
+  <div>
+    <span class="tag">11 DBs</span>
+    <span class="tag">1 MCP server</span>
+    <span class="tag">12 tools</span>
+    <span class="tag">Per-query provenance</span>
+    <span class="tag">MIT licence</span>
+  </div>
+</header>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<div class="card">
+  <h2>Hosted (no install)</h2>
+  <p>One line of config. <b>No Python, no Docker, no install</b> on the user's machine. Connects to the public BioChirp endpoint over Server-Sent Events.</p>
+
+  <p class="small">In Claude Desktop: <b>Settings → Connectors → Add Custom Connector</b> and paste this URL:</p>
+  <div class="copy">
+    <pre id="sse-url">https://biochirp.iiitd.edu.in/mcp/sse</pre>
+    <button class="copy-btn" data-copy="sse-url">Copy URL</button>
+  </div>
+
+  <p class="small" style="margin-top:14px">Or paste this entire JSON snippet into your <code>claude_desktop_config.json</code>:</p>
+  <div class="copy">
+    <pre id="sse-config">{
+  "mcpServers": {
+    "biochirp": {
+      "type": "sse",
+      "url": "https://biochirp.iiitd.edu.in/mcp/sse"
+    }
+  }
+}</pre>
+    <button class="copy-btn" data-copy="sse-config">Copy config</button>
+  </div>
+
+  <p class="small">claude.ai connectors (streamable HTTP) can instead use <code>https://biochirp.iiitd.edu.in/mcp</code>. After adding, restart Claude Desktop. The 11 BioChirp database tools (<code>drugs_and_targets_ttd</code>, <code>chemicals_genes_diseases_ctd</code>, <code>genetic_variants_pathogenicity_clinvar</code>, …) plus <code>web_search_live</code> appear in the connectors list.</p>
+</div>
+
+<hr>
+
+<h2 style="color:var(--fg);font-size:20px">What you get</h2>
+<div class="grid">
+  <div class="pill"><b>11 curated databases</b><br><span class="small">TTD, CTD, HCDT, HPO, ClinVar, Reactome, MSigDB, Orphanet, STRING, UniProt, Open Targets</span></div>
+  <div class="pill"><b>Per-query provenance</b><br><span class="small">Every database call reports (database version, snapshot date) and a CSV download link for the full result set</span></div>
+  <div class="pill"><b>Filter trace</b><br><span class="small">Every response states which entity/synonym terms were resolved and used as filters</span></div>
+  <div class="pill"><b>Live web search</b><br><span class="small">web_search_live for questions outside the scope of the curated databases, clearly labelled as non-curated</span></div>
+  <div class="pill"><b>Claude does the planning</b><br><span class="small">No LLM inside the server — it's pure query execution; Claude decides which DB(s) to call and how to synthesize results</span></div>
+  <div class="pill"><b>Open everything</b><br><span class="small">MIT-licensed code · Zenodo-deposited artefacts · live web demo</span></div>
+</div>
+
+<hr>
+
+<p class="small">After install, ask Claude something like:<br>
+<i>"Use BioChirp to list 25 BRCA1 interactors with provenance."</i><br>
+<i>"Resolve KIAA0101 via BioChirp."</i><br>
+<i>"What's the HGNC-approved symbol for FAM175A and which diseases is it linked to?"</i></p>
+
+<footer>
+  <p>BioChirp · IIIT-Delhi · <a href="/">homepage</a> · <a href="/mcp/health">/mcp/health</a> · <a href="/mcp/manifest.json">manifest.json</a></p>
+</footer>
+
+</main>
+
+<script>
+document.querySelectorAll(".copy-btn").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const id = btn.getAttribute("data-copy");
+    const text = document.getElementById(id).innerText;
+    try {
+      await navigator.clipboard.writeText(text);
+      const orig = btn.textContent;
+      btn.textContent = "Copied ✓";
+      setTimeout(() => (btn.textContent = orig), 1300);
+    } catch (e) {
+      alert("Copy failed: " + e);
+    }
+  });
+});
+</script>
+</body>
+</html>

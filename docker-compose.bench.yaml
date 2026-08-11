@@ -1,0 +1,19 @@
+# docker-compose override that swaps the LiteLLM config from the prod
+# (caching) profile to the bench (cache-off) profile. Use this when
+# regenerating any manuscript / evaluation table — a prompt cache hit
+# returns the EXACT prior completion, which inflates intra-run agreement
+# metrics in evaluation/same_question_robustness/.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.bench.yaml up biochirp_litellm
+#
+# The override only re-mounts the LiteLLM config (so the prod main file
+# stays untouched). Everything else — Redis, networks, depends_on — is
+# inherited from docker-compose.yml. With cache disabled in
+# litellm_config_bench.yaml the proxy never writes to Redis, so the
+# depends_on edge is harmless on the bench profile.
+
+services:
+  biochirp_litellm:
+    volumes:
+      - ./litellm_config_bench.yaml:/app/config.yaml:ro

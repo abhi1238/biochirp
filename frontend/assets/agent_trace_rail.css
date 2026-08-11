@@ -1,0 +1,154 @@
+/* agent_trace_rail.css — styles for the agentic-surface left rail.
+ * Mirrors decomp_tree.css positioning so the layout offset is identical
+ * (320px wide on wide screens, inline scroll on narrow). */
+
+:root[data-bc-agent-trace-active] body { padding-left: 0; }
+
+@media (min-width: 1100px) {
+  :root[data-bc-agent-trace-active] .app,
+  :root[data-bc-agent-trace-active] body > .app {
+    padding-left: 340px;
+  }
+  .bc-agent-rail {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 320px;
+    z-index: 50;
+    padding: 14px 12px 18px;
+    overflow-y: auto;
+    border-right: 1px solid var(--brd, rgba(0,0,0,.12));
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--accent2, #6D50FF) 7%, var(--card, #fff)) 0%,
+      var(--card, #fff) 32%);
+    box-shadow: 6px 0 24px rgba(0,0,0,.04);
+  }
+}
+@media (max-width: 1099px) {
+  .bc-agent-rail {
+    position: relative;
+    margin: 14px auto;
+    max-width: var(--chat-max, 1800px);
+    padding: 14px 16px;
+    border: 1px solid var(--brd, rgba(0,0,0,.12));
+    border-radius: 14px;
+    background: linear-gradient(135deg,
+      color-mix(in oklab, var(--accent2, #6D50FF) 8%, var(--card, #fff)) 0%,
+      var(--card, #fff) 60%);
+    box-shadow: var(--shadow, 0 12px 36px rgba(17,24,39,.08));
+  }
+}
+
+.bc-agent-panel { font-size: 13px; }
+
+.bc-agent-header {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 700; font-size: 13px; margin-bottom: 10px;
+  color: var(--txt, #0B1624);
+}
+.bc-agent-icon { font-size: 18px; }
+.bc-agent-title { flex: 1; }
+.bc-agent-state {
+  font-size: 11px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px;
+  background: color-mix(in oklab, var(--accent, #1FA4FF) 12%, transparent);
+  color: var(--accent, #1FA4FF);
+}
+.bc-agent-panel.bc-state-done .bc-agent-state {
+  background: color-mix(in oklab, var(--ok, #0FB27A) 14%, transparent);
+  color: var(--ok, #0FB27A);
+}
+
+.bc-agent-list {
+  list-style: none; margin: 0; padding: 0 0 0 4px;
+  display: flex; flex-direction: column; gap: 4px;
+  border-left: 2px dashed color-mix(in oklab, var(--mut, #486173) 25%, transparent);
+}
+
+.bc-agent-node {
+  position: relative;
+  padding: 6px 10px 8px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .06s;
+}
+.bc-agent-node:hover {
+  background: var(--bg2, rgba(0,0,0,.03));
+  border-color: color-mix(in oklab, var(--accent, #1FA4FF) 25%, var(--brd, rgba(0,0,0,.10)));
+}
+.bc-agent-node:active { transform: translateY(1px); }
+
+.bc-agent-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.bc-agent-bullet {
+  position: absolute;
+  left: -8px; top: 12px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--card, #fff);
+  border: 2px solid var(--mut, #486173);
+  box-shadow: 0 0 0 3px var(--card, #fff);
+  transition: all .18s ease;
+}
+.bc-agent-node.state-running .bc-agent-bullet {
+  border-color: var(--accent, #1FA4FF);
+  background: color-mix(in oklab, var(--accent, #1FA4FF) 50%, var(--card, #fff));
+  animation: bc-agent-pulse 1.3s ease-in-out infinite;
+}
+.bc-agent-node.state-done .bc-agent-bullet {
+  border-color: var(--ok, #0FB27A);
+  background: var(--ok, #0FB27A);
+}
+.bc-agent-node.state-failed .bc-agent-bullet {
+  border-color: var(--err, #E25050);
+  background: var(--err, #E25050);
+}
+@keyframes bc-agent-pulse {
+  0%,100% { box-shadow: 0 0 0 3px var(--card, #fff),
+                       0 0 0 0 color-mix(in oklab, var(--accent, #1FA4FF) 35%, transparent); }
+  50%     { box-shadow: 0 0 0 3px var(--card, #fff),
+                       0 0 0 5px color-mix(in oklab, var(--accent, #1FA4FF) 0%, transparent); }
+}
+
+.bc-agent-emoji { font-size: 14px; }
+.bc-agent-name {
+  font-weight: 700; font-size: 12.5px;
+  color: var(--txt, #0B1624);
+  flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bc-agent-time {
+  font-size: 10.5px; font-weight: 600;
+  color: var(--mut, #486173);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+  max-width: 160px;
+  text-align: right;
+  word-break: break-all;
+}
+.bc-agent-node.state-running .bc-agent-time::before { content: '⟳ '; }
+.bc-agent-node.state-done .bc-agent-time::before    { content: '✓ '; color: var(--ok, #0FB27A); }
+.bc-agent-node.state-failed .bc-agent-time::before  { content: '✗ '; color: var(--err, #E25050); }
+
+.bc-agent-preview {
+  margin: 4px 0 0 22px;
+  font-size: 11.5px;
+  color: var(--mut, #486173);
+  line-height: 1.45;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+.bc-agent-preview:empty { display: none; }
+
+.bc-agent-footer {
+  margin-top: 14px;
+  padding-top: 10px;
+  font-size: 11px;
+  color: var(--mut, #486173);
+  border-top: 1px dashed color-mix(in oklab, var(--mut, #486173) 25%, transparent);
+  font-style: italic;
+}
+.bc-agent-footer strong {
+  font-style: normal;
+  color: var(--txt, #0B1624);
+}

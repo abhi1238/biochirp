@@ -1,0 +1,7 @@
+# All deps in biochirp/base — see requirements-base.txt
+# (duckdb==1.4.1 now ships in the base image; CTD uses it for the
+#  chemical_gene_interaction PMID-count view — see app/tools/ctd/app/database_loader.py.)
+python-dotenv==1.2.1
+# Pin pyarrow==18.1.0: pyarrow>=19 breaks duckdb 1.4.x C++ extension API used by this service.
+pyarrow==18.1.0   # bridge for duckdb.sql().pl() → polars; only bump together with duckdb
+                  # (pyarrow 19+ removed APIs duckdb 1.4.x may use; needs row-level integration test)

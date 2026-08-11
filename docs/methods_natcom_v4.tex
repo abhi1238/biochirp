@@ -1,0 +1,208 @@
+%% ============================================================
+%% MAIN METHODS — paste into main manuscript after Results
+%% ============================================================
+%%
+%% v4 note to authors: every quantitative claim below is traced to a
+%% repository file cited in the accompanying audit. Where the current
+%% code state diverges from the preprint's reported values, the
+%% divergence is flagged inline as [VERIFY: ...] or [CONFLICT: ...].
+%% Resolve each flag against the preprint before submission; the
+%% preprint is the declared ground truth for all numbers.
+%% ============================================================
+
+\section*{Methods}
+
+\subsection*{System overview and architectural principle}
+
+BioChirp separates natural-language interpretation from database retrieval, a design we call \textbf{interpretation--execution separation}. Stochastic agentic retrieval fails in three domain-agnostic ways: it truncates results under query complexity, it breaks when an entity appears under a synonymous surface form, and it returns different answers across identical runs. Language models act only until user intent becomes a canonical entity set; retrieval then proceeds deterministically and remains auditable. BioChirp is goal-directed: it perceives user intent, plans a retrieval strategy, and executes it without further human intervention. The pipeline instantiates this principle in five stages---interpret, resolve, plan, execute, and evaluate.
+
+\subsection*{Knowledge base construction and federation}
+
+BioChirp federates curated biomedical databases behind a single schema authority spanning seven domains---genes, drugs, diseases, variants, pathways, phenotypes, and chemicals [VERIFY: the repository encodes 21 cross-database concept types and 13 relation types rather than a formal seven-domain taxonomy; confirm the seven-domain grouping and the total database count against the preprint, which the code base does not state as a single number---the active schema-planner path discovers ten parquet-backed databases while the wider snapshot store holds more]. Each database ships a hand-authored schema manifest in YAML that a generator (\texttt{scripts/gen\_schema.py}) compiles into a canonical registry. The registry infers primary keys from identifier-suffixed columns and foreign keys that link \textit{master} tables (entity dictionaries) to \textit{association} tables (curated relations), while \textit{decoration} tables carry cross-reference identifiers that are joined but never used as query roots. Foreign keys define an explicit table join graph. Local databases are stored as pinned columnar \textit{parquet} snapshots, so a given release returns identical rows over time; Open Targets is queried live over its GraphQL API and reflects its upstream version at query time.
+
+\subsection*{Multi-agent query interpretation and entity resolution}
+
+A decomposer splits each question into an ordered list of sub-queries, and an interpreter converts each into a structured request naming the requested concept columns and filter values, at temperature zero. Two independent schema-mapper agents then map the request onto database columns. Agreement is an exact rule: the two mappers must emit identical key sets and identical normalized values, and any extra key from either mapper forces disagreement so that a hallucinated field cannot be silently merged. On agreement, co-output constraints are enforced programmatically with no further model call; on disagreement, a larger orchestrator model receives a field-by-field comparison and the full schema and adjudicates, with a deterministic fallback if the orchestrator itself fails.
+
+Entity resolution converts each filter value into canonical database entries through four parallel sources. Knowledge-base synonym expansion draws canonical names from curated authorities (gene symbols through HGNC and aggregators including UniProt, MyGene.info, and NCBI Gene; drug names through PubChem, RxNorm, and ChEMBL) [VERIFY: WHO-INN and DrugBank appear in the preprint but are not implemented as synonym sources in the current code]. RapidFuzz character similarity retains candidates scoring at least $82$. Dense retrieval embeds the term with the SapBERT model and queries a \textit{Qdrant} vector store for the top-$25$ neighbours at cosine similarity $\geq 0.30$. A zero-shot language-model filter then screens candidates at temperature zero. The four sources fuse by disjoint union: fuzzy candidates ordered by score, then synonym candidates not already present, then semantic-only candidates present in neither, all passed to the filter. A literal-term floor re-inserts the user's original term so a correct term is never dropped. The interpretation stage terminates here; it delivers a canonical entity set to the planner and never participates in planning or execution.
+
+\subsection*{Graph-based retrieval planning}
+
+The planner formulates retrieval as a minimum Steiner tree over the table join graph, where nodes are tables, edges are foreign-key joins weighted uniformly, and terminal nodes are the tables carrying the requested concept columns. Given terminal set $T$ within graph $G=(V,E)$, the planner seeks the connected subtree spanning $T$ at minimum edge cost,
+\begin{equation}
+S^{\star} = \arg\min_{S \subseteq G,\; T \subseteq V(S)} \sum_{e \in E(S)} w(e).
+\label{eq:steiner}
+\end{equation}
+Computing the exact minimum Steiner tree is NP-hard. The production planner connects terminals with an iterative greedy shortest-path construction; a Mehlhorn approximation, which returns a tree within twice the optimal cost, is available as a variant [VERIFY: the active orchestrator path (\texttt{app/per\_db\_tool/schema\_kg\_planner.py}) uses greedy shortest-path; the Mehlhorn 2-approximation, the $20$-table coverage cap, and the $300$-second timeout live in the legacy planner (\texttt{app/tools/planner/app/graph.py}); confirm which planner the preprint reports]. A coverage cap of $20$ tables and a $300$-second timeout bound the search. After the tree is fixed, a deterministic breadth-first traversal with lexicographic tie-breaking orders the tables and derives explicit join pairs, so identical inputs always yield an identical plan. [NOT FOUND IN REPO: formal Theorem~1--3 statements or a completeness proof; the code provides two operative guarantees---a two-approximation bound on join cost and plan determinism. If the preprint proves these theorems, insert them verbatim and mark any mismatch \texttt{[CONFLICT]}.] Once the tree is fixed, no further language-model call occurs; this is the execution boundary.
+
+\subsection*{Deterministic execution engine}
+
+The executor translates the plan into columnar join operations over the resolved entity set. It orders joins by ascending cardinality, estimating each table's row count at runtime through a cached Polars length query rather than static schema statistics, subject to a table's parent joining first. A row-product guard aborts any join whose estimated intermediate output exceeds $100{,}000$ rows, and a result cap limits output to ten million rows. When a retrieval returns nothing, an orchestrator selects among retrying the query, substituting the literal user term, and deferring to a web-search tool [VERIFY: the fallback is orchestrator-gated rather than a fixed retry~$\rightarrow$~literal~$\rightarrow$~web chain]. Local databases resolve against parquet snapshots; Open Targets results arrive through paginated GraphQL calls at $1{,}000$ records per page, capped at $100$ pages and fetched in parallel batches of eight until the reported total is reached. Because a fixed plan applied to fixed data performs the same joins in the same order, retrieval over local snapshots is fully deterministic.
+
+\subsection*{Evaluation framework}
+
+We evaluate BioChirp as the first systematic quantification of retrieval completeness loss in language-model-based agentic systems over structured knowledge bases. Four benchmarks address four distinct properties of agentic retrieval reliability: reproducibility (Jaccard identity of retrieved row sets), synonym invariance (surface-form robustness), retrieval completeness (row-set coverage), and multi-agent coordination (ensemble accuracy). Two measurement definitions recur throughout. \emph{Row identity} for set operations is the order-independent set of normalized entity-identifier tuples---gene, disease, and drug identifiers resolved from the retrieved rows and uppercased---so two rows are the same when their resolved identifier tuples match. \emph{Coverage} is $|\text{retrieved} \cap \text{ground\_truth}| / |\text{ground\_truth}|$. Ground-truth row sets for the retrieval benchmarks were authored by the study team and established by executing each question against the pinned snapshots [VERIFY: no independent-expert or external-source attribution is recorded in the repository; disclose study-team authorship].
+
+We measured reproducibility on $70$ curated questions run five times each, spanning gene--disease, drug--indication, drug--target, and gene--pathway retrieval. Run identity was computed as the pairwise Jaccard of resolved identifier tuples across runs. BioChirp returned identical row sets ($J = 1.0$) on $61$ of $70$ questions; two high-recall gene--disease questions showed run-to-run variance (epilepsy $J = 0.51$, psoriasis $J = 0.64$) traceable to live entity-identifier enrichment rather than to the deterministic parquet layer, and ten pathway questions were excluded by the output-validation filter [VERIFY: the preprint reports universal $J = 1.0$; reconcile with the repository's $61/70$ measurement, or restrict the determinism claim to the parquet execution layer]. Stochastic natural-language-to-SQL baselines (LangChain, phidata, PydanticAI, and CrewAI over open models) do not carry this guarantee. Deterministic retrieval enables audit in high-stakes deployment.
+
+We measured synonym robustness with $21$ adversarial queries organized as $7$ entity groups, each expressed through $3$ synonymous surface forms spanning drugs, diseases, genes, and pathways (for example, ERBB2 / HER2 / HER-2neu). We defined inconsistency as any pair of surface-form runs on the same entity returning row sets that differ in identity. BioChirp returned identical rows across all variants. The four natural-language-to-SQL frameworks, served open models (Qwen-2.5-7B, Nova-Micro, Gemma-3-27B) through OpenRouter, achieved $92.9$--$100\%$ executable-query success yet returned inconsistent rows across synonyms of the same entity---a domain-agnostic surface-form failure mode. As breadth evidence, schema grounding over $23$ databases at $25$ questions each ($575$ total) reached $570/575$ ($99.1\%$), scoring a question correct when every required concept type was retrieved under column-equivalence classes.
+
+We measured multi-agent coordination on $100$ MedQA five-option \textit{multiple-choice questions} (the first $100$ test items) answered three times and scored by exact match on the predicted option letter. A four-model ensemble (Llama-3.3-70B, GPT-5-nano, Gemini-2.5-flash-lite, and Grok-4-fast) arbitrated by a GPT-5-mini orchestrator reached $94.67\%$ mean accuracy, exceeding the best single model (GPT-5-mini, $92.00\%$) and the weakest (Gemini-2.5-flash-lite, $67.00\%$). We report latency as wall-clock elapsed time from prompt submission to final answer, measured with a high-resolution timer and averaged over the $100$ questions, at $15.0$~s per question (median $12.3$~s) [VERIFY: test hardware and cold-start policy are not recorded in the repository]. We report the ensemble-versus-best-single comparison descriptively; no null-hypothesis test was applied because the primary claim is deterministic-execution reproducibility, not statistical superiority in question answering.
+
+We probed tool-mediated retrieval through a Model Context Protocol interface on $6$ representative queries---covering complete- and top-$k$ target, disease, and association requests over the evaluation databases---run twice each. A query passes when the client returns a substantive result set for both runs; row completeness is reported separately as the returned row count against the BioChirp reference count. BioChirp passed all $6$ ($363$--$4{,}916$ rows across the query set). An agentic GPT-5-mini client passed $2/6$ [VERIFY: the repository's strict both-runs-pass count is $2/6$ whereas the preprint reports $3/6$; reconcile], and a Claude Sonnet~4.5 desktop client passed all $6$ but returned only $10$--$99$ rows. Deterministic planning delivers complete retrieval where language-model-driven tool orchestration truncates.
+
+\subsection*{Ablation studies}
+
+We ablated the query-rewriting stage that precedes schema mapping. On $50$ schema-grounding questions, direct mapping without rewriting passed $49/50$ ($98\%$) at $0.022$~s per question, whereas rewriting with either supporting model, or a cascade of both, passed $50/50$ ($100\%$) at roughly $1$~s, isolating the rewriting stage's contribution to grounding at a bounded latency cost [VERIFY: the rewrite ablation is a single run per mode in \texttt{full\_bench\_rewrite.json}, not three runs]. We also treated dual-mapper agreement as a component measurement: over $150$ schema-grounding runs the two mappers agreed on the column set in $57/150$ cases and on parsed values in $96/150$, the orchestrator was invoked on $54/150$ ($36\%$) of runs, and the final configuration passed $149/150$ ($99.3\%$) [VERIFY: the preprint reports $\sim\!8\%$ orchestrator invocation and $93.3\%/97.3\%$ agreement; the current repository run gives $36\%$, $38\%$, and $64\%$---reconcile which run and model configuration the preprint reports]. [NOT FOUND IN REPO: an orchestrator-disable ablation, an entity-resolution source-removal ablation, or a query-complexity stratification; do not claim these were run.]
+
+\subsection*{Statistical analysis}
+
+Row-set determinism is an exact property of the deterministic execution layer, not a statistical estimate, because a fixed plan over fixed data carries no variance; we report Jaccard identity as an exact per-question count ($61/70$ at $J = 1.0$). Accuracy and latency are reported as observed means over the stated repetitions. The MedQA per-run scores ($95$, $95$, $94$) give a mean of $94.67\%$ and a standard deviation of $0.47$ (population; the sample standard deviation is $0.58$) [VERIFY: state which convention the preprint uses]. MCP row counts are reported as observed values across the two-run protocol, with no variance implied. We applied no null-hypothesis significance test to any comparison [NOT FOUND IN REPO: no McNemar, bootstrap, permutation, or $t$-test in the evaluation code], because the primary reliability claim rests on measured determinism rather than on inferential comparison of question-answering accuracy.
+
+
+%% ============================================================
+%% SUPPLEMENTARY METHODS — paste into Supplementary Information
+%% ============================================================
+
+\section*{Supplementary Methods}
+
+\subsection*{Database registry and schema manifests}
+
+Each database is described by a hand-authored YAML manifest (\texttt{dbs/<db>/schema.yaml}) that names its tables, columns, and concept types. A generator (\texttt{scripts/gen\_schema.py}) compiles every manifest into a single canonical registry, inferring primary keys from identifier-suffixed columns in master tables and foreign keys wherever an identifier column on a non-master table matches a master table's key. The registry classifies tables as \textit{master}, \textit{association}, or \textit{decoration}; decoration tables are left-joined and never serve as query roots, which prevents cross-reference bridges from becoming spurious retrieval anchors. Local databases are stored as pinned parquet snapshots (a \texttt{\_v2} snapshot is auto-preferred for migrated databases), and an in-process cache expires on a one-hour default cadence; Open Targets is accessed live over GraphQL (\texttt{api/v4}) and therefore reflects its upstream version at query time [VERIFY: exact snapshot dates and Open Targets API version]. The cross-database schema knowledge graph is built from these foreign keys plus curated cross-database concept bridges (queryable columns that share a concept type across databases) [VERIFY: the preprint reports $55$ nodes and $240$ edges; the current builder over ten active databases yields larger counts (of order hundreds of nodes and hundreds to thousands of edges depending on whether cross-database bridges are merged); reconcile the reported graph size].
+
+As a worked example, the therapeutic-target database registers a drug master table keyed by drug identifier, a drug--target association table linking drug and target identifiers, and a drug cross-matching decoration table carrying external identifiers (PubChem, ChEBI, CAS) for the same compound. The generator marks the master as a valid query root, treats the association as a join edge between the drug and target masters, and isolates the decoration table so that a query filtering on a drug name is answered from the master and association tables while external identifiers are attached only by a terminal left join. This role separation lets the planner reason over a clean foreign-key graph without cross-reference columns creating false join paths.
+
+\subsection*{Entity resolution: implementation details}
+
+Knowledge-base synonym expansion maps gene symbols through HGNC and gene aggregators (UniProt, MyGene.info, NCBI Gene, Open Targets) and drug names through PubChem, RxNorm, and ChEMBL, returning canonical database names [VERIFY: WHO-INN and DrugBank, cited in the preprint, are not implemented aggregators in \texttt{app/services/synonyms/}]. RapidFuzz scores character similarity and retains candidates at or above $82$ (service default; the shared utility and production environment default to $80$), using QRatio, partial-ratio, token-sort, and token-set scorers, with partial-ratio disabled for query terms shorter than six characters [VERIFY: threshold-selection procedure not documented in code]. Dense retrieval embeds each term with the SapBERT model \texttt{cambridgeltl/SapBERT-from-PubMedBERT-fulltext-mean-token} and queries a Qdrant vector store for the top-$25$ neighbours at cosine similarity $\geq 0.30$; a knee cutoff (floor $0.50$ in the production environment) further trims low-similarity tails, and the HNSW search parameter \texttt{ef} is set to $512$ [VERIFY: embedding batch size and shard count not documented]. The four candidate populations fuse by disjoint union---fuzzy candidates ordered by score, then synonym candidates not already present, then semantic-only candidates present in neither---all forwarded to a zero-shot language-model filter run at temperature zero with a $2{,}000$-token cap (production model \texttt{google/gemma-4-31b-it}). A trusted-synonym re-union and a reverse-synonym map are applied after filtering, and a literal-term floor re-inserts the user's original term, so a correct term is never dropped by the model. The filter prompt (\texttt{resources/prompts/semantic\_match\_agent.md}) instructs a deterministic semantic-matching function that accepts only ontology-equivalent or descendant strings:
+\begin{verbatim}
+You are a deterministic semantic matching function, not a conversational
+assistant. Your task is to identify semantically equivalent or
+ontology-descendant strings ...
+\end{verbatim}
+
+\subsection*{Schema mapping and orchestration: implementation details}
+
+The interpreter prompt (\texttt{resources/prompts/nlu\_extractor.md}) emits a single JSON object; the decomposer prompt (\texttt{resources/prompts/decomposer.md}) emits an ordered list of sub-queries over the database catalog; the router prompt (\texttt{resources/prompts/agentic\_orchestrator.md}) classifies and routes without answering from memory. Two schema-mapper agents run in parallel (production models \texttt{openai/gpt-oss-20b} and \texttt{openai/gpt-oss-120b}, temperature zero, $1{,}024$-token cap). An agreement function normalizes each mapper's parsed value---lowercasing keys and values and sorting lists---and returns true only when both key sets and all normalized values match; a mapper that emits an extra key is treated as disagreement so hallucinated fields cannot be silently merged. On agreement, co-output constraints are enforced programmatically. On disagreement, a larger orchestrator model (\texttt{openai/gpt-oss-120b}) receives a field-by-field comparison and the full schema and adjudicates, with a deterministic consensus-restoration fallback if the orchestrator fails. The MedQA ensemble reuses this coordination pattern at the reasoning layer: four models answer in parallel and a GPT-5-mini judge selects the final option under an explicit policy that forbids fabricating values and permits web search only for verification:
+\begin{verbatim}
+You are the Orchestrator and Final Judge for a multi-model decision pipeline.
+... Produce the SINGLE best final answer that strictly follows the SYSTEM POLICY.
+- You are NOT required to copy any candidate output.
+- You MUST NOT hallucinate facts, values, entities, or constraints.
+- You MAY use web_search only ... to verify definitions or validate correctness.
+\end{verbatim}
+
+\subsection*{Steiner tree planner: implementation details}
+
+The planner builds a table graph from inferred foreign keys, maps each requested concept column to every table that carries it, and connects the resulting terminal tables. The production path (\texttt{schema\_kg\_planner.py}) grows the tree by repeatedly attaching the nearest unconnected terminal along a shortest path; a legacy path (\texttt{graph.py}) computes a Steiner tree with Mehlhorn's approximation from NetworkX, bounded by a $20$-table coverage cap and a $300$-second timeout. A breadth-first traversal from the first terminal, with neighbours sorted lexicographically, fixes table order and parent assignments, and each parent--child edge yields one validated join pair. [NOT FOUND IN REPO: formal Theorem~1--3 statements or a Mehlhorn 2-approximation proof in code; if the preprint states them, reproduce them verbatim here and mark any mismatch \texttt{[CONFLICT]}.]
+
+\subsection*{Deterministic execution engine: implementation details}
+
+Cardinality is estimated at runtime by a cached Polars length query, so repeated joins over the same frame reuse a single count. Join order sorts ready tables by ascending cardinality, with unknown sizes placed last and ties broken lexicographically. The row-product guard aborts a join whose estimated output exceeds $100{,}000$ rows, and the final result is capped at ten million rows. Open Targets association queries page at $1{,}000$ records, compute the remaining page count from the reported total, and fetch pages in parallel batches of eight up to $100$ pages. On an empty result, an orchestrator model chooses among retrying, substituting the literal user term, and deferring to a web-search tool, rather than following a fixed retry chain.
+
+\subsection*{Ground truth construction and validation}
+
+The reproducibility benchmark used $70$ verified questions stored in a spreadsheet (\texttt{verified\_questions.xlsx}; for example, ``Which diseases are associated with BRAF?''). Ground-truth row sets are the results returned by executing each question against the pinned snapshot; the same $70$ questions were replayed five times to collect repeated runs, and identifier enrichment resolved gene, drug, and disease names to identifiers before the Jaccard comparison. Ten pathway questions are excluded from the Jaccard computation because the output validator filters pathway columns, and two high-recall gene--disease questions show run-to-run variance attributable to live enrichment [VERIFY: run-independence mechanism---separate processes or cache clearing---is not documented in code].
+
+The synonym benchmark's $21$ questions were authored by the study team as $7$ entity groups (A--G), each a canonical name plus two synonymous surface forms, hard-coded in \texttt{evaluation/Agentic\_SQL/nl2SQL.ipynb}; an extended set adds seven further groups ($42$ questions). The groups pair diseases with clinical, possessive, and abbreviated forms (Alzheimer disease / AD; Parkinson disease / PD; diffuse large B-cell lymphoma / DLBCL) and genes with HGNC symbols and aliases (ERBB2 / HER2 / HER-2neu; KDR / VEGFR-2; TOP2A; FGFR2 / BEK / KGFR). Row-set equivalence across a group is the intended invariant, and expected row counts were established from live BioChirp execution at run time.
+
+The MCP benchmark's $6$ representative queries span complete- and top-$k$ retrieval over the evaluation databases (CML targets, aspirin indications, TP53 associations). Ground-truth row counts were established from BioChirp live runs (for example, $4{,}916$ CML target rows, $363$ aspirin indication rows, $3{,}258$ TP53 association rows) and hard-coded as reference counts; pass/fail was graded manually in a spreadsheet and reproduced in the plotting code as pass / partial / fail [VERIFY: no automated row-count pass criterion exists in code].
+
+MedQA used the official test-split labels (\texttt{answer\_idx}) without modification [VERIFY: cite the MedQA source paper]. Schema-grounding questions ($25$ or $50$ per database, stored per database as labelled examples) carry a required concept-type list, with interchangeable columns grouped into concept-type equivalence classes: a gene requirement is satisfied by a gene symbol, HGNC identifier, or UniProt accession, and a structure requirement by any SMILES column. A question passes only when the set difference between its required concept types and the retrieved concept types, computed under these equivalence classes, is empty. [VERIFY: benchmark questions appear to be author-created; if any were externally sourced or expert-validated, state so; otherwise disclose study-team authorship.]
+
+\subsection*{Benchmark construction and evaluation protocols}
+
+Reproducibility compares runs by the row-identity definition above (order-independent set of normalized identifier tuples) and reports per-question Jaccard as intersection over union of those tuple sets. The synonym benchmark ran four frameworks (LangChain, phidata, PydanticAI, CrewAI) over open models served through OpenRouter, three trials per question, and flagged a model inconsistent when its trials or its three surface-form runs returned different row counts; the reported accuracy refers to executable-query success (a query that runs and returns rows) rather than row-set correctness. The strongest baseline configurations reached $100\%$ executable success (for example, PydanticAI with Nova-Micro at $42/42$) and the weakest reported here reached $92.9\%$ (CrewAI with Nova-Micro at $39/42$).
+
+Schema grounding scored a question correct when the retrieved columns satisfied every required concept type under equivalence; the aggregate $570/575$ ($99.1\%$) is a single run per question, whereas the per-database $92.7\%$ (HCDT, $139/150$) and $94.0\%$ (TTD, $141/150$) figures are averages over three runs of $50$ questions. In the recorded $150$-run configuration, the two mappers agreed on the column set in $57/150$ runs and on parsed values in $96/150$, and the orchestrator was invoked on $54/150$ runs [VERIFY: these differ from the preprint's $\sim\!8\%$ and $93.3\%/97.3\%$; reconcile run and model configuration]. MedQA scored answers by exact match on the predicted option letter over the option set $\{A,B,C,D,E\}$, collected the four ensemble candidates through parallel asynchronous calls, and let the GPT-5-mini judge select or synthesize the final letter, with web search permitted only for verification. The MCP benchmark ran the $6$ queries twice against BioChirp, an agentic GPT-5-mini client, and a Claude Sonnet~4.5 desktop client; the reported row ranges ($363$--$4{,}916$ for BioChirp, $10$--$99$ for Claude Sonnet~4.5) are the minimum and maximum returned row counts across the query set for each client [VERIFY: whether the preprint's $3/6$ for GPT-5-mini uses a looser pass criterion than the repository's strict both-runs-pass ($2/6$)].
+
+\subsection*{Statistical tests and ablation protocols}
+
+Latency was measured as wall-clock elapsed time from prompt submission to final answer using a high-resolution timer, averaged over the questions in each benchmark; cold-start handling is unspecified, and the test hardware (CPU, RAM, GPU, operating system) is not recorded in the repository [VERIFY: record the run hardware and whether the first, cold call is excluded]. No inferential statistical test was applied to any comparison; the ensemble-versus-best-single MedQA delta is reported descriptively, and the reproducibility guarantee is reported as an exact count rather than as an estimate with a confidence interval. The query-rewriting ablation removed the rewriting stage on $50$ questions and compared pass rate and latency against three rewriting configurations (direct $49/50$ at $0.022$~s; single-model or cascade rewriting $50/50$ at roughly $1$~s), single run per mode. The dual-mapper agreement measurement recorded column-set and parsed-value agreement over $150$ runs and the fraction escalated to the orchestrator. No orchestrator-disable, source-removal, or complexity-stratified ablation exists in the repository, and none is claimed.
+
+\subsection*{Software and reproducibility}
+
+The system targets Python $\geq 3.10$ and runs in containers on Python $3.11$. Core libraries are Polars $1.34.0$, NetworkX $3.6.1$, RapidFuzz $3.14.1$, qdrant-client $1.15.1$, sentence-transformers $5.1.1$, DuckDB $1.4.1$, pandas $2.3.3$, and openai-agents $0.4.0$; Qdrant runs at server version $1.17.1$. Parquet snapshots are pinned per release. [VERIFY: test hardware, operating-system version, Docker and Compose versions, and a code- and data-availability statement.]
+
+
+%% ============================================================
+%% [NATCOM FIT CHECK]
+%% ============================================================
+%%
+%% FITS (criterion -> location -> evidence):
+%% 1. Multi-step reasoning and planning -> Main "Graph-based retrieval planning"
+%%    (Eq. 1, greedy shortest-path + Mehlhorn variant) + Supp "Steiner tree planner".
+%%    Evidence: Steiner formulation over the FK join graph, deterministic BFS ordering.
+%% 2. Multi-agent systems and coordination -> Main "Multi-agent query interpretation"
+%%    (dual mapper + orchestrator, exact agreement rule) + MedQA four-model ensemble
+%%    (94.67% vs 92.00% best single). Evidence: measured ensemble gain; escalation rule.
+%% 3. Architectures for LLM-based agents -> interpretation-execution separation; execution
+%%    boundary after planning; per-layer single models. Evidence: Main "System overview".
+%% 4. Benchmarking and evaluation -> four benchmarks (reproducibility, synonym, MCP,
+%%    MedQA) + schema grounding + rewriting ablation. Framed as first systematic
+%%    quantification of retrieval completeness loss.
+%% 5. Safety, robustness, alignment -> deterministic parquet retrieval, cross-join guard
+%%    (100k), result cap (10M), literal-term floor, hallucinated-field escalation, synonym
+%%    invariance. Evidence: Main "Evaluation framework" + guards in "Execution engine".
+%% 6. Applications in science -> biomedical database federation across seven domains.
+%% 7. Autonomous goal-directed behavior -> "BioChirp is goal-directed: it perceives user
+%%    intent, plans a retrieval strategy, and executes it without further human intervention."
+%%
+%% GAPS:
+%% - Continual learning / memory / RL: not addressed; BioChirp is stateless per query.
+%%   Closest is the execution fallback chain. Acknowledge as out of scope in Discussion.
+%% - Formal guarantees: planning states a 2-approximation + determinism but Theorems 1-3
+%%   are [NOT FOUND]; any completeness claim is presently unproven in-repo.
+%% - Coverage benchmark: the coverage formula is defined, but the MultiStep-30 coverage
+%%   numbers, the 11 case studies, and the 112-card failure audit that appeared in the v3
+%%   draft are NOT present under evaluation/ and have been removed from v4. If the preprint
+%%   reports them, restore them with a source file; otherwise they must not be claimed.
+%%
+%% REQUIRED CHANGES (by subsection), all [VERIFY]/[CONFLICT] to resolve against preprint:
+%% - "Knowledge base construction": confirm the total database count and the seven-domain
+%%   taxonomy (code encodes 21 concept types / 13 relations; active planner path = 10 DBs).
+%% - "Graph-based retrieval planning": confirm whether the preprint reports the greedy
+%%   shortest-path production planner or the Mehlhorn legacy planner; insert Theorems 1-3
+%%   verbatim if proved in the preprint.
+%% - "Evaluation framework": reconcile reproducibility J=1.0 (repo 61/70) and MCP gpt-5-mini
+%%   pass count (repo 2/6 vs preprint 3/6); disclose ground-truth authorship.
+%% - "Ablation studies": reconcile orchestrator invocation (repo 36% vs preprint ~8%) and
+%%   mapper agreement (repo 38%/64% vs preprint 93.3%/97.3%); confirm single- vs three-run.
+%% - "Statistical analysis": record test hardware and cold-start policy; state SD convention.
+%%
+%% RESULTS-TO-METHODS TRACEABILITY (Results claim -> Methods procedure):
+%% - Reproducibility J=1.0 (61/70) -> "Evaluation framework" para 2 + "Ground truth" +
+%%   "Benchmark construction protocols" + "Statistical analysis".
+%% - Synonym invariance + 92.9-100% baselines -> "Evaluation framework" para 3 + protocols.
+%% - Schema grounding 570/575 = 99.1%; 92.7%/94.0% -> "Evaluation framework" para 3 +
+%%   "Benchmark construction protocols".
+%% - MedQA 94.67% +/- 0.47 vs 92.00% best single; 15.0s latency -> "Evaluation framework"
+%%   para 4 + "Statistical analysis" + latency protocol in "Statistical tests and ablation".
+%% - MCP 6/6 (363-4916) vs gpt-5-mini 2/6 vs Sonnet 6/6 (10-99) -> "Evaluation framework"
+%%   para 5 + "Ground truth" + "Benchmark construction protocols".
+%% - Rewriting ablation 98% -> 100% -> "Ablation studies" + "Statistical tests and ablation".
+%% - Dual-mapper agreement / orchestrator rate -> "Ablation studies" + protocols.
+%% - SUBMISSION-BLOCKERS (claim present but procedure or source unresolved in-repo):
+%%   (a) universal J=1.0 (repo shows 61/70);  (b) MCP pass criterion + gpt-5-mini 3/6 (repo 2/6);
+%%   (c) orchestrator ~8% / agreement 93.3%-97.3% (repo 36% / 38%-64%);
+%%   (d) seven-domain taxonomy and total DB count;  (e) schema-KG 55 nodes / 240 edges;
+%%   (f) MultiStep-30 coverage, 11 case studies, 112-card audit (absent from evaluation/);
+%%   (g) test hardware + cold-start for all latency numbers.
+%%   Every other Results claim has a matching, source-cited Methods procedure.
+%% ============================================================
+
+%% ============================================================
+%% REFERENCES NEEDED
+%% \cite{mehlhorn1988steiner}  -- Mehlhorn 2-approximation for the Steiner tree problem.
+%% \cite{networkx}             -- NetworkX (Steiner approximation implementation).
+%% \cite{sapbert2021}          -- SapBERT biomedical entity embeddings.
+%% \cite{rapidfuzz}            -- RapidFuzz string similarity.
+%% \cite{qdrant}               -- Qdrant vector store.
+%% \cite{polars}               -- Polars columnar engine.
+%% \cite{opentargets}          -- Open Targets Platform (GraphQL).
+%% \cite{medqa2021}            -- MedQA multiple-choice benchmark.
+%% \cite{mcp2024}              -- Model Context Protocol specification.
+%% \cite{hgnc}                 -- HGNC gene-name authority.
+%% \cite{langchain}, \cite{phidata}, \cite{pydanticai}, \cite{crewai} -- NL2SQL baseline frameworks.
+%% \cite{biochirp_preprint}    -- BioChirp preprint (bioRxiv 10.64898/2026.04.25.720782).
+%% ============================================================

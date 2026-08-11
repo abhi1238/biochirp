@@ -1,0 +1,75 @@
+# Schema FK lint baseline — auto-generated 2026-05-12.
+#
+# This file records the schema-consistency issues that exist in
+# config/schema.py at the time the CI gate was introduced. The gate
+# (scripts/check_schema_fks.py) blocks PRs that introduce NEW issues,
+# but tolerates anything in this baseline so existing technical debt
+# does not block development.
+#
+# Action items: the C5 (name-based FK) findings in CIViC and DrugCentral
+# are CRITICAL and called out in docs/SERVICE_DEDUP_PLAN.md follow-ups.
+# As real fixes land in config/schema.py, remove the corresponding line
+# from this file in the SAME commit — the linter emits a "fixed" note
+# when a baseline entry is no longer reported by the lint pass.
+#
+# Format: one finding per line, exactly as printed by check_schema_fks.py
+# (leading whitespace is ignored). Lines starting with '#' are comments.
+
+ [C3] ttd.drug_crossmatching_association: association tables need ≥2 *_id columns, got ['drug_id']
+ [C3] ttd.drug_synonyms_association: association tables need ≥2 *_id columns, got ['drug_id']
+ [C4] ttd.target_compound_activity_association: FK column 'drug_compound_id' has no matching _master_table in this database (dangling FK)
+ [C3] ttd.target_uniprot_association: association tables need ≥2 *_id columns, got ['target_id']
+ [C4] ctd.chemical_gene_association: FK column 'organism_id' has no matching _master_table in this database (dangling FK)
+ [C5] ctd.chemical_gene_association: column 'gene_name' appears to be a name-based join key while ctd also has gene_master_table with PK 'gene_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C5] ctd.chemical_disease_association: column 'drug_name' appears to be a name-based join key while ctd also has drug_master_table with PK 'drug_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C5] ctd.chemical_disease_association: column 'disease_name' appears to be a name-based join key while ctd also has disease_master_table with PK 'disease_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C4] hcdt.drug_gene_association: FK column 'uniprot_id' has no matching _master_table in this database (dangling FK)
+ [C4] hcdt.drug_gene_association: FK column 'hgnc_id' has no matching _master_table in this database (dangling FK)
+ [C4] hcdt.drug_gene_association: FK column 'ensembl_id' has no matching _master_table in this database (dangling FK)
+ [C4] hcdt.drug_gene_association: FK column 'entrez_id' has no matching _master_table in this database (dangling FK)
+ [C5] hcdt.drug_gene_association: column 'drug_name' appears to be a name-based join key while hcdt also has drug_master_table with PK 'drug_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C5] hcdt.drug_gene_association: column 'gene_name' appears to be a name-based join key while hcdt also has gene_master_table with PK 'gene_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C5] hcdt.drug_disease_association: column 'drug_name' appears to be a name-based join key while hcdt also has drug_master_table with PK 'drug_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C5] hcdt.drug_disease_association: column 'disease_name' appears to be a name-based join key while hcdt also has disease_master_table with PK 'disease_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C4] hcdt.drug_pathway_association: FK column 'reactome_id' has no matching _master_table in this database (dangling FK)
+ [C4] hcdt.drug_pathway_association: FK column 'kegg_hsa_id' has no matching _master_table in this database (dangling FK)
+ [C4] hcdt.drug_pathway_association: FK column 'smpdb_id' has no matching _master_table in this database (dangling FK)
+ [C5] hcdt.drug_pathway_association: column 'drug_name' appears to be a name-based join key while hcdt also has drug_master_table with PK 'drug_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C5] hcdt.drug_pathway_association: column 'pathway_name' appears to be a name-based join key while hcdt also has pathway_master_table with PK 'pathway_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C5] hcdt.drug_rna_association: column 'drug_name' appears to be a name-based join key while hcdt also has drug_master_table with PK 'drug_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C5] hcdt.drug_rna_association: column 'rna_name' appears to be a name-based join key while hcdt also has rna_master_table with PK 'rna_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C4] drugcentral.drug_disease_association: FK column 'snomed_id' has no matching _master_table in this database (dangling FK)
+ [C3] drugcentral.drug_target_association: association tables need ≥2 *_id columns, got ['drug_id']
+ [C2] hgnc.gene_master_table: PK 'gene_id' is not referenced by any _association table (orphan master)
+ [C2] civic.drug_master_table: PK 'drug_id' is not referenced by any _association table (orphan master)
+ [C5] civic.variant_evidence_association: column 'drug_name' appears to be a name-based join key while civic also has drug_master_table with PK 'drug_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+ [C2] doid.disease_master_table: PK 'disease_id' is not referenced by any _association table (orphan master)
+ [C2] mondo.disease_master_table: PK 'disease_id' is not referenced by any _association table (orphan master)
+ [C4] clinvar.variant_disease_association: FK column 'disease_id' has no matching _master_table in this database (dangling FK)
+ [C2] .gene_master_table: PK 'gene_id' is not referenced by any _association table (orphan master)
+ [C4] biogrid.ppi_association: FK column 'gene_partner_id' has no matching _master_table in this database (dangling FK)
+ [C2] chebi.chemical_master_table: PK 'chebi_id' is not referenced by any _association table (orphan master)
+ [C2] mesh.descriptor_master_table: PK 'mesh_id' is not referenced by any _association table (orphan master)
+ [C3] msigdb.gene_geneset_association: association tables need ≥2 *_id columns, got ['geneset_id']
+ [C4] omnipath.ppi_association: FK column 'protein_partner_id' has no matching _master_table in this database (dangling FK)
+ [C4] omnipath.enz_sub_association: FK column 'substrate_id' has no matching _master_table in this database (dangling FK)
+ [C4] omnipath.tf_regulon_association: FK column 'tf_id' has no matching _master_table in this database (dangling FK)
+ [C4] omnipath.tf_regulon_association: FK column 'target_gene_id' has no matching _master_table in this database (dangling FK)
+ [C4] orphanet.disease_phenotype_association: FK column 'phenotype_id' has no matching _master_table in this database (dangling FK)
+ [C3] pubtator.gene_pubmed_association: association tables need ≥2 *_id columns, got ['gene_id']
+ [C3] pubtator.chemical_pubmed_association: association tables need ≥2 *_id columns, got ['chemical_id']
+ [C4] string.ppi_association: FK column 'protein_partner_id' has no matching _master_table in this database (dangling FK)
+ [C3] uniprot.gene_protein_association: association tables need ≥2 *_id columns, got ['protein_id']
+ [C2] wikipathways.gene_master_table: PK 'gene_id' is not referenced by any _association table (orphan master)
+ [C3] wikipathways.gene_pathway_association: association tables need ≥2 *_id columns, got ['pathway_id']
+ [C5] wikipathways.gene_pathway_association: column 'gene_symbol' appears to be a name-based join key while wikipathways also has gene_master_table with PK 'gene_id'. Use the *_id column for joins, or add the (db, table, col) triple to NAME_FK_EXEMPTIONS with justification.
+# 2026-06-24 HPO normalization (CTD convention): the denormalised gene_symbol /
+# phenotype_name / disease_name copies were removed from HPO's association tables
+# (the 2026-05-16 C5 entries are now FIXED and dropped). The phenotype masters were
+# also MERGED on disk into a single full-coverage `phenotype_master_table` (19,389
+# terms + name + ontology metadata), so phenotype_id now resolves cleanly to a
+# `_master_table` and is no longer a dangling FK — nothing to baseline there.
+# ncbi_gene_id remains a cross-reference identifier (concept_type gene_xref_id), the
+# bare prefix-stripped form of gene_id — not an FK to an HPO master (same pattern as
+# reactome.ncbi_pathway_reactome.ncbi_gene_id). The checker over-flags *_id xref cols.
+ [C4] hpo.gene_disease_association_hpo: FK column 'ncbi_gene_id' has no matching _master_table in this database (dangling FK)

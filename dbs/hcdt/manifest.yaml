@@ -1,0 +1,367 @@
+name: hcdt
+display_name: HCDT
+description: 'High-Confidence Drug-Target database (HCDT). External published dataset
+  of human drug-target associations harmonising data from multiple pharmacological
+  sources with a focus on clinically validated drug-target pairs. Source: Zhang et
+  al., "HCDT 2.0: an expanded database of high-confidence drug-target interactions".
+
+  '
+schema:
+  inputs:
+  - field: drug_name
+  - field: gene_symbol
+  - field: disease_name
+  - field: rna_name
+  - field: pathway_name
+  outputs:
+  - field: drug_name
+  - field: gene_symbol
+  - field: disease_name
+  - field: rna_name
+  - field: pathway_name
+  tables:
+    drug_master_table:
+      description: ''
+      key_columns:
+      - name: drug_id
+        description: HCDT drug identifier (PubChem CID string).
+      - name: drug_name
+        description: Drug preferred / display name in mixed case — Title Case for trivial
+          names (e.g. "Imatinib", "Gefitinib") and full IUPAC strings for chemical-entry
+          rows; ~0.0015% of rows are entirely lowercase (10/678,564), so case-sensitive
+          lowercase matches will miss. Users may ask for "drug", "compound",
+          "medication", or just type the drug name.
+      - name: drug_mw
+        description: Molecular weight in Daltons (e.g. 493.6). Stored as STRING
+          (dtype=object); some rows hold integer-string ("444") and others
+          decimal-string ("467.6"). Parse + cast before numeric comparison /
+          aggregation. Users may ask for "MW", "molecular weight", "molecular
+          mass", or just "mass".
+      - name: drug_formula
+        description: Molecular formula of the drug (e.g. "C29H31N7O"). Users may ask for "molecular
+          formula", "chemical formula", "empirical formula", or just "formula".
+      - name: drug_inchi
+        description: Full InChI structural string. Users may ask for "InChI".
+      - name: drug_smiles_iso
+        description: Isomeric SMILES preserving stereochemistry. Users may ask for "SMILES",
+          "isomeric SMILES", or "structure".
+      - name: drug_smiles_canon
+        description: Canonical SMILES (stereochemistry-stripped). Users may ask for "canonical
+          SMILES" or "SMILES".
+      - name: drug_inchikey
+        description: InChIKey structural hash. Stored as string; literal "NA" sentinel
+          marks unknown (~6.5% of rows, including some flagship trivial-name drugs such
+          as "Imatinib"). Users may ask for "InChIKey" or "structure key".
+      - name: drug_iupac
+        description: IUPAC systematic chemical name. Stored as string; literal "NA"
+          sentinel marks unknown (~8.5% of rows). Users may ask for "IUPAC name" or
+          "systematic name".
+    drug_synonyms_association:
+      description: 'Drug synonym lookup — one row per drug_id × synonym, exploded from
+        drug_master_table.drug_synonyms. Use to resolve alternate names, brand names, or trade
+        names to the canonical drug_id before joining other HCDT tables.'
+      key_columns:
+      - name: drug_id
+        description: HCDT drug identifier (PubChem CID string). FK to drug_master_table.drug_id.
+      - name: synonym
+        description: Alternate name, brand name, or trade name for the drug (e.g. "Gleevec"
+          for imatinib, "Iressa" for gefitinib). One row per synonym. Users may ask for
+          "synonym", "alias", "brand name", or "trade name".
+    gene_master_table:
+      description: ''
+      key_columns:
+      - name: gene_id
+        description: PK of gene_master_table (= HGNC symbol value, e.g. "EGFR", "BRAF").
+          FK join key in drug_gene_association, drug_target_negative, and pathway_gene_association.
+          Internal join key — not directly user-queryable; always filter and output via gene_symbol.
+      - name: gene_symbol
+        description: Display alias for gene_id (same value; e.g. "EGFR", "BRAF"). The
+          user-facing filter and output column for all gene queries. Users may ask for "gene",
+          "gene symbol", or "HGNC symbol". Exists in gene_master_table only — NOT a column
+          in any association table.
+      - name: uniprot
+        description: UniProt accession of the target protein (e.g. "P00533"). Users may ask
+          for "UniProt ID" or "UniProt accession". (parquet column uniprot_id)
+      - name: hgnc
+        description: HGNC identifier (e.g. "HGNC:3236"). Users may ask for "HGNC ID". (parquet column hgnc_id)
+      - name: ensembl
+        description: Ensembl gene identifier (e.g. "ENSG00000146648"). Users may ask for "Ensembl
+          ID" or "Ensembl gene ID". (parquet column ensembl_id)
+      - name: entrez
+        description: NCBI Entrez gene ID (e.g. "1956"). Users may ask for "Entrez ID" or "NCBI
+          gene ID". (parquet column entrez_id)
+    rna_master_table:
+      description: ''
+      key_columns:
+      - name: rna_id
+        description: RNA identifier (PK; e.g. "MIMAT0000459" for miRBase mature, "MI0003144"
+          for miRBase precursor, "ENSG..." for lncRNA, "hsa_circ_0000199" or
+          "hsa-circRNA-007874" for circRNA, or a 4-character PDB-like string
+          e.g. "7qi4" for the catch-all "RNA" type). Users may ask for "RNA ID".
+      - name: rna_name
+        description: RNA molecule name. miRNA entries use HCDT's hyphenated lowercase-
+          prefix style (e.g. "miR-21", "miR-219") — the "MIR21" shorthand will NOT
+          key-hit. lncRNA entries use the HGNC symbol (e.g. "HOTAIR"). circRNA entries
+          use circular RNA identifiers (e.g. "hsa_circ_0000199", "circPVT1"). RNA catch-all
+          entries use 4-character PDB-like identifiers (e.g. "7qi4"). Users
+          may ask for "RNA", "miRNA", "lncRNA", or "circRNA".
+      - name: rna_type
+        description: 'RNA type — actual enum (case-sensitive): "lncRNA" (~63%),
+          "miRNA" (~36%), "RNA" (catch-all, <1%), "circRNA" (<1%). There is no
+          "snoRNA" class in HCDT. Users may ask for "RNA type".'
+    pathway_master_table:
+      description: ''
+      key_columns:
+      - name: pathway_id
+        description: Pathway PK — coalesced from Reactome R-HSA-/R-ALL- ID, KEGG HSA
+          ID, SMPDB ID, KEGG generic ID, or pathway name (in that priority order).
+          ~79.8% of rows (1,668 of 2,089) are standard Reactome IDs (R-HSA-/R-ALL- prefixed;
+          R-NUL- placeholder excluded). Users may ask for "pathway ID" or "Reactome ID".
+      - name: pathway_name
+        description: Pathway name from upstream sources (e.g. KEGG, SMPDB, Reactome,
+          DrugPath). Users may ask for "pathway" or "signaling pathway".
+      - name: kegg_hsa_xref
+        description: KEGG human pathway identifier with hsa- prefix (e.g. "hsa04514").
+          NULL when not available. Users may ask for "KEGG human ID" or "KEGG HSA".
+      - name: smpdb_xref
+        description: Small Molecule Pathway Database identifier (e.g. "SMP0000563").
+          Users may ask for "SMPDB ID".
+      - name: chebi_xref
+        description: ChEBI cross-reference for the pathway's small-molecule anchor.
+          Stored as bare numeric string (e.g. "64317", "16108") — NOT prefixed with
+          "CHEBI:". Populated for ~17.2% of rows (360 of 2,089); unknown rows are
+          stored as NULL (1,722 rows), with 7 rows holding the literal "NA"
+          — filter on non-null AND != 'NA' before use. Users may ask for "ChEBI ID".
+      - name: kegg_xref
+        description: KEGG generic (non-species) pathway identifier (e.g. "map00190").
+          Distinct from kegg_hsa_xref (which is species-specific). Users may ask for
+          "KEGG ID" or "KEGG pathway".
+    disease_master_table:
+      description: ''
+      key_columns:
+      - name: disease_id
+        description: Disease PK — coalesced from MeSH D-code (40.5%, D+digit-prefixed, 613 of
+          1,514 rows), NCI/UMLS C-code (1.3%, 20 rows), ICD-11 code (58.1%, 879 rows),
+          or disease_name fallback (0.1%, 2 rows — no MeSH/NCI/ICD-11
+          available). Users may ask for "disease ID", "MeSH ID", or "condition".
+      - name: disease_name
+        description: Disease label as curated by HCDT (e.g. "Non-small cell lung cancer").
+          Users may ask for "disease", "indication", or "condition".
+      - name: icd11
+        description: ICD-11 disease classification code. Users may ask for "ICD-11" or "ICD
+          code".
+      - name: omim_xref
+        description: OMIM disease identifier cross-reference (e.g. "143100" Huntington
+          disease). Sparse — populated for ~13.2% of rows (200 of 1,514); unknown rows are stored
+          as empty strings (not NULL) in the parquet — filter on non-empty before use.
+          Some cells carry SPACE-DELIMITED multi-value strings (e.g. "256450 240800 601820") —
+          split on space before lookup. Users may ask for "OMIM ID" or "OMIM".
+    drug_gene_association:
+      description: 'Drug–gene interaction pairs (1,224,662 rows in v2). PK pair:
+        (drug_id, gene_id). Join to drug_master_table for drug details and
+        gene_master_table for gene xrefs (UniProt, HGNC, Ensembl, Entrez).'
+      key_columns:
+      - name: drug_id
+        description: PubChem CID of the drug (joins to drug_master_table.drug_id).
+          Users may ask for "drug" or "compound".
+      - name: gene_id
+        description: FK join key to gene_master_table.gene_id (= gene_symbol value).
+          Internal identifier — not directly queryable; use gene_master_table for gene
+          display name and xref IDs.
+      - name: source_count
+        description: Number of distinct source databases confirming this drug-gene pair
+          (computed at load time from datasource). Not user-queryable — use for ranking,
+          e.g. ORDER BY source_count DESC to surface best-supported interactions.
+      - name: ttd_confirmed
+        description: 1 if TTD (Therapeutic Target Database) is among the confirming sources,
+          else 0. Not a user-facing output column — use ORDER BY ttd_confirmed DESC to
+          surface curated primary targets.
+    drug_rna_association:
+      description: 'Drug–RNA association pairs (8,062 rows; dedup and FK filtering are
+        applied at preprocess — the served parquet has 0 duplicate (drug_id, rna_id) pairs
+        and 0 rna_id FK-orphan rows). PK pair: (drug_id, rna_id). Join to drug_master_table
+        for drug details and rna_master_table for RNA name and type.'
+      key_columns:
+      - name: drug_id
+        description: PubChem CID of the drug (joins to drug_master_table.drug_id).
+      - name: rna_id
+        description: RNA identifier (joins to rna_master_table.rna_id; e.g. "MIMAT0000459"
+          for miRBase mature miRNA, "MI0003144" for miRBase precursor miRNA, "ENSG..."
+          for lncRNA, "hsa_circ_0000199" or "hsa-circRNA-007874" for circRNA,
+          or a 4-character PDB-like string e.g. "7qi4" for the RNA catch-all type).
+    drug_pathway_association:
+      description: 'Drug–pathway association pairs (28,109 rows in v2). PK pair:
+        (drug_id, pathway_id). Join to pathway_master_table for pathway name and
+        xref IDs.'
+      key_columns:
+      - name: drug_id
+        description: PubChem CID of the drug (joins to drug_master_table.drug_id).
+      - name: pathway_id
+        description: Pathway identifier (joins to pathway_master_table.pathway_id; typically
+          a Reactome R-HSA-/R-ALL- ID, KEGG HSA ID, SMPDB ID, or pathway name).
+    pathway_gene_association:
+      description: 'PK pair: (pathway_id, gene_id). Pathway–gene membership (41,962
+        rows in v2). Genes outside the HCDT drug-target scope were dropped during
+        Entrez→gene_id resolution.'
+      key_columns:
+      - name: pathway_id
+        description: Pathway identifier (joins to pathway_master_table.pathway_id).
+      - name: gene_id
+        description: FK join key to gene_master_table.gene_id (= gene_symbol value).
+          Internal identifier — not directly queryable; use gene_master_table for gene
+          display name and xref IDs.
+    drug_disease_association:
+      description: 'Drug–disease indication pairs (12,078 rows in v2). PK pair:
+        (drug_id, disease_id). Join to disease_master_table for disease name and
+        ICD-11/OMIM xrefs.'
+      key_columns:
+      - name: drug_id
+        description: PubChem CID of the drug (joins to drug_master_table.drug_id).
+      - name: disease_id
+        description: Disease identifier (joins to disease_master_table.disease_id;
+          typically a MeSH descriptor, e.g. "D011014").
+    drug_target_negative:
+      description: 'Confirmed-negative drug–target pairs with measured binding affinity
+        (38,085 rows in v2). gene_id FK enforced at build time: orphan gene_id values not in
+        gene_master_table_hcdt were dropped during preprocess, so the served parquet has 0
+        gene_id FK orphans. drug_id FK NOT enforced: ~48% of rows are raw PubChem assay
+        compounds not in drug_master — RETAINED. Affinity columns use string "NA" sentinel for
+        unknown and pipe-delimited multi-measurement format.'
+      key_columns:
+      - name: drug_id
+        description: PubChem CID of the drug. NOT FK-filtered — ~48% of rows
+          are raw PubChem assay CIDs absent from drug_master_table but retained.
+          Users may ask for "drug" or "compound".
+      - name: ki_nm
+        description: Inhibition constant Ki in nanomolar. Stored as STRING; literal "NA"
+          sentinel marks unknown (~80.5% NA); pipe-delimited multi-measurement values
+          (e.g. "160000|158489.32"). Split on "|" then drop NA tokens before numeric
+          comparison. Users may ask for "Ki", "binding affinity", or "potency". Lower =
+          more potent.
+      - name: ic50_nm
+        description: Half-maximal inhibitory concentration IC50 in nanomolar. Stored as
+          STRING; "NA" sentinel for unknown (~31% NA — most populated potency column);
+          pipe-delimited multi-measurement values. Split on "|" then drop NA tokens
+          before numeric comparison. Users may ask for "IC50" or "potency". Lower =
+          more potent.
+      - name: kd_nm
+        description: Dissociation constant Kd in nanomolar. Stored as STRING; "NA"
+          sentinel for unknown (~95.6% NA — sparsest potency column); pipe-delimited
+          multi-measurement values. Split on "|" then drop NA tokens before numeric
+          comparison. Users may ask for "Kd" or "binding constant". Lower = stronger
+          binding.
+      - name: gene_id
+        description: FK join key to gene_master_table.gene_id (= gene_symbol value).
+          FK enforced at build time — orphan gene_id values not present in
+          gene_master_table_hcdt were dropped during preprocess, so the served parquet has
+          0 gene_id FK orphans. Internal identifier — not directly queryable; use
+          gene_master_table for gene display name and xref IDs.
+    pathway_xref:
+      description: 'DERIVED at runtime by the loader (app/tools/hcdt/app/database_loader.py)
+        by unpivoting pathway_master_table.{kegg_hsa_xref, smpdb_xref, chebi_xref,
+        kegg_xref} into a long-form (pathway_id, xref_source, xref_id) table. Note:
+        Reactome IDs are now the pathway_id itself and are NOT duplicated in this table.
+        No on-disk parquet; column-name → xref_source enum mapping is owned by the loader.'
+      key_columns:
+      - name: pathway_id
+        description: Pathway identifier (joins to pathway_master_table.pathway_id). Required
+          join key to retrieve pathway name and attributes from pathway_master_table.
+      - name: xref_source
+        description: 'External pathway database name — actual enum (lowercase): "kegg_hsa",
+          "kegg", "smpdb", "chebi". Note that "kegg_hsa" (hsa-prefixed IDs e.g. "hsa04514")
+          and "kegg" (map-prefixed IDs e.g. "map00190") are TWO DISTINCT cross-refs from
+          the same source family. Reactome IDs resolve via pathway_id directly. Users may
+          ask for "cross-reference database" or "xref source".'
+      - name: xref_id
+        description: External pathway identifier in xref_source — e.g. "hsa04514" for kegg_hsa,
+          "map00190" for kegg, "SMP0000563" for smpdb, "64317" for chebi. Users may ask for
+          "cross-reference ID" or "xref ID".
+valid_queries:
+- What are the targets of aspirin in humans?
+- Which clinical drugs target the ACE2 receptor?
+- What drugs bind to the serotonin transporter (SLC6A4)?
+- Curated human drug-target interactions for warfarin.
+- What proteins does metformin interact with clinically?
+invalid_queries:
+- Is rs1799945 pathogenic? (use ClinVar — HCDT has no variant data)
+- Which proteins interact with KRAS? (use BioGRID/STRING — HCDT has no PPI data)
+- What chemical class does ibuprofen belong to? (use ChEBI — HCDT has no ontology data)
+- What is the mechanism of action of erlotinib? (use TTD — HCDT has no MOA text)
+- Is bevacizumab in HCDT? (most biologics including bevacizumab are absent from HCDT)
+- What NCT trial IDs apply to drug X? (use ClinicalTrials.gov — HCDT has no trial data)
+force_relations:
+  drug_target: 0.55
+  drug_indication: 0.75
+  gene_disease: 0.85
+  disease_gene: 0.85
+  cancer_genomics: 0.4
+explicit_capability_triggers:
+- phrases:
+  - hcdt
+  - high-confidence drug-target
+  - drug-target interaction
+  - drug target interaction
+  - drug target association
+  - binding affinity
+  - ic50
+  - ki value
+  - kd value
+  - drug-rna interaction
+  - drug rna association
+skip_relations:
+- variant_clinical
+- protein_interaction
+- trial_search
+- protein_structure
+- protein_domain
+- variant_population
+- gwas_association
+- gene_expression
+- phenotype
+derived:
+  capability_card:
+    valid_queries:
+    - What are the targets of aspirin in humans?
+    - Which clinical drugs target the ACE2 receptor?
+    - What drugs bind to the serotonin transporter (SLC6A4)?
+    - Curated human drug-target interactions for warfarin.
+    - What proteins does metformin interact with clinically?
+    - Which genes are associated with breast cancer via known drug targets?
+    - What is the IC50 of gefitinib against EGFR?
+    - Which diseases are treated by drugs that target BRAF?
+    - What KEGG pathways is JAK2 involved in according to HCDT?
+    - What lncRNAs are associated with imatinib in HCDT?
+    - Which drugs are associated with the MAPK signaling pathway?
+    invalid_queries:
+    - Is rs1799945 pathogenic? (use ClinVar — HCDT has no variant data)
+    - Which proteins interact with KRAS? (use BioGRID/STRING — HCDT has no PPI data)
+    - What chemical class does ibuprofen belong to? (use ChEBI — HCDT has no ontology data)
+    - What is the mechanism of action of erlotinib? (use TTD — HCDT has no MOA text)
+    - Is bevacizumab in HCDT? (most biologics including bevacizumab are absent from HCDT)
+    - What NCT trial IDs apply to drug X? (use ClinicalTrials.gov — HCDT has no trial data)
+    embed_text_len: 1547
+  relation_weights:
+    drug_target: 0.88
+    drug_indication: 0.75
+    gene_disease: 0.85
+    disease_gene: 0.85
+    pathway_membership: 0.50
+    compound_lookup: 0.42
+    cancer_genomics: 0.40
+    alias_resolution: 0.18
+    literature: 0.12
+    drug_safety: 0.08
+  auto_triggers:
+  - hcdt
+  manifest_hash: 46882e9dab44d7b5
+service:
+  tool:
+    port: 8018
+    workers: 6
+    memory_limit: 24g
+    memory_reservation: 16g
+    extra_depends_on:
+    - biochirp_synonyms_expander
+    - biochirp_fuzzy_tool
+    - biochirp_semantic_tool
+    env: {}

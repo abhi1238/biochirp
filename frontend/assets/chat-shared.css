@@ -1,0 +1,793 @@
+/* Shared CSS for BioChirp per-DB chat pages.
+ *
+ * Extracted 2026-05-17 from frontend/biogrid_chat_api.html. 24 of 26 chat
+ * pages had byte-identical inline <style> blocks before extraction. To
+ * regenerate this file, copy the inline <style> contents from any of
+ * those 24 files.
+ *
+ * Loaded via <link rel='stylesheet' href='assets/chat-shared.css'> in
+ * the head of each chat page.
+ */
+:root[data-theme="dark"]{
+    --bg0:#070A15; --bg1:#0B1222; --bg2:#0E1626; --bg3:#121C2E;
+    --card:#0F1828; --txt:#EAF2FF; --mut:#9FB0C4;
+    --brd:rgba(255,255,255,.10); --hover:rgba(255,255,255,.06);
+    --accent:#1FA4FF; --accent2:#A78BFA; --ok:#00E38C; --err:#ff6b6b;
+    --shadow:0 18px 55px rgba(0,0,0,.45);
+  }
+  :root[data-theme="light"]{
+    --bg0:#F6FAFF; --bg1:#FFFFFF; --bg2:#FFFFFF; --bg3:#F4F7FB;
+    --card:#FFFFFF; --txt:#0B1624; --mut:#486173;
+    --brd:rgba(0,0,0,.10); --hover:rgba(0,0,0,.04);
+    --accent:#1FA4FF; --accent2:#6D50FF; --ok:#0FB27A; --err:#E25050;
+    --shadow:0 18px 55px rgba(17,24,39,.14);
+  }
+  :root{ --chat-max: min(2200px, 96vw); }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    min-height:100vh; color:var(--txt); background:var(--bg0);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column;
+    background:
+      radial-gradient(900px 600px at -20% -10%, rgba(31,164,255,.10) 0%, transparent 60%),
+      radial-gradient(900px 600px at 110% 110%, rgba(167,139,250,.10) 0%, transparent 55%),
+      linear-gradient(135deg,var(--bg0) 0%,var(--bg1) 100%);
+  }
+
+  .app{display:flex; min-height:100vh;}
+  .chat{flex:1; display:flex; flex-direction:column; min-width:0;}
+
+  .chat-header{
+    position:sticky; top:0; z-index:5; padding:10px 16px;
+    border-bottom:1px solid var(--brd);
+    display:flex; align-items:center; justify-content:space-between;
+    background:color-mix(in oklab, var(--bg1) 86%, transparent);
+    backdrop-filter: blur(10px) saturate(1.25);
+  }
+  .leftHdr{display:flex; align-items:center; gap:10px}
+  .chat-title{font-size:18px; font-weight:800; letter-spacing:.01em}
+  .chat-title small{font-weight:700; color:var(--mut); font-size:12px}
+  .status-wrap{display:flex; gap:8px; align-items:center}
+  .connection-status{
+    display:flex; gap:8px; align-items:center; padding:6px 10px;
+    border-radius:999px; border:1px solid var(--brd);
+    background:var(--bg2); font-size:12px
+  }
+  .status-dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+  .reconnect,.theme-btn{
+    padding:6px 10px;border-radius:10px;border:1px solid var(--brd);
+    background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:background .15s ease, transform .06s ease, border-color .15s ease;
+  }
+  .reconnect:hover,.theme-btn:hover{
+    background:var(--hover); border-color:color-mix(in oklab,var(--accent) 30%,var(--brd));
+  }
+  .reconnect:active,.theme-btn:active{ transform:translateY(1px) }
+  /* Documentation button (header) and modal — same look-and-feel as the
+     CTD / HCDT / DrugCentral chat pages, tuned for the Therapeutic Targets
+     Database scope. */
+  .doc-btn{
+    padding:6px 10px;border-radius:10px;border:1px solid var(--brd);
+    background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:background .15s ease, transform .06s ease, border-color .15s ease;
+  }
+  .doc-btn:hover{
+    background:var(--hover); border-color:color-mix(in oklab,var(--accent) 30%,var(--brd));
+  }
+  .doc-btn:active{ transform:translateY(1px) }
+
+  .doc-overlay{
+    position:fixed; inset:0; z-index:50;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+  }
+  .doc-modal{
+    width:min(960px, 92vw); max-height:85vh; overflow:hidden;
+    background:var(--card); border:1px solid var(--brd);
+    border-radius:16px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column;
+  }
+  .doc-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--brd);
+  }
+  .doc-title{ font-size:16px; font-weight:800; }
+  .doc-close{
+    border:1px solid var(--brd); background:var(--bg2); color:var(--txt);
+    border-radius:10px; padding:6px 10px; cursor:pointer;
+  }
+  .doc-body{
+    padding:16px; overflow:auto; line-height:1.6; color:var(--txt);
+  }
+  .doc-body h4{ margin:14px 0 6px; font-size:14px; }
+  .doc-body ul{ margin:6px 0 12px 16px; }
+  .doc-body table{ width:100%; border-collapse:collapse; font-size:13px; margin:6px 0 14px; }
+  .doc-body th, .doc-body td{
+    border:1px solid var(--brd); padding:6px 10px; text-align:left; vertical-align:top;
+  }
+  .doc-body th{ background:var(--bg2); font-weight:700; }
+  .doc-body code{ background:var(--bg2); padding:1px 5px; border-radius:4px; font-size:12.5px; }
+
+  .quick-asks{
+    max-width: var(--chat-max);
+    margin: 14px auto 24px;
+    padding: 0 16px;
+    display:grid;
+    /* --qa-cols is set per-page in chat-bootstrap.js based on the actual
+       sample count (e.g. 5 for TTD) so it fits one row on desktop instead
+       of always wrapping at a fixed 4. Falls back to 4 if unset. The
+       narrower-viewport overrides below hardcode their own column counts
+       (not the var) so they still win on small screens regardless of how
+       many samples a given DB has. */
+    grid-template-columns: repeat(var(--qa-cols, 4), minmax(0,1fr));
+    gap:10px;
+  }
+  .qa-card{
+    appearance:none;
+    text-align:left;
+    width:100%;
+    font-family:inherit;
+    border:1px solid var(--brd);
+    background:radial-gradient(circle at top left, rgba(31,164,255,.12), transparent 55%), var(--card);
+    color:var(--txt);
+    padding:12px 14px;
+    border-radius:14px;
+    font-size:13px;
+    cursor:pointer;
+    box-shadow: var(--shadow);
+    transition: transform .06s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    user-select:none;
+  }
+  .qa-card:hover{
+    background:radial-gradient(circle at bottom right, rgba(167,139,250,.18), transparent 55%), var(--bg2);
+    border-color: color-mix(in oklab, var(--accent) 35%, var(--brd));
+    box-shadow: 0 16px 45px rgba(0,0,0,.38);
+  }
+  .qa-card:active{ transform: translateY(1px) scale(.99); }
+
+  .messages{
+    flex:1; overflow-y:auto; padding:16px;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  /* A "turn" groups one user question with its assistant response + tool
+     cards so the question can stick to the top of the scroll viewport
+     while the answer is being read. The next turn pushes the previous
+     sticky header out automatically (pure CSS position:sticky, no JS). */
+  .turn{
+    display:flex; flex-direction:column; gap:14px;
+  }
+  /* Pinned question. The outer .message.user stretches edge-to-edge so the
+     opaque background fully hides tool cards scrolling behind it (this is
+     what keeps the sticky bar from looking transparent / smeared). The
+     inner .message-bubble re-constrains to the comfortable reading width
+     so the actual question text stays centered with the rest of the chat. */
+  .turn > .message.user{
+    position:sticky;
+    top:0;
+    z-index:5;
+    align-self:stretch;
+    max-width:none;
+    margin:0;
+    padding:0;                 /* inner bubble carries the breathing room */
+    gap:0;
+    background:var(--bg1);     /* opaque cover for scrolled content */
+    border-bottom:1px solid color-mix(in oklab, var(--accent) 22%, var(--brd));
+    box-shadow:0 2px 6px rgba(0,0,0,.05);  /* much softer — no bleed onto tool cards */
+  }
+  /* Compact the pinned-header presentation: drop the avatar + timestamp,
+     keep the question as a centered headline with a small accent "Q" chip
+     so it reads as a question marker, not a navigation bar. */
+  .turn > .message.user .message-avatar{ display:none; }
+  .turn > .message.user .timestamp{ display:none; }
+  .turn > .message.user .message-content{
+    max-width:var(--chat-max);
+    width:100%;
+    margin:0 auto;             /* recenter inside the full-width sticky bar */
+    /* Outer padding matches .messages so the sticky bar's chat-max
+       region aligns with the scroll container. The extra 48px LEFT
+       padding offsets the assistant avatar+gap (36 + 12) that pushes
+       assistant tool cards right — without it, the sticky question
+       sits 48px to the left of every tool card and answer body. */
+    padding:0 clamp(12px, 1.6vw, 18px) 0 calc(clamp(12px, 1.6vw, 18px) + 48px);
+  }
+  .turn > .message.user .message-bubble{
+    background:transparent;
+    border:none;
+    box-shadow:none;
+    backdrop-filter:none;
+    padding:12px 0;            /* vertical breathing room; no horizontal — handled by .message-content */
+    font-weight:600;
+    font-size:15px;
+    line-height:1.45;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .turn > .message.user .message-bubble::before{
+    content:'Q';
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:22px;
+    height:22px;
+    flex:0 0 auto;
+    border-radius:6px;
+    background:color-mix(in oklab, var(--accent) 18%, transparent);
+    color:var(--accent);
+    border:1px solid color-mix(in oklab, var(--accent) 35%, var(--brd));
+    font-weight:800;
+    font-size:11px;
+    letter-spacing:.02em;
+  }
+  .message{display:flex; gap:12px; max-width:var(--chat-max); margin-inline:auto;}
+  .message.user{align-self:flex-end; flex-direction:row-reverse; margin-left:auto; margin-right:0;}
+  .message-avatar{
+    width:36px;height:36px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    background:#fff;color:#0b1222;border:1px solid var(--brd);
+    font-size:18px;
+    box-shadow:0 4px 16px rgba(0,0,0,.25);
+  }
+  .message-avatar img{
+    width:100%; height:100%; border-radius:12px;
+    display:block; background:transparent;
+  }
+  .message-content{flex:1; display:flex; flex-direction:column; gap:8px; min-width:0}
+  .timestamp{font-size:11px; color:var(--mut)}
+  /* .message-bubble{
+    position:relative; padding:12px 14px; border-radius:16px;
+    background:var(--card); border:1px solid var(--brd);
+    line-height:1.6; font-size:15px; overflow-wrap:anywhere;
+    box-shadow:var(--shadow);
+  } */
+
+    .message-bubble{
+    position:relative; padding:12px 14px; border-radius:16px;
+    background:var(--card); border:1px solid var(--brd);
+    line-height:1.6; font-size:16px; overflow-wrap:anywhere;
+    box-shadow:var(--shadow);
+  }
+
+    /* Lists inside chat bubbles & tool cards */
+  .message-bubble ul,
+  .message-bubble ol,
+  .tool-output ul,
+  .tool-output ol {
+    margin-left: 0;
+    padding-left: 1.25rem;      /* indent so bullets sit inside the card */
+    list-style-position: inside;/* or 'outside' if you prefer hanging bullets */
+  }
+
+  .message-bubble li,
+  .tool-output li {
+    margin: 2px 0;
+  }
+
+  .message.user .message-bubble{
+    background:linear-gradient(135deg,rgba(31,164,255,.15),rgba(167,139,250,.18)), var(--card);
+    border-color:color-mix(in oklab,var(--accent) 55%, var(--brd));
+  }
+  .message.assistant .message-bubble pre{
+    background:var(--bg3);border:1px solid var(--brd);
+    border-radius:12px;padding:12px;overflow:auto
+  }
+  .message.assistant .message-bubble code{
+    background:var(--bg3);border:1px solid var(--brd);
+    padding:2px 6px;border-radius:6px
+  }
+
+  /* .tool-card{background:var(--card);border:1px solid var(--brd);border-radius:12px;overflow:hidden;margin-top:6px}
+   */
+   .tool-card{
+    background:var(--card);
+    border:1px solid var(--brd);
+    border-radius:12px;
+    overflow:hidden;          /* ← this can hide longer lines */
+    margin-top:6px
+  }
+
+  .tool-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer}
+  .tool-info{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tool-icon{
+    width:22px;height:22px;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    background:#fff;color:#0b1222;border:1px solid var(--brd);font-size:12px
+  }
+  .tool-name{font-weight:800;font-size:13px}
+  .tool-chips{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+  .chip{font-size:11px;padding:3px 8px;border-radius:10px;font-weight:700;border:1px solid var(--brd);background:var(--bg2);color:var(--mut)}
+  .chip.status.running{color:#ffd76a}
+  .chip.status.completed{color:#63ffb3}
+  .chip.status.failed{color:#ff9c9c}
+  .chip.time{color:var(--txt)}
+  .expand-icon{transition:.25s;color:var(--mut)}
+  .tool-card.expanded .expand-icon{transform:rotate(180deg)}
+  .tool-body{max-height:0;overflow:hidden;transition:max-height .3s}
+  .tool-card.expanded .tool-body,
+  .tool-card.show-output .tool-body{max-height:70vh;overflow:auto}
+  /* .tool-output{padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;white-space:pre-line;word-break:break-word} */
+  .tool-output{
+    padding:12px;
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:14px;
+    max-width:100%;
+    white-space:pre-wrap;      /* keep line breaks AND wrap */
+    word-break:break-word;     /* break long tokens */
+    overflow-wrap:anywhere;    /* extra safety for very long strings */
+    overflow-x:auto;           /* scroll horizontally only if absolutely necessary */
+  }
+
+
+
+  .table-toolbar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:8px; margin:2px 0 8px;
+  }
+  .table-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .pager{ display:flex; gap:8px; align-items:center; font-size:12px; color:var(--mut); flex-wrap:wrap; }
+  .pager button{
+    padding:6px 10px; border-radius:10px; border:1px solid var(--brd);
+    background:var(--bg2); color:var(--txt); cursor:pointer; font-size:12px;
+  }
+  .pager button:disabled{ opacity:.5; cursor:not-allowed; }
+
+  /* Excel-style per-column filter dropdown in the preview table. */
+  .preview-meta{ user-select:text; }
+
+  .col-filter-btn{
+    background:transparent; border:1px solid transparent;
+    color:var(--mut); font-size:11px; line-height:1;
+    padding:2px 5px; border-radius:5px; cursor:pointer;
+    transition:background .12s, color .12s, border-color .12s;
+  }
+  .col-filter-btn:hover{
+    background:var(--bg2); color:var(--txt); border-color:var(--brd);
+  }
+  .col-filter-btn.has-filter{
+    color:var(--accent); font-weight:800;
+    background:color-mix(in oklab, var(--accent) 12%, transparent);
+    border-color:color-mix(in oklab, var(--accent) 40%, var(--brd));
+  }
+
+  .col-filter-popup{
+    background:var(--card); color:var(--txt);
+    border:1px solid var(--brd); border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.18);
+    padding:8px;
+    width:300px; max-height:440px;
+    display:flex; flex-direction:column; gap:6px;
+    font-size:13px;
+  }
+  .col-filter-hdr{ font-size:12px; color:var(--mut); margin-bottom:2px; }
+  .col-filter-search{
+    width:100%; box-sizing:border-box;
+    padding:6px 10px; font-size:12px;
+    background:var(--bg2); color:var(--txt);
+    border:1px solid var(--brd); border-radius:7px;
+    outline:none;
+  }
+  .col-filter-search:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 2px color-mix(in oklab, var(--accent) 30%, transparent);
+  }
+  .col-filter-partial-note{
+    font-size:11px; color:var(--mut);
+    padding:4px 6px; background:var(--bg2); border-radius:6px;
+  }
+  .col-filter-all-row{
+    display:flex; align-items:center; gap:8px;
+    padding:4px 2px;
+    border-bottom:1px solid var(--brd);
+    user-select:none;
+  }
+  .col-filter-list{
+    flex:1 1 auto;
+    overflow-y:auto; min-height:100px; max-height:240px;
+    display:flex; flex-direction:column; gap:1px;
+    padding:2px 0;
+  }
+  .col-filter-item{
+    display:flex; align-items:center; gap:8px;
+    padding:3px 4px; border-radius:4px;
+    cursor:pointer; user-select:none;
+  }
+  .col-filter-item:hover{ background:var(--bg2); }
+  .col-filter-item span{
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    max-width:230px;
+  }
+  .col-filter-overflow{ color:var(--mut); padding:4px 2px; font-size:11px; }
+  .col-filter-actions{
+    display:flex; justify-content:flex-end; gap:6px;
+    border-top:1px solid var(--brd); padding-top:6px;
+  }
+  .col-filter-actions .reconnect{
+    padding:5px 10px; font-size:12px;
+  }
+
+  .input-area{
+    padding:12px 14px;border-top:1px solid var(--brd);
+    background:color-mix(in oklab, var(--bg1) 92%, transparent);
+    backdrop-filter: blur(10px) saturate(1.2);
+  }
+  .composer-stack{ display:flex; flex-direction:column; }
+  /* 2026-05-20: show welcome bubble on empty-state. Previous rule
+     (display:none) hid the entire .messages list to spotlight quick-asks;
+     that left users with NO greeting at all. Constrain to ~38vh so the
+     quick-ask chips and input stay visible below. */
+  .chat.empty-state .messages{
+    display: flex;
+    flex: 0 1 auto;
+    max-height: 38vh;
+    overflow-y: auto;
+  }
+  /* The welcome bubble is now a single short line and, being a normal
+     chat bubble, hugs its own content width — auto margins on .message
+     center that small box instead of filling the row, so it reads as a
+     fixed-size island regardless of viewport width. Stretch it to the
+     full row width here so it scales with the screen like the rest of
+     the empty-state layout. */
+  .chat.empty-state .messages .message.assistant{
+    width: 100%;
+    margin-inline: 0;
+  }
+  .chat.empty-state .composer-stack{ flex:1; justify-content:flex-end; }
+  .chat.empty-state .input-area{ border-top:none; background:transparent; }
+  .input-container{display:flex;gap:10px;align-items:flex-end; max-width:var(--chat-max); margin:0 auto}
+  .input-wrapper{flex:1}
+  #messageInput{
+    width:100%;min-height:48px;max-height:150px;padding:12px 14px;
+    border-radius:12px;outline:none;resize:none;
+    background:var(--card);border:1px solid var(--brd);
+    color:var(--txt);font-size:14px;
+    box-shadow:var(--shadow);
+  }
+  #messageInput::placeholder{ color:color-mix(in oklab,var(--mut) 80%, transparent); }
+  #sendButton{
+    width:52px;height:52px;border:none;border-radius:14px;
+    color:#00162a;cursor:pointer;font-size:20px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:var(--shadow);
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .06s ease, box-shadow .15s ease, opacity .15s ease;
+  }
+  #sendButton:disabled{ opacity:.45; cursor:not-allowed; }
+  #sendButton:not(:disabled):active{ transform:translateY(1px) scale(.98); box-shadow:0 8px 24px rgba(0,0,0,.4); }
+
+  /* Screen-reader-only label class. Visible to assistive tech, removed from
+     visual layout. Used to attach <label> elements to widgets where the
+     placeholder is the only visible affordance. */
+  .visually-hidden{
+    position:absolute !important;
+    width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0,0,0,0);
+    white-space:nowrap;border:0;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* WCAG 2.3.3 — honour the OS-level "Reduce motion" preference.
+     Previously this rule only lived in help.html, so chat pages still played
+     the cursor-blink, fade-ins, and 0.25-0.3s expand transitions for users
+     who'd asked the system to stop animating. Suppress the animations and
+     collapse the transitions to near-zero rather than 0 so layout-dependent
+     hooks (transitionend listeners) still fire. */
+  @media (prefers-reduced-motion: reduce){
+    *,
+    *::before,
+    *::after{
+      animation-duration:.001ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:.001ms !important;
+      scroll-behavior:auto !important;
+    }
+  }
+
+  @media (max-width: 920px){
+    .message{max-width:100%}
+    .quick-asks{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .chat-header{flex-direction:column;align-items:flex-start;gap:8px}
+    .status-wrap{align-self:stretch;justify-content:flex-start;flex-wrap:wrap}
+  }
+
+  /* For snapshot (kept harmless; no share UI) */
+  details.tool-card {
+    border-radius: 12px;
+    border: 1px solid var(--brd);
+    background: var(--card);
+    overflow: hidden;
+  }
+  details.tool-card > summary.tool-header {
+    list-style: none;
+  }
+  details.tool-card > summary.tool-header::-webkit-details-marker {
+    display: none;
+  }
+  details.tool-card[open] .expand-icon {
+    transform: rotate(180deg);
+  }
+  details.tool-card .tool-body {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+    /* 1. Make sure tool content never exceeds the card width */
+  .tool-output {
+    max-width: 100%;
+    overflow-x: auto;           /* if something is too wide, scroll inside the card */
+    word-wrap: break-word;
+  }
+
+  /* 2. Wrap long lines inside tool markdown (lists, paragraphs, etc.) */
+  .tool-output p,
+  .tool-output li {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  /* 3. Optional: avoid pre blocks forcing the whole page to scroll horizontally */
+  .tool-output pre {
+    max-width: 100%;
+    overflow-x: auto;           /* horizontal scroll only inside the code block */
+  }
+
+  /* (You can do the same for the main chat bubble if needed) */
+  .message-bubble {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+
+  /* 🚫 Turn off pre-line/pre-wrap inside tables */
+  .tool-output table,
+  .tool-output th,
+  .tool-output td,
+  .tool-output caption{
+    white-space:normal;
+  }
+
+
+  .tool-output .db-message {
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+
+  /* --- Responsive typography + spacing overrides --- */
+  :root{
+    --chat-max: min(2200px, 96vw);
+    --content-font: "Segoe UI", Roboto, Helvetica, Arial, system-ui, sans-serif;
+    --content-size: clamp(16px, 1.2vw, 19px);
+    --content-line: 1.65;
+    --tool-font: var(--content-font);
+    --tool-font-size: clamp(15px, 1.1vw, 18px);
+  }
+
+  body{
+    font-size: clamp(15px, 1.1vw, 17px);
+    line-height: 1.6;
+  }
+
+  .messages{
+    gap: clamp(10px, 1.2vw, 16px);
+    padding: clamp(12px, 1.6vw, 18px);
+  }
+
+  .message-bubble{
+    font-family: var(--content-font);
+    font-size: var(--content-size);
+    line-height: var(--content-line);
+  }
+
+  .message-bubble p,
+  .message-bubble li,
+  .tool-output p,
+  .tool-output li{
+    margin: 0 0 0.55em;
+    line-height: var(--content-line);
+  }
+
+  .tool-output{
+    font-family: var(--tool-font);
+    font-size: var(--tool-font-size);
+    line-height: var(--content-line);
+  }
+
+  .tool-output pre,
+  .tool-output code,
+  .message-bubble pre,
+  .message-bubble code{
+    font-family: var(--tool-font);
+    font-size: calc(var(--tool-font-size) - 1px);
+  }
+
+  .tool-name{
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: clamp(12px, 0.95vw, 14px);
+    letter-spacing: 0.01em;
+  }
+
+  @media (max-width: 1100px){
+    .quick-asks{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+
+  @media (max-width: 640px){
+    .quick-asks{ grid-template-columns: 1fr; }
+    .chat-header{ flex-direction: column; align-items: flex-start; gap: 8px; }
+    .status-wrap{ flex-wrap: wrap; }
+  }
+
+
+  /* Tighten tool output spacing (avoid double gaps from <p> + <br>) */
+  .tool-output { white-space: normal; }
+  .tool-output p { margin: 0 0 0.45em; }
+  .tool-output p:last-child { margin-bottom: 0; }
+  .tool-output .db-message { white-space: pre-line; }
+
+
+  .home-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0}
+  .home-logo img{height:30px;width:30px;border-radius:8px;transition:opacity .15s}
+  .home-logo:hover img{opacity:.75}
+
+  /* ─── Result-table rendering (chat-main.js tableHtml) ─────────────────
+     Moved from ~30 inline style="" attributes so the chat HTML's CSP can
+     eventually drop 'unsafe-inline' from style-src. Dynamic per-DB colors
+     are passed via CSS custom properties on the badge element (--bc-bg,
+     --bc-bdr, --bc-fg, --bc-dot) — still inline-style, but contained to a
+     handful of named variables rather than full declarations. */
+  .bc-table-wrap { width:100%; margin:.3em 0 .7em 0; }
+  .bc-table-scroll { width:100%; overflow:auto; }
+  .bc-table { border-collapse:separate; border-spacing:0; width:100%;
+              background:var(--card); border:1px solid var(--brd);
+              border-radius:11px;
+              overflow:hidden;       /* round the header corners */
+              font-size:14.5px; }
+  .bc-table caption.bc-caption { text-align:left; color:var(--accent);
+              padding:10px 12px 8px; font-weight:800;
+              font-size:13px; letter-spacing:.2px; }
+  /* Zebra-stripe + hover for readability on large tables (TTD/ChEMBL
+     queries routinely return 80+ rows). Mixed in oklab so it works in
+     both dark + light themes without hard-coding colors. */
+  .bc-table tbody tr:nth-child(even) td {
+              background: color-mix(in oklab, var(--bg3) 30%, transparent); }
+  .bc-table tbody tr:hover td {
+              background: color-mix(in oklab, var(--accent) 8%, var(--bg2));
+              transition: background .12s ease; }
+  /* Header styling — scoped to NON-preview tables so the Excel-style
+     filter/sort headers in .preview-table keep their own layout
+     (preview-col-th + bc-col-head + col-filter-btn). */
+  .bc-table:not(.preview-table) thead th {
+              position:sticky; top:0; background:var(--bg3);
+              color:var(--txt); padding:11px 12px;
+              border-bottom:2px solid color-mix(in oklab, var(--accent) 30%, var(--brd));
+              text-align:left;
+              font-size:13.5px; letter-spacing:.3px;
+              text-transform:uppercase; font-weight:700; }
+  /* For preview-table headers, keep minimal styling so the inline
+     button + sort label render at their native size. */
+  .bc-table.preview-table thead th { position:sticky; top:0;
+              background:var(--bg3); color:var(--txt);
+              border-bottom:1px solid var(--brd);
+              text-align:left; font-size:14px; }
+  .bc-table th.bc-sticky-th { position:sticky; left:0; top:0; z-index:3;
+              background:var(--bg3); color:var(--txt); padding:10px 12px;
+              border-bottom:1px solid var(--brd);
+              border-right:2px solid color-mix(in oklab, var(--accent) 35%, var(--brd));
+              text-align:left; font-size:13px; white-space:nowrap; }
+  .bc-table td.bc-sticky-td { position:sticky; left:0; z-index:1;
+              background:var(--card); padding:7px 10px;
+              border-bottom:1px solid var(--brd);
+              border-right:2px solid color-mix(in oklab, var(--accent) 35%, var(--brd));
+              white-space:nowrap; }
+  .bc-table td.bc-cell { padding:9px 12px;
+              border-bottom:1px solid color-mix(in oklab, var(--brd) 55%, transparent); }
+  .bc-table tbody tr:last-child td { border-bottom:none; }   /* clean bottom edge */
+  .bc-cell-inner { max-width:760px; white-space:normal; word-break:break-word;
+              overflow-wrap:anywhere; line-height:1.45; }
+  .bc-empty-table { color:var(--mut); font-style:italic; padding:8px 6px;
+              border:1px dashed var(--brd); border-radius:8px;
+              background:var(--bg2, transparent); }
+  .bc-empty-table .bc-empty-note { margin-top:6px; color:var(--mut);
+              font-size:12px; }
+  .bc-empty-placeholder { color:var(--mut); font-style:italic;
+              padding:14px; text-align:center; }
+  .bc-db-badge { display:inline-flex; align-items:center; gap:5px;
+              padding:2px 8px; border-radius:10px;
+              font-size:11px; font-weight:700; letter-spacing:.2px;
+              white-space:nowrap; line-height:1.4;
+              background:var(--bc-bg, var(--bg2));
+              border:1px solid var(--bc-bdr, var(--brd));
+              color:var(--bc-fg, var(--txt)); }
+  .bc-db-badge .bc-db-dot { display:inline-block; width:6px; height:6px;
+              border-radius:50%; background:var(--bc-dot, currentColor); }
+  .bc-db-badge--empty { color:var(--mut); font-style:italic; font-size:11px; }
+  .bc-db-legend { display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+              padding:6px 8px; margin:.1em 0 .4em 0;
+              background:var(--bg3); border:1px solid var(--brd);
+              border-radius:9px; }
+  .bc-db-legend-title { font-size:11px; color:var(--mut); font-weight:700;
+              letter-spacing:.3px; text-transform:uppercase; margin-right:4px; }
+  .bc-actions-row { display:flex; gap:8px; align-items:center;
+              margin:4px 0 10px; justify-content:flex-end; }
+  /* Used by chat-main.js's renderTableEvent + initPaginatedPreview. */
+  .bc-table-preview { min-height:18px; color:var(--mut); }
+  .bc-preview-meta { font-size:12px; color:var(--mut); margin:2px 0 6px; }
+  .bc-preview-caption { text-align:left; color:var(--accent);
+              padding:8px 6px 6px; font-weight:800; }
+  .bc-hidden { display:none !important; }
+  /* Per-turn answer-actions toolbar (Share, Copy BibTeX). Appears once a
+     turn finalises; status span surfaces success / error inline so the
+     button doesn't have to navigate anywhere. */
+  .bc-turn-actions{
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+    margin:6px 0 2px; padding-top:8px;
+    border-top:1px dashed var(--brd);
+  }
+  .bc-turn-action{ font-size:12px; }
+  .bc-turn-action-status{
+    font-size:11px; color:var(--mut); margin-left:6px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60ch;
+  }
+  .bc-turn-action-status[data-kind="err"]{ color:var(--err); }
+  .bc-turn-action-status[data-kind="ok"]{ color:var(--ok); }
+  /* Feedback (thumbs-up/down) buttons */
+  .bc-feedback-sep{ color:var(--brd); font-size:14px; user-select:none; }
+  .bc-feedback-btn{
+    font-size:14px; padding:1px 6px; opacity:.65;
+    transition:opacity .15s, transform .1s;
+  }
+  .bc-feedback-btn:hover:not(:disabled){ opacity:1; transform:scale(1.15); }
+  .bc-feedback-btn:disabled{ opacity:.35; cursor:default; }
+  .bc-feedback-btn.bc-feedback-active{
+    opacity:1; transform:scale(1.2);
+    outline:2px solid var(--ok); border-radius:4px;
+  }
+  /* When a snapshot deep-links to one turn (#bc-shared-turn), the focused
+     turn gets a left-edge highlight so the reader's eye lands on it. */
+  .bc-shared-turn{
+    scroll-margin-top:60px;
+    border-left:3px solid var(--accent);
+    padding-left:8px;
+    background:linear-gradient(90deg,color-mix(in oklab,var(--accent) 7%,transparent),transparent 30%);
+  }
+  /* Preview-table column header — flex row with label + filter button. */
+  .bc-col-head { display:inline-flex; align-items:center; gap:6px; max-width:100%; }
+  .preview-table .preview-col-th { padding:8px 10px; white-space:nowrap; }
+  .preview-table .preview-col-label { white-space:normal; }
+  /* Clickable column label drives the per-column sort cycle
+     (unsorted → asc → desc → unsorted). The filter ▾ button stays as a
+     separate click target so users can filter without triggering a sort. */
+  .preview-col-label.bc-col-sort {
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin: -1px -4px;
+    transition: background .12s ease, color .12s ease;
+  }
+  .preview-col-label.bc-col-sort:hover {
+    background: color-mix(in oklab, var(--accent) 10%, transparent);
+    color: var(--accent);
+  }
+  .preview-col-label.bc-col-sort:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .preview-col-label.bc-col-sort.is-sorted-asc,
+  .preview-col-label.bc-col-sort.is-sorted-desc {
+    color: var(--accent);
+    background: color-mix(in oklab, var(--accent) 8%, transparent);
+  }
+  .preview-col-label .bc-sort-ind {
+    font-size: 10px;
+    opacity: .85;
+    margin-left: 2px;
+    letter-spacing: 0;
+  }

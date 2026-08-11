@@ -1,0 +1,491 @@
+name: ttd
+display_name: TTD
+description: 'Therapeutic Target Database (TTD). Contains drug-target pairs with clinical
+  development stage, mechanism of action, drug approval status, target protein/gene identity,
+  KEGG pathway membership, and clinical biomarkers linked to diseases. Covers FDA/EMA approved
+  drugs, Phase 0-4 clinical candidates, preclinical/investigative compounds, and discontinued/withdrawn
+  drugs together with their molecular targets.
+
+  '
+schema:
+  inputs:
+  - field: drug_name
+  - field: target_name
+  - field: gene_symbol
+  - field: disease_name
+  - field: approval_status
+  - field: drug_mechanism_of_action_on_target
+  - field: pathway_name
+  - field: biomarker_name
+  - field: synonym
+  - field: cas_number
+  - field: crossmatch_pubchem_cid
+  - field: chebi_xref
+  - field: uniprot_xref
+  - field: formula
+  - field: pubchem_sid
+  - field: superdrug_atc
+  - field: superdrug_cas
+  - field: activity_type
+  - field: activity_value
+  - field: activity_unit
+  - field: target_type
+  - field: compound_activity_gene_symbol
+  outputs:
+  - field: drug_name
+  - field: target_name
+  - field: gene_symbol
+  - field: disease_name
+  - field: approval_status
+  - field: drug_mechanism_of_action_on_target
+  - field: pathway_name
+  - field: biomarker_name
+  - field: crossmatch_pubchem_cid
+  - field: pubchem_sid
+  - field: cas_number
+  - field: formula
+  - field: chebi_xref
+  - field: superdrug_atc
+  - field: superdrug_cas
+  - field: uniprot_xref
+  - field: target_type
+  - field: activity_raw
+  - field: activity_type
+  - field: activity_operator
+  - field: activity_value
+  - field: activity_unit
+  tables:
+    target_master_table:
+      description: Master table of TTD therapeutic targets. One row per (target_id, gene_symbol)
+        pair — 4,487 rows across 4,298 distinct targets, where 104 multi-gene target complexes carry
+        one row per constituent gene (up to 8 genes, e.g. T25670 → TNNI1/TNNI2/TNNI3) and every other
+        target is a single row. Use this for the canonical target_name + gene_symbol of any TTD target,
+        and as the join hub for target_disease_association, target_pathway_association,
+        drug_target_association, target_compound_activity_association, and target_uniprot_association.
+        Note that because multi-gene targets repeat target_id, a join on target_id can fan out a
+        target into its constituent genes — expected, not duplication.
+      key_columns:
+      - name: target_id
+        description: TTD-internal target identifier with a "T" prefix (e.g. "T00032", "T47101").
+          Users may say "TTD target ID" or "target accession".
+      - name: target_name
+        description: Therapeutic target preferred name, usually a protein or receptor. Canonical
+          on-disk shape is `'<long form> (<short form>)'` — e.g. "Epidermal growth factor receptor
+          (EGFR)" (T59328), "Adrenergic receptor beta-2 (ADRB2)" (T52522). The runtime filter
+          is exact-match (`is_in`), so queries using stripped forms like "Epidermal growth factor
+          receptor" will return 0 rows; pass the full parenthesised string. Users may ask for
+          "target", "target name", "protein target", or "therapeutic target".
+      - name: gene_symbol
+        description: HGNC gene symbol for human targets (e.g. "EGFR", "BRAF", "ADRB2"). Non-human
+          / viral / bacterial / fungal targets carry mnemonic phrases instead (e.g. "HIV rev",
+          "HIV gp120", "Bact pla", "Fung erg6"). Users may ask for "gene", "gene symbol",
+          "HGNC symbol", or just type the symbol. Multi-gene target complexes (104 targets)
+          carry one row per constituent gene here, so a single gene symbol resolves its target;
+          629 gene-less targets carry an empty gene_symbol. For target_type and uniprot_xref join to
+          target_uniprot_association (those columns are not present on this master table).
+    drug_disease_association:
+      description: Link table mapping TTD drugs to diseases together with the drug's clinical
+        development stage for that indication (TTD file P1-05-Drug_disease). Use this to answer
+        "what indications does drug X have", "what approved drugs treat disease Y", or "which
+        drugs are in Phase 2/3 for disease Z". Note this table records the development stage
+        only — it does NOT carry NCT IDs, sponsors, or recruitment status. Join drug_id →
+        drug_master_table and disease_id → disease_master_table for human-readable names. The
+        disease_id side is clean (0 orphan disease_ids), and the drug_id side is now clean too — every drug_id resolves to drug_master_table (0
+        orphans; drug_master is comprehensive after the FK reconciliation), so the join is lossless. Historical note — the raw parquet carried rows whose disease_id
+        was the literal sentinel "#N/A" for upstream-unmapped indications, and those rows are
+        now dropped at preprocess time so consumers never see the sentinel.
+      key_columns:
+      - name: drug_id
+        description: TTD-internal drug identifier (D-prefix); joins to drug_master_table.
+      - name: disease_id
+        description: TTD disease identifier (ICD-11 stem code); joins to disease_master_table.
+      - name: approval_status
+        description: "Drug development stage for the (drug, disease) pair. 38 distinct values\
+          \ on disk (30,080 rows, 0 null). Canonical form on disk after preprocess normalisation\
+          \ — \"Clinical Trial\" is normalised to \"Clinical trial\" (lowercase t is the canonical\
+          \ form) and \"phase 3\" is normalised to \"Phase 3\".\n\nValues fall\
+          \ into these families:\n- Approved family: Approved (3,740) | Approved in EU | Approved\
+          \ in China | Approved (orphan drug) | Registered\n- Submission family: NDA filed |\
+          \ BLA submitted | IND submitted | Application submitted | Approval submitted |\
+          \ Preregistration\n- Phase family: Phase 0 | Phase 1 (4,915) | Phase 1/2 | Phase 1b\
+          \ | Phase 2 (5,048) | Phase 2a | Phase 2b | Phase 2/3 | Phase 3 (2,119) | Phase 4 |\
+          \ Clinical trial\n- Discontinued family: Discontinued in Phase 1\
+          \ | Discontinued in Phase 2 | Discontinued in Phase 3 | Discontinued in Preregistration\
+          \ | Terminated (1,461) | Withdrawn from market (92)\n- Early family: Investigative\
+          \ (4,619) | Preclinical | Patented (3,021)\n\nUsers may ask for \"approval status\"\
+          , \"clinical stage\", \"FDA status\", or use family terms like \"approved\" / \"in\
+          \ trials\" / \"discontinued\"; map \"FDA-approved\" or \"marketed\" to \"Approved\"."
+    drug_master_table:
+      description: Master table of TTD drugs and investigational compounds. One row per drug_id.
+        Use this for the canonical drug_name of any TTD drug; join to drug_target_association
+        for targets, drug_disease_association for indications, drug_crossmatching_association
+        for cross-IDs (PubChem CID/SID, CAS, ChEBI, ATC), and drug_synonyms_association for
+        brand/trade names.
+      key_columns:
+      - name: drug_id
+        description: TTD-internal drug identifier with a "D" prefix (e.g. "D00AAN", "D02EZF").
+          Users may say "TTD drug ID", "TTD identifier", or "drug accession".
+      - name: drug_name
+        description: Preferred drug name as curated by TTD. Casing follows the source compound
+          name — mixed across the corpus (≈7% pure lowercase IUPAC / chemical-descriptor strings
+          like "butaprost (free acid form)" or "4-hydroxybenzaldehyde", ≈40% uppercase research
+          codes like "KW-2449", ≈53% mixed casing like "Opterone" or "SMP-797"). Users may ask
+          for "drug", "compound", "medication", "therapy", "drug name", or just type the
+          brand/generic name directly.
+    drug_target_association:
+      description: Link table mapping TTD drugs to their molecular targets together with the
+        drug's mechanism of action on each target (TTD file P1-07-Drug-TargetMapping). Use
+        this to answer "what drugs target gene/protein X" or "what is the MoA of drug Y on
+        target Z". Join drug_id → drug_master_table and target_id → target_master_table for
+        names. The join is lossless — every drug_id and target_id resolves to drug_master_table /
+        target_master_table (0 orphans; FK-filtered at preprocess).
+      key_columns:
+      - name: drug_id
+        description: TTD-internal drug identifier (D-prefix); joins to drug_master_table.
+      - name: target_id
+        description: TTD-internal target identifier (T-prefix); joins to target_master_table.
+      - name: drug_mechanism_of_action_on_target
+        description: 'Mechanism of action of the drug on its target. Fully Title-Case on
+          disk after preprocess normalisation — typo/casing variants canonicalised at build
+          time (Agonis→Agonist, Stablizer→Stabilizer, antagonist→Antagonist,
+          inhibitor→Inhibitor). 43 distinct non-empty values on disk (42,983 non-empty rows;
+          2,251 additional rows carry an empty-string MoA from the upstream TTD source —
+          these are real drug-target pairs whose MoA was not curated; total table = 45,234
+          rows). Top 5 by row count: Inhibitor (29,545), Modulator (4,733), Antagonist (3,562),
+          Agonist (2,685), Activator (389). Long-tail values include Binder, Blocker, Breaker,
+          Chelator, Co-agonist, Cofactor, Degrader, Disrupter, Enhancer, Immune response agent,
+          Immunomodulator, Immunostimulant, Inactivator, Inducer, Intercalator, Inverse agonist,
+          Ligand, Mimetic, Opener, Partial agonist, Potentiator, Reactivator, Regulator,
+          Replacement, Silencer, Stabilizer, Stimulator, Suppressor, Antisense, CAR-T-Cell-Therapy,
+          plus parenthesised refinements like "Blocker (channel blocker)", "Modulator (allosteric
+          modulator)", "Inhibitor (gating inhibitor)", "Regulator (upregulator)", "Binder
+          (minor groove binder)", "Immunomodulator (Immunostimulant)", "Antagonist/GLP1 agonist",
+          "CAR-T-Cell-Therapy(Dual specific)". The runtime filter at app/utils/dataframe_filtering.py
+          is case-insensitive so lowercase user input will match Title-Case rows. Users may
+          ask for "mechanism", "MoA", "mechanism of action", "drug action", or "how does the
+          drug work".'
+    disease_master_table:
+      description: Master table of TTD diseases. One row per disease_id. Use this for the
+        canonical disease_name of any TTD disease, and as the join hub for drug_disease_association,
+        target_disease_association, and biomarker_disease_association.
+      key_columns:
+      - name: disease_id
+        description: TTD disease identifier — an ICD-11 stem code (e.g. "1A00", "1A03", "BD40",
+          "EB51.0") or an ICD-11 range (e.g. "1A00-1A09", "8A61-8A6Z"); a small number of
+          free-text labels also appear (e.g. "Radiocontrast agent"). Historical note — the
+          drug_disease and target_disease association parquets carried 3 rows total whose
+          disease_id was the literal sentinel "#N/A" for upstream-unmapped indications, and
+          those rows are now stripped at load time.
+      - name: disease_name
+        description: 'Disease name as curated by TTD. On-disk canonical examples: "Cholera",
+          "Type 2 diabetes mellitus" (5A11), "Non-small-cell lung cancer" (2C25.Y — note the
+          inner hyphen). The runtime filter is substring-matched on this column, so shorter
+          fragments will still match, but consumers reading raw unique values (e.g. selector
+          prompts) will see the full on-disk strings. Users may ask for "disease", "indication",
+          "condition", or "disorder".'
+    pathway_master_table:
+      description: Master table of KEGG pathways referenced by TTD targets. One row per pathway_id.
+        Predominantly human (KEGG "hsa" prefix, 311/379 rows ≈82%) but also carries 68 non-human
+        KEGG organism-prefixed pathways (mtu, mge, sce, sao, mmu, pfa, mtc, sme, pae, rno, spn,
+        spy, stm) for TTD's non-human targets. Join via target_pathway_association to recover
+        the human-readable pathway_name for any TTD target.
+      key_columns:
+      - name: pathway_id
+        description: KEGG pathway identifier. Mostly the human "hsa" prefix (e.g. "hsa00010"
+          for Glycolysis/Gluconeogenesis, "hsa04010" for MAPK signaling, 311/379 rows); the
+          remaining 68 rows use other KEGG organism prefixes (mtu = M. tuberculosis, mge = M.
+          genitalium, sce = S. cerevisiae, sao = S. aureus, mmu = mouse, pfa = P. falciparum,
+          and a handful of others) for TTD's non-human targets — pathway_name on those rows
+          is still the standard KEGG label (e.g. "mge00010" -> "Glycolysis / Gluconeogenesis").
+      - name: pathway_name
+        description: Biological pathway name from KEGG (e.g. "Glycolysis / Gluconeogenesis",
+          "MAPK signaling pathway", "Apoptosis"). Users may ask for "pathway", "signaling
+          pathway", or "biological pathway". Note TTD pathways are KEGG-only; for Reactome
+          or WikiPathways use the dedicated pathway DBs.
+    target_pathway_association:
+      description: Link table mapping TTD targets to their KEGG pathway memberships (TTD file
+        P4-01-Target-KEGGpathway_all). Use this to answer "what pathways is gene/target X
+        in" against TTD. Join target_id → target_master_table for the gene_symbol/target_name
+        and pathway_id → pathway_master_table for the pathway_name.
+      key_columns:
+      - name: target_id
+        description: TTD-internal target identifier (T-prefix); joins to target_master_table.
+      - name: pathway_id
+        description: KEGG pathway identifier — predominantly hsa-prefixed (8446/8531 ≈ 99%)
+          with 85 non-human KEGG-organism-prefixed rows (mtu, sce, mge, sao, sme, pfa, mmu,
+          mtc, pae, rno, spy, spn, stm) mirroring pathway_master_table's organism coverage;
+          joins to pathway_master_table to recover the human-readable pathway name. A naive
+          `pathway_id LIKE 'hsa%'` filter silently drops these 85 non-human target-pathway
+          rows.
+    target_disease_association:
+      description: Link table mapping TTD targets to diseases (TTD file P1-06-Target_disease).
+        Use this to answer "diseases associated with target/gene X" against TTD, joining to
+        target_master_table for the target/gene side and disease_master_table for the disease
+        name. The join is lossless — every target_id resolves to the current target_master_table
+        (0 orphans; FK-filtered at preprocess). Historical note — the raw parquet carried 1 row with
+        disease_id "#N/A" for an upstream-unmapped disease, and that row is now stripped at
+        preprocess time.
+      key_columns:
+      - name: target_id
+        description: TTD-internal target identifier (T-prefix); joins to target_master_table.
+      - name: disease_id
+        description: TTD disease identifier; joins to disease_master_table to recover the
+          human-readable disease name.
+    biomarker_disease_association:
+      description: Link table mapping TTD biomarkers to diseases (TTD file P1-08-Biomarker_disease).
+        Use this to answer "biomarkers associated with disease X" or "diseases for biomarker
+        Y" against TTD, joining to biomarker_master_table and disease_master_table for names.
+      key_columns:
+      - name: biomarker_id
+        description: TTD biomarker identifier; joins to biomarker_master_table for the biomarker
+          name.
+      - name: disease_id
+        description: TTD disease identifier; joins to disease_master_table for the disease
+          name.
+    biomarker_master_table:
+      description: Master table of TTD clinical biomarkers. One row per biomarker_id. Join
+        via biomarker_disease_association for the diseases each biomarker is clinically linked
+        to.
+      key_columns:
+      - name: biomarker_id
+        description: TTD biomarker identifier with a "BM" prefix, zero-padded to 6 digits
+          (e.g. "BM000001", "BM000189"). Internal join key, rarely user-facing.
+      - name: biomarker_name
+        description: Clinical biomarker label, typically a full protein descriptor (e.g. "Erbb2
+          tyrosine kinase receptor (HER2)", "Cytochrome P450 2C19 (CYP2C19)", "GTPase KRas
+          (KRAS)", "Proliferation marker protein Ki-67 (MKI67)") or a quantitative clinical
+          measure (e.g. "high on-treatment platelet reactivity (P2Y12 reactivity unit [PRU]
+          value of more than 234)"). Users may ask for "biomarker" or "diagnostic marker".
+    drug_crossmatching_association:
+      description: Cross-reference table mapping each TTD drug to external compound identifiers
+        (TTD file P1-03-TTD_crossmatching). Use this to answer "what is the PubChem CID /
+        CAS / ChEBI / ATC of drug X" or "which TTD drugs have formula F". Join drug_id → drug_master_table
+        for the drug name.
+      key_columns:
+      - name: drug_id
+        description: TTD-internal drug identifier (D-prefix); joins to drug_master_table.
+      - name: formula
+        description: Molecular formula of the drug, e.g. "C29H31N7O". Users may ask for "molecular
+          formula", "chemical formula", "empirical formula", or just "formula".
+      - name: crossmatch_pubchem_cid
+        description: PubChem Compound ID, stored as a string of digits (e.g. "5291" for imatinib).
+          Users may ask for "PubChem ID", "PubChem CID", or "CID".
+      - name: pubchem_sid
+        description: PubChem Substance ID(s), stored as a semicolon-separated string of digits
+          — usually "; " (semicolon-space) separator, but ~9% of populated rows (792/8,783)
+          contain at least one bare ";" alongside the dominant "; " separator, so tokenize with
+          the regex `\s*;\s*` rather than a literal "; " split. Lists are long — the row for drug_id D00ABO (KW-2449, PubChem CID 11427553)
+          starts with three SIDs "16524833", "23572482", "42506629" and continues to 30 SIDs
+          in total. Users may ask for "PubChem SID" or "substance ID".
+      - name: cas_number
+        description: CAS Registry Number. 99.8% of non-null rows (12,141/12,163) carry a literal
+          "CAS " prefix (e.g. "CAS 152459-95-5", "CAS 50-78-2"); the remaining 22 rows store
+          the bare digits-with-dashes form (e.g. "203191-10-0"). Filters should include the
+          "CAS " prefix to match the dominant 99.8% — bare digits will match only those 22
+          rows. The runtime polars filter at app/utils/dataframe_filtering.py is case-insensitive
+          but does NOT auto-prepend the prefix; the interpreter at resources/prompts/interpreter_db_notes.yaml
+          PREFIX-PRESERVING block handles this for LLM-generated queries. Users may ask for
+          "CAS", "CAS number", "CAS RN", or "registry number".
+      - name: chebi_xref
+        description: ChEBI identifier cross-reference stored WITH the "CHEBI:" prefix on disk
+          (e.g. "CHEBI:45783" for imatinib). All 5,231 non-null values carry the prefix; none
+          are bare digits. Filter with the prefixed form ("CHEBI:45783") — passing bare digits
+          ("45783") will match 0 rows. Users may ask for "ChEBI ID" or "ChEBI".
+      - name: superdrug_atc
+        description: ATC classification code(s) from SuperDrug (e.g. "L01XE01" for imatinib).
+          Multi-code entries are semicolon-separated, e.g. "D08AX08; V03AB16; V03AZ01". Users
+          may ask for "ATC code" or "ATC classification".
+      - name: superdrug_cas
+        description: SuperDrug-sourced CAS registry number. 100% of non-null rows (1,211/1,211)
+          carry the literal prefix "cas=" plus a 9-digit zero-padded number without dashes
+          (e.g. "cas=000051412"). Distinct from the canonical cas_number column above. Filters
+          must use this exact shape — passing "51-41-2", "cas=51412", or "000051412" all match
+          ZERO rows (no fallback forms exist on disk).
+    drug_synonyms_association:
+      description: Link table mapping each TTD drug to its alternate names, brand names, trade
+        names, and trivial synonyms (TTD file P1-04-Drug_synonyms). Use this to resolve user-supplied
+        brand or alias names (e.g. "Gleevec") to a TTD drug_id, or to surface all known aliases
+        for a drug.
+      key_columns:
+      - name: drug_id
+        description: TTD-internal drug identifier (D-prefix); joins to drug_master_table.
+      - name: synonym
+        description: Alternate drug name, brand name, trade name, or common synonym. Trade
+          names carry a literal " (TN)" suffix on disk (e.g. "Gleevec (TN)" for imatinib);
+          other entries are bare strings of varied shape — CHEMBL IDs ("CHEMBL400717"), NSC
+          codes ("NSC-297,170"), BRN registry numbers ("BRN 3971661"), CAS-like digit strings,
+          IUPAC partial names, or common names. The runtime filter at app/utils/dataframe_filtering.py
+          applies SUBSTRING matching to this column (as of 2026-05-23, same treatment as variant_name/disease_name)
+          — so a user filter on "Gleevec" correctly matches the "Gleevec (TN)" row, and a
+          filter on "CHEMBL" returns all ChEMBL-ID synonyms. This column is used internally
+          for brand-name resolution; users should query drug_name instead (brand names are
+          resolved to INN via trade_name_map before querying).
+    target_compound_activity_association:
+      description: Bioactivity measurements linking TTD targets to TTD drugs or raw screening
+        compounds (TTD file P1-09-Target_compound_activity). Use this to answer "what is the
+        IC50/Ki/EC50 of drug X against target Y" or "what compounds have sub-µM potency against
+        target Z". The drug_compound_id key carries BOTH curated drugs (D-prefix) and raw
+        screening compounds (C-prefix), with C-compounds making up ~95% of rows (95.0%, 717,230/754,791).
+        754,791 rows total.
+      key_columns:
+      - name: target_id
+        description: TTD-internal target identifier (T-prefix); joins to target_master_table.
+          every target_id resolves to target_master_table (0 orphans — the target side is FK-filtered;
+          the assay-compound side drug_compound_id is retained, mirroring HCDT drug_target_negative).
+      - name: drug_compound_id
+        description: TTD drug or compound identifier (D-prefix for curated drugs, C-prefix
+          for raw screening compounds; C-compounds dominate ~95% of rows).
+      - name: compound_activity_pubchem_cid
+        description: PubChem CID of the screening compound (string of digits). Useful for
+          cross-DB joins to PubChem/ChEMBL/ChEBI compound records.
+      - name: activity_raw
+        description: Raw unprocessed activity string from the literature, e.g. "IC50 = 3270000
+          nM", "IC50 = 21370 nM". Real on-disk values are essentially always "<activity_type>
+          <activity_operator> <activity_value> nM". Users may ask for "raw value" or "literature
+          value".
+      - name: activity_type
+        description: 'Bioactivity measurement type. Exactly 3 canonical non-null values across
+          754,791 rows: "IC50" (473,485), "Ki" (216,849), "EC50" (62,465); 1,992 null/malformed
+          rows. Note: "Kd" does NOT appear in the TTD corpus despite being a common bioactivity
+          type elsewhere. Users may ask for "activity type", "potency type", or use the assay
+          name directly.'
+      - name: activity_operator
+        description: 'Comparator for the activity value. Disk has 6 non-null values: "=" (619,688),
+          ">" (125,482), "<" (5,989), ">=" (871), "<=" (632), "~" (137); 1,992 null rows.
+          Users may ask for "operator", "comparator", or use phrasings like "less than 10 nM"
+          / "at most 100 nM".'
+      - name: activity_value
+        description: Bioactivity value stored as Float64 on disk. Interpret in conjunction with
+          activity_unit. Users may ask for "potency", "binding affinity", "activity value",
+          or "IC50 value". Lower values typically mean more potent.
+      - name: activity_unit
+        description: 'Unit for activity_value. The TTD parquet has exactly 1 non-null value:
+          "nM" (752,799 rows); 1,992 null rows. ALL potency data is in nanomolar ("nM").
+          Other units (µM, mM, M, pM, ug.mL-1) do NOT appear in this corpus. Users may type
+          "uM" or "micromolar" in a query but the filter target should be "nM"; for sub-µM
+          thresholds, pass the equivalent nM value (e.g. "1 µM" → activity_value < 1000,
+          activity_unit = "nM").'
+    target_uniprot_association:
+      description: Cross-reference table mapping each TTD target to its UniProt entry name
+        and TTD development class (TTD file P2-01-TTD_uniprot_all). Use this to answer "what
+        is the UniProt entry for target X" or "which TTD targets are Successful / Clinical-trial
+        / Preclinical / Discontinued targets". Note TTD stores UniProt entry NAMES (e.g.
+        "EGFR_HUMAN"), not accession numbers (P00533). 4,298 rows. 613 rows carry the
+        literal sentinel "NOUNIPROTAC" in uniprot_xref for targets with no UniProt mapping;
+        filter these out when surfacing UniProt entry names to users.
+      key_columns:
+      - name: target_id
+        description: TTD-internal target identifier (T-prefix); joins to target_master_table.
+      - name: uniprot_xref
+        description: UniProt entry name (mnemonic) for the target protein, e.g. "EGFR_HUMAN",
+          "OSTP_HUMAN", "TGFA_HUMAN", "ERG6_PNEC8". NOT the P-prefixed accession number
+          (P00533). All 4,298 rows are non-null, but 613 carry the literal sentinel
+          "NOUNIPROTAC" for targets with no UniProt mapping (filter these out). Multi-protein
+          targets store several entry names joined with "; " (e.g. "MPIP1_HUMAN; MPIP2_HUMAN;
+          MPIP3_HUMAN"). Users may ask for "UniProt ID", "UniProt accession", "UniProt
+          entry name", or "protein ID".
+      - name: target_type
+        description: 'TTD target development class. Exactly 6 distinct values (case-insensitive
+          at filter layer; canonical write-form is Sentence-case as below): "Successful target"
+          (drug-approved), "Clinical trial target", "Literature-reported target", "Preclinical
+          target", "Patented-recorded target", "Discontinued target". Users may ask for "target
+          class", "target type", or "development stage".'
+valid_queries:
+- What drugs target the EGFR protein?
+- Is imatinib approved for chronic myeloid leukemia?
+- What is the mechanism of action of erlotinib on its target?
+- Which drugs targeting BRAF are currently in clinical trials?
+- What approved drugs treat type 2 diabetes?
+- List all drugs that inhibit VEGFR2.
+- What is the development stage of drug X (e.g. Phase 2, Approved, Discontinued in Phase 3)?
+- What biomarkers are associated with HER2 in TTD?
+- What KEGG pathways is EGFR in according to TTD?
+- What is the PubChem CID / CAS / ChEBI ID of imatinib?
+- What is the UniProt entry name for the TTD target T47101?
+invalid_queries:
+- Is the TP53 R248W variant pathogenic? (use ClinVar — TTD has no variant data)
+- Which proteins interact with MYC? (use BioGRID/STRING — TTD has no PPI data)
+- What transcription factors regulate TNF? (use TRRUST/OmniPath — TTD has no TF data)
+- What NCT trial IDs / sponsors / recruitment status apply to drug X? (use ClinicalTrials.gov
+  — TTD records only the development stage label, not full trial metadata)
+- What Reactome pathway is gene X in? (TTD pathways are KEGG-sourced — predominantly human
+  hsa-prefixed plus ~68 non-human KEGG organism-prefixed rows; use Reactome for Reactome
+  pathways)
+explicit_capability_triggers:
+- phrases:
+  - therapeutic target database
+  - approved drug
+  - approval status
+  - clinical phase
+  - mechanism of action
+  - moa
+  - drug-target
+  - drug target
+  - drug indication
+  - clinical biomarker
+  - biomarker for disease
+  - kegg pathway
+skip_relations:
+- variant_clinical
+- protein_interaction
+- trial_search
+- cancer_genomics
+- protein_structure
+- protein_domain
+- variant_population
+- gwas_association
+- gene_expression
+- phenotype
+force_relations:
+  drug_target: 0.88
+  drug_indication: 0.64
+  pathway_membership: 0.45
+  gene_disease: 0.55
+  disease_gene: 0.55
+  compound_lookup: 0.42
+service:
+  tool:
+    port: 8012
+    memory_limit: 16g
+    memory_reservation: 12g
+    extra_depends_on:
+    - biochirp_synonyms_expander
+    - biochirp_fuzzy_tool
+    - biochirp_semantic_tool
+derived:
+  capability_card:
+    valid_queries:
+    - What drugs target the EGFR protein?
+    - Is imatinib approved for chronic myeloid leukemia?
+    - What is the mechanism of action of erlotinib on its target?
+    - Which drugs targeting BRAF are currently in clinical trials?
+    - What approved drugs treat type 2 diabetes?
+    - List all drugs that inhibit VEGFR2.
+    - What is the development stage of drug X (e.g. Phase 2, Approved, Discontinued in Phase
+      3)?
+    - What biomarkers are associated with HER2 in TTD?
+    - What KEGG pathways is EGFR in according to TTD?
+    - What is the PubChem CID / CAS / ChEBI ID of imatinib?
+    - What is the UniProt entry name for the TTD target T47101?
+    invalid_queries:
+    - Is the TP53 R248W variant pathogenic? (use ClinVar — TTD has no variant data)
+    - Which proteins interact with MYC? (use BioGRID/STRING — TTD has no PPI data)
+    - What transcription factors regulate TNF? (use TRRUST/OmniPath — TTD has no TF data)
+    - What NCT trial IDs / sponsors / recruitment status apply to drug X? (use ClinicalTrials.gov
+      — TTD records only the development stage label, not full trial metadata)
+    - What Reactome pathway is gene X in? (TTD pathways are KEGG-only; use Reactome for Reactome
+      pathways)
+    embed_text_len: 1897
+  relation_weights:
+    drug_target: 0.88
+    drug_indication: 0.64
+    gene_disease: 0.55
+    disease_gene: 0.55
+    pathway_membership: 0.45
+    compound_lookup: 0.42
+    literature: 0.21
+    alias_resolution: 0.18
+    drug_safety: 0.17
+  auto_triggers:
+  - ttd
+  manifest_hash: a06bd328a2af2c41

@@ -1,0 +1,428 @@
+name: ctd
+display_name: CTD
+description: 'Comparative Toxicogenomics Database (CTD). Literature-curated chemical-gene, chemical-disease,
+  and gene-disease interactions. Covers environmental chemicals, drugs, and industrial compounds with
+  their effects on gene expression, disease association, and toxicological outcomes.
+
+  '
+schema:
+  inputs:
+  - field: drug_name
+  - field: gene_symbol
+  - field: disease_name
+  - field: pathway_name
+  outputs:
+  - field: drug_name
+  - field: gene_symbol
+  - field: disease_name
+  - field: pathway_name
+  - field: chem_disease_direct_evidence
+  - field: gene_disease_direct_evidence
+  tables:
+    chemical_gene_association_ctd:
+      description: 'Chemical-gene interaction associations curated by CTD. Each row records how a specific
+        chemical affects a gene/protein, including the interaction action (e.g. increases^expression) and
+        supporting PubMed count.'
+      key_columns:
+      - name: drug_id
+        description: CTD/MeSH chemical identifier. FK to chemical_master_table_ctd.drug_id.
+      - name: gene_id
+        description: NCBI Entrez gene ID. FK to gene_master_table_ctd.gene_id.
+      - name: interaction_text
+        description: Free-text description of the chemical-gene interaction (e.g. "Aspirin results in
+          decreased expression of TP53 mRNA"). Users may ask for "interaction description" or "what does
+          it do".
+      - name: chemical_gene_interaction_actions
+        description: Controlled-vocab action terms describing how a chemical affects a gene/protein (e.g.
+          "increases^expression", "decreases^activity", "affects^methylation"). Users may ask for "action",
+          "effect", or "interaction action".
+      - name: pubmed_count
+        description: Number of distinct PubMed publications supporting this chemical-gene pair; computed
+          at load time. Higher = better-studied. Use for evidence-strength ranking.
+      - name: gene_forms
+        description: Gene form(s) involved in the interaction (e.g. "protein", "mRNA"). Users may ask
+          for "gene form" or "molecular form".
+    chemical_master_table_ctd:
+      description: 'Master lookup of CTD chemicals/drugs (MeSH-derived). One row per chemical with canonical
+        name, CAS RN, PubChem CID, InChIKey, definition, and synonyms.'
+      key_columns:
+      - name: drug_id
+        description: CTD chemical identifier, MeSH-derived. In chemical_master_v2 on disk, drug_id is
+          already a bare accession with NO "MESH:" prefix (e.g. "D000241" for Adenosine, "D001241" for
+          Aspirin, "C000624947" for supplemental chemicals). The loader prefix-stripping is a safety net
+          for other tables that may carry prefixes; chemical_master_v2 does not need it. Use bare IDs
+          for all filtering and joins.
+      - name: drug_name
+        description: Chemical or drug name as curated by CTD; case follows MeSH preferred-term casing
+          and is mixed-case (e.g. "Aspirin", "Arsenic", "bisphenol A", "irsogladine"). Recommend case-insensitive
+          matching. Users may ask for "drug", "chemical", "compound", "toxicant", or just type the substance
+          name.
+      - name: cas_rn
+        description: CAS Registry Number for the chemical (e.g. "50-78-2"). Users may ask for "CAS", "CAS
+          number", "CAS RN", or "registry number".
+      - name: pubchem_cid
+        description: PubChem Compound ID, served as a bare-digit string with NO "CID:" prefix (e.g. "2244"
+          for aspirin); ~6.5% of rows populated. Ready to join to integer-CID sources after int-cast.
+          Users may ask for "PubChem ID" or "CID".
+      - name: inchikey
+        description: InChIKey structural hash for the chemical (e.g. "BSYNRYMUTXBXSQ-UHFFFAOYSA-N"). Users
+          may ask for "InChIKey" or "structure key".
+      - name: chemical_definition
+        description: Free-text MeSH definition / description of the chemical. Users may ask for "definition",
+          "description", or "what is it".
+    chemical_disease_association_ctd:
+      description: 'Chemical-disease associations curated by CTD, including direct evidence (marker/mechanism
+        or therapeutic) and inferred associations via gene intermediaries. ~209k rows total.'
+      key_columns:
+      - name: drug_id
+        description: CTD/MeSH chemical identifier. FK to chemical_master_table_ctd.drug_id.
+      - name: disease_id
+        description: CTD/MeSH disease identifier. FK to disease_master_table_ctd.disease_id.
+      - name: chem_disease_direct_evidence
+        description: Direct-evidence flag — "marker/mechanism" (biomarker or mechanism, 69559 rows), "therapeutic"
+          (used to treat, 39585 rows), or null (100000 rows = inferred-only association with no direct
+          evidence; the dominant value at ~47.8%). Inferred-only rows have direct_evidence = null (not
+          empty string). Use `.is_not_null()` / `IS NOT NULL` to restrict to curated direct-evidence rows.
+          Users may ask for "direct evidence", "evidence type", or "therapeutic vs marker".
+      - name: evidence_rank
+        description: Integer encoding of chem_disease_direct_evidence (0=therapeutic, 2=marker/mechanism,
+          3=null/inferred); computed at load time. Use ORDER BY evidence_rank ASC to surface the most
+          curated therapeutic associations first.
+      - name: pubmed_count
+        description: Count of supporting PubMed IDs (study depth); computed at load time from
+          chem_disease_pubmed_ids. Higher = better-studied. Used as a within-tier sort key.
+      - name: inference_gene
+        description: Gene used to infer the chemical-disease association (when not direct).
+      - name: inference_score
+        description: Score for inferred chemical-disease links (higher = stronger inference). Served as
+          Float64 (e.g. 365.65); numeric-ready, no cast needed. ~52% null (direct-evidence-only rows have
+          no inference score).
+    disease_master_table_ctd:
+      description: 'Master lookup of CTD diseases (MeSH/MEDIC-derived). One row per disease with canonical
+        name, MeSH ID, definition, synonyms, slim mappings, and hierarchy identifiers.'
+      key_columns:
+      - name: disease_id
+        description: CTD disease identifier (MeSH-derived, e.g. "D006973" for hypertension — bare form,
+          no prefix). v2 parquets have all "MESH:" and "OMIM:" prefixes stripped at preprocess time; the
+          runtime loader strips any residual prefixes as a safety net. All disease_id joins across tables
+          should use bare accessions (e.g. "D006973", not "MESH:D006973"). chemical_disease_association_v2
+          has 34 OMIM:-prefixed disease_ids in the raw source (stripped at preprocess); 0 remain on disk
+          after preprocess_v2 regeneration.
+      - name: disease_name
+        description: Disease name as curated by CTD (MeSH-derived, e.g. "Hypertension", "Liver Cirrhosis").
+          Users may ask for "disease", "indication", or "condition".
+      - name: disease_definition
+        description: Free-text MeSH/CTD definition of the disease. ~61% null.
+      - name: slim_mappings
+        description: Pipe-delimited high-level CTD MEDIC disease-slim categories (e.g. "Mental disorder|Metabolic
+          disease|Nervous system disease"). Near-complete (0.1% null).
+    chemical_synonyms_association_ctd:
+      description: 'Chemical/drug synonym lookup — one row per drug_id × synonym, exploded from
+        chemical_master_table_ctd.chemical_synonyms. Use to resolve alternate names, brand names,
+        or trivial synonyms to the canonical drug_id before joining other CTD tables.'
+      key_columns:
+      - name: drug_id
+        description: CTD/MeSH chemical identifier. FK to chemical_master_table_ctd.drug_id.
+      - name: chemical_synonym
+        description: Alternate name, brand name, or trivial synonym for the chemical (e.g. "Gleevec"
+          for imatinib, "Aspirin" as alternate casing). One row per synonym. Users may ask for
+          "synonym", "alias", "brand name", or "alternate name".
+    gene_synonyms_association_ctd:
+      description: 'Gene synonym lookup — one row per gene_id × synonym, exploded from
+        gene_master_table_ctd.synonyms. Use to resolve gene aliases to the canonical gene_id.'
+      key_columns:
+      - name: gene_id
+        description: CTD gene identifier (NCBI Gene ID integer as string). FK to gene_master_table_ctd.gene_id.
+      - name: gene_synonym
+        description: Alternate gene name or alias (e.g. "p53" for TP53, "HER2" for ERBB2).
+          One row per synonym. Users may ask for "gene alias", "gene synonym", or "alternate gene name".
+    disease_synonyms_association_ctd:
+      description: 'Disease synonym lookup — one row per disease_id × synonym, exploded from
+        disease_master_table_ctd.disease_synonyms. Use to resolve alternate disease names to
+        the canonical disease_id.'
+      key_columns:
+      - name: disease_id
+        description: CTD/MeSH disease identifier. FK to disease_master_table_ctd.disease_id.
+      - name: disease_synonym
+        description: Alternate disease name or alias (e.g. "Alzheimer Disease 6, Late-Onset Susceptibility"
+          for a specific Alzheimer subtype). One row per synonym. Users may ask for "disease synonym",
+          "alternate disease name", or "disease alias".
+    disease_pathway_association_ctd:
+      description: 'Disease-pathway associations (FK-only: join disease_master_table_ctd and pathway_master_table_ctd
+        for names).'
+      key_columns:
+      - name: disease_id
+        description: CTD/MeSH disease identifier. FK to disease_master_table_ctd.
+      - name: pathway_id
+        description: KEGG/Reactome pathway identifier. FK to pathway_master_table_ctd.
+      - name: disease_pathway_inference_gene
+        description: Gene symbol whose pathway participation underlies this inferred disease-pathway link
+          (e.g. "HRAS", "KRAS"). Not null.
+    gene_master_table_ctd:
+      description: 'Master lookup of CTD genes (NCBI Entrez-derived, multi-organism). One row per gene
+        with official symbol, full name, gene synonyms, UniProt IDs, and alternate gene IDs.'
+      key_columns:
+      - name: gene_id
+        description: NCBI Entrez gene ID used internally by CTD (numeric string, e.g. "3642", "10111").
+          Join key only.
+      - name: gene_symbol
+        description: HGNC short gene symbol (e.g. "TP53", "EGFR"). gene_master_v2 stores `gene_symbol`
+          natively; the legacy v1 gene_master_table.parquet stored it as `gene_name` and is renamed at
+          load time. CTD is multi-organism, so non-human / locus-style symbols also occur. Users may ask
+          for "gene", "gene symbol", or just type the symbol.
+      - name: gene_name
+        description: Full descriptive gene/protein name (e.g. "Gamma-aminobutyric acid receptor subunit
+          delta", "tRNA-Arg"). ~0.4% null.
+      - name: uniprot_ids
+        description: Pipe-delimited UniProt protein accessions for the gene's protein products (e.g. "A0A075A1F1",
+          "A8X7P0"). ~55% null. Users may ask for "UniProt ID" or "protein accession".
+    gene_pathway_association_ctd:
+      description: 'Bridge table linking genes to the pathways they participate in (FK-only: join
+        gene_master_table_ctd on gene_id and pathway_master_table_ctd on pathway_id).'
+      key_columns:
+      - name: gene_id
+        description: NCBI Entrez gene ID. FK to gene_master_table_ctd.
+      - name: pathway_id
+        description: KEGG or Reactome pathway identifier. FK to pathway_master_table_ctd.
+    pathway_master_table_ctd:
+      description: 'Master lookup of CTD pathways from KEGG and Reactome. One row per pathway with identifier
+        and name. Reactome uses R-HSA-NNNNNN IDs; KEGG uses hsaNNNNN codes.'
+      key_columns:
+      - name: pathway_id
+        description: Pathway identifier. Reactome uses the "R-HSA-NNNNNN" form (~2064 rows); KEGG uses
+          "hsaNNNNN" pathway codes or "hsa_MNNNNN" module codes (~503 rows combined). No "hsa:" colon-prefixed
+          namespace is stored.
+      - name: pathway_name
+        description: Biological pathway name from upstream sources Reactome / KEGG (e.g. "Apoptosis").
+          Users may ask for "pathway" or "signaling pathway".
+    gene_disease_association_ctd:
+      description: 'Gene-disease associations (FK-only, direct-evidence rows only: join gene_master_table_ctd
+        and disease_master_table_ctd for names).'
+      key_columns:
+      - name: gene_id
+        description: NCBI Entrez gene ID. FK to gene_master_table_ctd.
+      - name: disease_id
+        description: CTD/MeSH disease identifier. FK to disease_master_table_ctd.
+      - name: gene_disease_direct_evidence
+        description: Curated direct-evidence type; observed values "marker/mechanism" (31,993 rows) and
+          "therapeutic" (1,950 rows). Total 33,943 rows. Never null in the served table (it
+          carries direct-evidence rows only; refreshed 2026-06-27).
+      - name: evidence_rank
+        description: Integer encoding of gene_disease_direct_evidence (0=therapeutic, 2=marker/mechanism);
+          computed at load time. Use ORDER BY evidence_rank ASC to surface most curated associations first.
+      - name: pubmed_count
+        description: Count of supporting PubMed IDs (study depth); computed at load time from
+          gene_disease_pubmed_ids. Higher = better-studied. Used as a within-tier sort key.
+    chemical_pathway_enriched_ctd:
+      description: 'Chemical-pathway enrichment associations from CTD. Each row records the enrichment
+        significance (p-value, corrected p-value) of a chemical against a KEGG/Reactome pathway, with
+        foreground/background gene counts.'
+      key_columns:
+      - name: drug_id
+        description: CTD/MeSH chemical identifier. FK to chemical_master_table_ctd.drug_id.
+      - name: pathway_id
+        description: KEGG or Reactome pathway identifier. FK to pathway_master_table_ctd.pathway_id.
+      - name: p_value
+        description: Enrichment p-value of chemical-pathway association (lower = more significant). Served
+          as Float64 (e.g. 1.3e-15); numeric-ready, no cast needed. Users may ask for "p-value" or "significance".
+      - name: corrected_p_value
+        description: Multiple-testing-corrected (FDR / Bonferroni) p-value. Served as Float64; numeric-ready,
+          no cast needed. Users may ask for "FDR", "corrected p-value", "adjusted p-value", or "q-value".
+      - name: target_match
+        description: Number of genes overlapping with the pathway (foreground count). Stored as string
+          (dtype=object), e.g. "2", "3"; cast to int before any numeric filter.
+      - name: target_total
+        description: Total number of pathway genes (background count). Stored as string (dtype=object);
+          cast to int before any numeric filter.
+    chemical_phenotype_ixn_ctd:
+      description: 'Chemical-phenotype (GO biological process) interactions curated by CTD for human. Each
+        row links a chemical to a GO phenotype with action codes, anatomy terms, and inference gene mediators.'
+      key_columns:
+      - name: drug_id
+        description: CTD/MeSH chemical identifier. FK to chemical_master_table_ctd.drug_id.
+      - name: phenotype_id
+        description: GO term ID representing the phenotype/process affected. FK — join key only.
+      - name: chemical_phenotype_organism_id
+        description: NCBI taxonomy ID for the organism of the phenotype interaction (e.g. "9606" for
+          Homo sapiens). Join key only; not user-queryable.
+      - name: chemical_phenotype_interaction_text
+        description: Free-text description of the chemical-phenotype interaction mechanism. Useful for
+          context; not recommended for exact-match filtering.
+      - name: interaction_actions
+        description: Pipe-separated CTD action codes for the chemical-PHENOTYPE interaction (e.g.
+          "increases^abnormal morphology"). Distinct from chemical_gene_interaction_actions (which
+          applies to gene interactions). Search with LIKE '%<fragment>%'.
+      - name: chemical_phenotype_name
+        description: Name of the GO biological process phenotype affected (e.g. "apoptotic process",
+          "cell population proliferation"). Users may ask for "phenotype" or "biological process".
+      - name: co_mentioned_terms
+        description: Pipe-joined co-mentioned CTD terms in "name^id^source" format (e.g.
+          "mancozeb^C013099^MESH"). Substring-match the name segment with ILIKE.
+      - name: anatomy_terms
+        description: Pipe-joined anatomy/tissue terms in the internal `rank^name^MeSH_ID` format (e.g.
+          "1^Lung^D008168|2^Cell Line, Tumor^D045744"). Substring-match on the name segment; do NOT expect
+          bare names.
+      - name: inference_genes
+        description: Genes used to infer the chemical-phenotype link, stored as caret-delimited `gene_symbol^entrez_id^GENE`
+          triples (e.g. "KCNQ2^3785^GENE"), pipe-joined when multiple.
+    exposure_studies_ctd:
+      description: 'Study-level rollup of curated human environmental-exposure epidemiology papers (one
+        row per study, keyed by PubMed ID). Summarizes what each study examined — stressor chemicals,
+        biomarkers, population, country, sampling medium, and the disease/phenotype outcomes — rather
+        than individual measured associations. Multi-valued columns (exposure_stressors, exposure_markers,
+        diseases, phenotypes) are pipe-joined "name^id^source" caret composites: match the name segment
+        with ILIKE, never the whole value. This is the coarse discovery/provenance view; for fine-grained,
+        properly-columnar exposure facts (sex, age, marker_level, outcome direction) use exposure_events_ctd
+        instead.'
+      key_columns:
+      - name: study_reference
+        description: PubMed ID of the source study publication (e.g. "26575634"); not null. This is the
+          study identifier — provenance, not a user filter value.
+      - name: study_factors
+        description: Free-text covariates the study stratified on (e.g. "sex", "tobacco", "genetics");
+          ~66% null.
+      - name: exposure_stressors
+        description: Pipe-joined chemicals the cohort was exposed to, in "name^id^source" caret format
+          (e.g. "Dibutyl Phthalate^D003993^MESH|Mercury^D008628^MESH"). Match the name segment with ILIKE
+          '%<chemical>%'; never match the whole value. Not null.
+      - name: study_receptors
+        description: Study population in internal "^^^^value" caret-padded format (e.g. "^^^^Study subjects",
+          "^^^^Workers", "^^^^Children"). Substring-match the trailing value with ILIKE; ~5% null.
+      - name: exposure_study_countries
+        description: Country/countries where the study was conducted (e.g. "China", "Canada", "Germany");
+          ~0.2% null.
+      - name: mediums
+        description: Biological/environmental matrix sampled to measure exposure (e.g. "urine", "blood|plasma",
+          "air"); ~19% null.
+      - name: exposure_markers
+        description: Pipe-joined biomarker chemicals actually measured, in "name^id^source" caret format
+          (often equal to the stressor, e.g. "Mercury^D008628^MESH", or a metabolite). Match the name
+          segment with ILIKE; ~14% null.
+      - name: diseases
+        description: Pipe-joined disease outcomes examined, in "name^MeSH_ID^MESH" caret format (e.g.
+          "Carotid Artery Diseases^D002340^MESH"). Match the name segment with ILIKE; ~54% null.
+      - name: phenotypes
+        description: Pipe-joined GO biological-process outcomes, in "name^GO:ID^GO" caret format (e.g.
+          "memory^GO:0007613^GO"). Match the name segment with ILIKE; ~71% null.
+      - name: author_summary
+        description: Free-text author-provided conclusion of the exposure study (e.g. "Phthalate metabolites
+          were analyzed..."); not null. Prose — useful for context, not exact-match filtering.
+    exposure_events_ctd:
+      description: 'Fine-grained exposure event rows from CTD human epidemiology studies. Each row is a
+        single measured association between a chemical stressor and a disease/phenotype outcome, with
+        cohort attributes (sex, age, race, smoking status, country, medium) and the outcome relationship
+        direction (positive/negative/no correlation). 7,534 rows.'
+      key_columns:
+      - name: stressor_name
+        description: Environmental exposure stressor in Title-Case as curated by CTD (e.g. "Lead", "Benzene",
+          "Particulate Matter", "Air Pollutants", "Arsenic"). Note "PM2.5" is NOT a stored value — use
+          "Particulate Matter" instead. Users may ask for "exposure", "stressor", "pollutant", or "environmental
+          agent".
+      - name: stressor_id
+        description: CTD/MeSH identifier for the stressor chemical (e.g. "C005563", "D004051"). Join key
+          only; FK to chemical_master_table_ctd.drug_id via the bare MeSH accession.
+      - name: disease_id
+        description: CTD/MeSH disease identifier for the measured chemical-exposure outcome. Join key only;
+          FK to disease_master_table_ctd.disease_id. Represents the OUTCOME disease of a stressor event,
+          not the study's overall disease scope. 0% NULL in the v2 disease-bearing event subset.
+      - name: event_phenotype_name
+        description: GO biological-process phenotype outcome name (e.g. "growth", "DNA methylation on
+          cytosine within a CG sequence"). ~98% NULL — present only for phenotype-outcome events.
+      - name: phenotype_id
+        description: GO term identifier for the phenotype outcome. Join key only; ~98% NULL.
+      - name: exposure_marker
+        description: Biomarker chemical used to measure exposure (e.g. "mono(2-ethyl-5-oxohexyl)phthalate",
+          "Manganese"). ~63% NULL (4,757 of 7,534 rows). Users may ask for "biomarker" or "exposure
+          marker".
+      - name: exposure_marker_id
+        description: CTD/MeSH identifier for the exposure biomarker chemical. Join key only.
+      - name: event_reference
+        description: PubMed ID of the source publication for this exposure event (e.g. "32353757"); not
+          NULL. Provenance field — links back to exposure_studies_ctd.study_reference.
+      - name: outcome_relationship
+        description: Outcome relationship qualifier — observed values "positive correlation", "negative
+          correlation", "no correlation", "prediction/hypothesis".
+      - name: sex
+        description: Sex of the cohort — Title-Case with optional cohort-percent suffix and pipe-composited
+          mixed cohorts. Observed values include "Females", "Males", "Both Males and Females", "Females  100",
+          "Males  100", "Females   50 | Males   50".
+      - name: age
+        description: Age value or range for the cohort.
+      - name: age_units
+        description: Units for the age value (e.g. "years", "months").
+      - name: race
+        description: Race / ethnicity of the cohort.
+      - name: smoking_status
+        description: Smoking status of the cohort.
+      - name: medium
+        description: Exposure route or medium (e.g. "air", "water", "soil", "food"; "diet" is NOT a stored
+          value — closest semantic match is "food"). Users may ask for "exposure route", "medium", or
+          "how exposed".
+      - name: event_study_countries
+        description: Geographic country/region where the exposure study was conducted. Users may ask for
+          "country", "geography", or "region".
+      - name: anatomy
+        description: Anatomical site of effect.
+      - name: stressor_source_category
+        description: Category of the exposure source — observed values include "industrial", "dietary",
+          "occupational", "environmental". ~0.9% NULL.
+      - name: event_receptors
+        description: Study population type — e.g. "General population", "Children", "Workers", "Pregnant
+          women". Users may ask for "who was exposed" or "population".
+      - name: phenotype_action_type
+        description: Action direction for phenotype outcome — observed values "increases", "decreases",
+          "affects". ~98% NULL (present only when phenotype_name is set).
+      - name: enrollment_start_year
+        description: Year the study enrollment began; numeric. Users may ask for "recent studies" or filter
+          by decade.
+      - name: enrollment_end_year
+        description: Year the study enrollment ended; numeric.
+    exposure_study_disease_association:
+      description: 'Bridge table linking exposure studies to the diseases they study (2,836 rows). FK-only:
+        join exposure_studies_ctd on study_reference and disease_master_table_ctd on disease_id.'
+      key_columns:
+      - name: reference
+        description: PubMed ID of the source exposure study. FK to exposure_studies_ctd.study_reference.
+      - name: disease_id
+        description: CTD/MeSH disease identifier examined in the study. FK to disease_master_table_ctd.disease_id.
+    exposure_study_stressor_association:
+      description: 'Bridge table linking exposure studies to the chemical stressors examined (12,003 rows).
+        FK-only: join exposure_studies_ctd on study_reference and chemical_master_table_ctd on drug_id.'
+      key_columns:
+      - name: reference
+        description: PubMed ID of the source exposure study. FK to exposure_studies_ctd.study_reference.
+      - name: drug_id
+        description: CTD/MeSH chemical identifier for the stressor examined. FK to chemical_master_table_ctd.drug_id.
+valid_queries:
+- What genes does arsenic exposure affect?
+- What diseases are associated with bisphenol A?
+- Which chemicals upregulate or downregulate TP53 expression?
+- What is the toxicological effect of cadmium on liver disease?
+- What genes are altered by benzene exposure?
+- Which chemicals are associated with Alzheimer disease?
+- What drugs interact with the CYP1A2 gene?
+- Which pathways is the EGFR gene a member of? (gene-pathway membership via gene_master →
+  genes_pathways → pathway_master; CTD curates gene-pathway associations, ~135k rows)
+invalid_queries:
+- What is the approval status of metformin? (use TTD/DrugCentral — CTD has no approval data)
+- What is the topology / step order of the MAPK signaling pathway? (use Reactome — CTD curates
+  gene-pathway membership but has no intra-pathway reaction topology)
+- What variants in BRCA2 are pathogenic? (use ClinVar — CTD has no variant data)
+- What proteins interact with p53? (use BioGRID/STRING — CTD has no PPI data)
+- What is the IC50 of erlotinib against EGFR? (use ChEMBL — CTD has no bioactivity values)
+force_relations:
+  drug_indication: 0.8
+  gene_disease: 0.85
+  disease_gene: 0.85
+  cancer_genomics: 0.4
+service:
+  tool:
+    port: 8016
+    workers: 6
+    memory_limit: 8g
+    memory_reservation: 4g
+    extra_depends_on:
+    - biochirp_synonyms_expander
+    - biochirp_fuzzy_tool
+    - biochirp_semantic_tool
+    env: {}

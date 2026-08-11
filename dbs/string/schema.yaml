@@ -1,0 +1,572 @@
+# REVIEW before use: verify dtypes, factor `questions.literal` into params/templates,
+# and confirm exec_schema/kg_schema flags on denormalised columns.
+db: string
+display_name: STRING
+description: STRING protein-protein association network — scored confidence interactions across seven
+  evidence channels (physical binding, co-expression, text mining, curated databases, gene fusion, genomic
+  neighbourhood, co-occurrence)
+parquet_dir: string
+tables:
+  protein_master_table:
+    parquet: protein_master_table_string_v2.parquet
+    role: master
+    columns:
+    - {name: protein_id, role: pk, key_column: true, description: STRING protein
+        identifier (e.g. '9606.ENSP00000275493') — join key only; disk column already named protein_id; loader rename is a no-op (canonical name since v2)}
+    - {name: gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: HGNC
+        official symbol (protein_master_table only) — p53→TP53, description: 'HGNC short gene symbol of
+        the protein (e.g. ''EGFR'', ''TP53'', ''KRAS''); used to find which protein you are asking about'}
+    - {name: protein_size, queryable: true, key_column: true, concept_type: protein_size, description: 'Protein
+        length in amino acids (integer, e.g. 1210 for EGFR) of THIS protein. When this table is joined
+        to a PPI edge it is the QUERY/anchor protein''s size; for a PARTNER''s size use the PPI table''s
+        association_partner_protein_size / physical_partner_protein_size / channels_partner_protein_size
+        column instead (table-prefixed to avoid spurious FK cross-joins)'}
+    - {name: annotation, queryable: true, key_column: true, concept_type: gene_function, description: Free-text
+        functional protein description from STRING (e.g. 'Receptor tyrosine kinase'); used when asking
+        for protein function or annotation}
+  ppi_association:
+    parquet: ppi_association_string_v2.parquet
+    role: association
+    columns:
+    - {name: protein_id, key_column: true, description: STRING protein ID for the query-side protein (non-queryable
+        FK → protein_master_table_string.protein_id)}
+    - {name: association_gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: HGNC
+        official symbol for the query side in ppi_association — p53→TP53, description: HGNC gene symbol
+        of the query-side protein in the functional association table — use this to find all functional
+        interaction partners of a named gene (edges are stored bidirectionally so a single filter returns
+        ALL partners)}
+    - {name: protein_partner_id, key_column: true, description: STRING protein ID for the partner-side
+        protein (non-queryable FK → protein_master_table_string.protein_id)}
+    - {name: association_partner_gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol,
+      description: HGNC gene symbol of the partner-side protein in the functional association table —
+        this is the interacting partner returned to the user}
+    - {name: association_score, queryable: true, key_column: true, concept_type: interaction_score, llm_note: INTEGER
+        700–999 in this snapshot (overall confidence across all channels). NOT a fraction., description: 'STRING
+        overall confidence score across all seven evidence channels (integer 0–1000; this snapshot pre-filtered
+        to ≥ 700; 900+ = highest confidence). Users may ask for ''combined score'', ''STRING score'',
+        or ''interaction confidence'''}
+    - {name: association_partner_protein_size, added_at_load: true, key_column: true, description: 'Amino-acid length of the PARTNER protein on this edge
+        (integer, e.g. 393), denormalized from protein_master_table via protein_partner_id. Use THIS column
+        for any question about the SIZE / LENGTH / amino-acid count of a gene''s interaction PARTNERS
+        (e.g. ''partners larger than 1000 aa'', ''average partner protein size''). NOTE: the master-table
+        protein_size column is the QUERY/anchor protein''s size, not the partner''s'}
+  ppi_physical:
+    parquet: ppi_physical_string_v2.parquet
+    role: association
+    columns:
+    - {name: protein_id, key_column: true, description: STRING protein ID for the query-side protein (non-queryable
+        FK → protein_master_table_string.protein_id)}
+    - {name: physical_gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: HGNC
+        official symbol for the query side in ppi_physical — p53→TP53, description: HGNC gene symbol of
+        the query-side protein in the physical-binding table — use this to find proteins that physically
+        bind a named gene (direct binding / complex evidence only; subset of ppi_association)}
+    - {name: protein_partner_id, key_column: true, description: STRING protein ID for the physical-binding
+        partner (non-queryable FK → protein_master_table_string.protein_id)}
+    - {name: physical_partner_gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol,
+      description: HGNC gene symbol of the physical-binding partner — the partner gene that has direct
+        physical / binding evidence with the query gene}
+    - {name: physical_score, queryable: true, key_column: true, concept_type: interaction_score, llm_note: INTEGER
+        700–999 in this snapshot (physical/binding evidence only). NOT a fraction., description: 'STRING
+        physical-interaction confidence score from binding and complex evidence only (integer 700–999).
+        Users may ask for ''physical interaction'', ''binding evidence'', or ''physical PPI'''}
+    - {name: physical_partner_protein_size, added_at_load: true, key_column: true, description: 'Amino-acid length of the PARTNER protein on this edge
+        (integer, e.g. 393), denormalized from protein_master_table via protein_partner_id. Use THIS column
+        for any question about the SIZE / LENGTH / amino-acid count of a gene''s physical-binding PARTNERS.
+        NOTE: the master-table protein_size column is the QUERY/anchor protein''s size, not the partner''s'}
+  ppi_detailed_channels:
+    parquet: ppi_detailed_channels_string_v2.parquet
+    role: association
+    columns:
+    - {name: protein_id, key_column: true, description: STRING protein ID for the query-side protein (non-queryable
+        FK → protein_master_table_string.protein_id)}
+    - {name: channel_gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: HGNC
+        official symbol for the query side in ppi_detailed_channels — p53→TP53, description: HGNC gene
+        symbol of the query-side protein in the per-channel evidence table — use this to retrieve per-channel
+        evidence scores for a named gene's interaction partners}
+    - {name: protein_partner_id, key_column: true, description: STRING protein ID for the partner-side
+        protein (non-queryable FK → protein_master_table_string.protein_id)}
+    - {name: channel_partner_gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol,
+      description: HGNC gene symbol of the partner-side protein in the per-channel evidence table — returned
+        alongside per-channel scores}
+    - {name: neighborhood, queryable: true, key_column: true, concept_type: interaction_score, llm_note: INTEGER
+        SCORE 0–1000 (NOT boolean). Set as 'requested' (output) when user asks about neighbourhood/genomic
+        co-location scores., description: 'Per-channel score: genomic neighbourhood co-location evidence
+        (integer 0–357 in this snapshot; STRING protocol range 0–1000). Users may ask for ''neighborhood score'' or ''genomic neighbourhood'''}
+    - {name: fusion, queryable: true, key_column: true, concept_type: interaction_score, llm_note: INTEGER
+        SCORE 0–1000 (NOT boolean). Set as 'requested' (output) when user asks about gene-fusion evidence.,
+      description: 'Per-channel score: gene-fusion evidence from organism comparisons (integer 0–900 in this snapshot; STRING protocol range 0–1000).
+        Users may ask for ''fusion score'''}
+    - {name: cooccurence, queryable: true, key_column: true, concept_type: interaction_score, llm_note: 'IMPORTANT:
+        spelled ''cooccurence'' (single ''r'') on disk — use this exact spelling in all filters', description: 'Per-channel
+        score: phylogenetic co-occurrence / profile evidence (integer 0–537 in this snapshot; STRING protocol range 0–1000; note schema spelling). Users
+        may ask for ''co-occurrence score'' or ''phylogenetic profile'''}
+    - {name: coexpression, queryable: true, key_column: true, concept_type: interaction_score, llm_note: INTEGER
+        SCORE 0–1000 (NOT boolean). Set as 'requested' (output) when user asks about co-expression evidence.,
+      description: 'Per-channel score: gene co-expression evidence across organisms (integer 0–1000).
+        Users may ask for ''co-expression score'''}
+    - {name: experimental, queryable: true, key_column: true, concept_type: interaction_score, llm_note: 'INTEGER
+        SCORE 0–1000 (NOT boolean). When user asks for ''experimental evidence'' or ''experimental score'',
+        set experimental=''requested'' (SELECT output), not a filter value. Only set it as a filter if
+        the user specifies a numeric threshold (e.g. ''experimental > 500'').', description: 'Per-channel
+        score: experimental/biochemical evidence from BioGRID, IntAct etc. (integer 0–1000). Users may
+        ask for ''experimental score'' or ''experimental evidence'''}
+    - {name: database, queryable: true, key_column: true, concept_type: interaction_score, llm_note: INTEGER
+        SCORE 0–1000 (NOT boolean). Set as 'requested' (output) when user asks about curated-database
+        evidence., description: 'Per-channel score: curated-database evidence from Reactome, KEGG etc.
+        (integer 0–984 in this snapshot; STRING protocol range 0–1000). Users may ask for ''database score'' or ''curated evidence'''}
+    - {name: textmining, queryable: true, key_column: true, concept_type: interaction_score, llm_note: INTEGER
+        SCORE 0–1000 (NOT boolean). Set as 'requested' (output) when user asks about text-mining / literature
+        evidence., description: 'Per-channel score: text-mining evidence from co-mentions in PubMed (integer
+        0–1000). Users may ask for ''text-mining score'' or ''literature evidence'''}
+    - {name: channel_combined_score, queryable: true, key_column: true, concept_type: interaction_score,
+      llm_note: INTEGER 700–999 in this snapshot (overall combined confidence). NOT a fraction., description: STRING
+        combined confidence score across all channels for this edge (integer 700–999 in this pre-filtered
+        snapshot) — returned alongside per-channel scores for context}
+    - {name: channels_partner_protein_size, added_at_load: true, key_column: true, description: 'Amino-acid length of the PARTNER protein on this edge
+        (integer, e.g. 393), denormalized from protein_master_table via protein_partner_id. Use THIS column
+        for any question about the SIZE / LENGTH / amino-acid count of a gene''s interaction PARTNERS.
+        NOTE: the master-table protein_size column is the QUERY/anchor protein''s size, not the partner''s'}
+  protein_alias:
+    parquet: protein_alias_string_v2.parquet
+    role: association
+    columns:
+    - {name: protein_id, key_column: true, description: STRING protein identifier
+        (join key to protein_master_table_string.protein_id) — non-queryable FK; disk column already named protein_id; loader rename is a no-op (canonical name since v2)}
+    - {name: alias, queryable: true, key_column: true, concept_type: alias_id, description: 'Alternate
+        identifier or synonym for the protein (e.g. RefSeq accession, Ensembl ID, gene symbol). Users
+        may ask for ''alias'', ''synonym'', or ''alternate ID'''}
+    - {name: source, queryable: true, key_column: true, concept_type: xref_source, description: 'Source
+        database for the alias (e.g. ''Ensembl_EMBL'', ''UniProt_AC'', ''Ensembl_HGNC''). Users may ask
+        for ''alias source'' or ''source database'''}
+loader:
+  generated: false      # bespoke hand-written loader (reads each parquet directly; no _TABLES tuple). Renames string_id→protein_id on master+alias; injects partner_protein_size via utils/partner_denorm.py then renames to association_/physical_/channels_partner_protein_size per table
+rules:
+  mandatory_entity_columns:
+    gene:
+    - gene_symbol
+    - association_gene_symbol
+    - physical_gene_symbol
+    - channel_gene_symbol
+  xref_id_columns:
+  - protein_id
+  - protein_partner_id
+  - alias
+  - source
+  schema_grounding_notes:
+  - 'THREE disjoint PPI tables — each is independent, never join two of them together; pick ONE based
+    on what the user asked:'
+  - '  ppi_association_string  → general functional interaction partners (all evidence); columns: association_gene_symbol,
+    association_partner_gene_symbol, association_score'
+  - '  ppi_physical_string     → physical binding / complex subset only; columns: physical_gene_symbol,
+    physical_partner_gene_symbol, physical_score'
+  - '  ppi_detailed_channels_string → per-channel evidence breakdown; columns: channel_gene_symbol, channel_partner_gene_symbol,
+    neighborhood/fusion/cooccurence/coexpression/experimental/database/textmining, channel_combined_score'
+  - ALL per-channel scores (experimental, neighborhood, fusion, cooccurence, coexpression, database, textmining)
+    are INTEGER SCORES 0–1000, never boolean. When the user asks 'with experimental evidence' or 'by experimental
+    score', set experimental='requested' (SELECT it as output) — do NOT set it to 'True' or any boolean
+    filter value
+  - association_score / physical_score / channel_combined_score are integers 700–999 in this snapshot
+    (pre-filtered to high-confidence edges ≥ 700); 900+ is highest confidence
+  - 'ppi_association_string is bidirectional: every undirected edge appears in both directions, so a single
+    filter on association_gene_symbol returns ALL of that gene''s interaction partners in association_partner_gene_symbol
+    — do NOT also match association_partner_gene_symbol'
+  - ppi_physical_string is the subset of ppi_association_string based solely on physical/binding evidence;
+    same physical_gene_symbol/physical_partner_gene_symbol layout
+  - protein_alias_string maps STRING protein IDs to external aliases (Ensembl, UniProt, RefSeq); query
+    through protein_master_table_string.gene_symbol first
+  - cooccurence is spelled without the double 'r' on disk — use this spelling verbatim in filters
+  co_output_rules:
+  - trigger_columns:
+    - neighborhood
+    - fusion
+    - cooccurence
+    - coexpression
+    - experimental
+    - database
+    - textmining
+    require_column: channel_combined_score
+    require_behavior: requested
+    reason: per-channel scores are not interpretable without the overall combined score for context
+  - trigger_columns:
+    - alias
+    require_column: gene_symbol
+    require_behavior: requested
+    reason: raw alias strings are not interpretable without the canonical gene symbol
+  gene_alias_map:
+    # Data-driven: all entries confirmed in protein_alias_string_v2.parquet
+    # (sources: Ensembl_HGNC_alias_symbol, Ensembl_external_synonym_HGNC,
+    #  KEGG_NAME_SYNONYM, UniProt_GN_Synonyms, UniProt_DE_AltName_Short,
+    #  UniProt_DE_RecName_Short, UniProt_DE_AltName_CD_antigen)
+    # Removed: CDK4/6 (no parquet hit), p21 (ambiguous: TCEAL1/CDKN1A), p27 (ambiguous: ZNRD2/PAK2/CDKN1B)
+    # Added: HER2 (4 parquet hits → ERBB2)
+    Bcl-2: BCL2
+    Bcl-XL: BCL2L1
+    beta-catenin: CTNNB1
+    c-KIT: KIT
+    c-MET: MET
+    c-Myc: MYC
+    c-Raf: RAF1
+    c-Src: SRC
+    CTLA-4: CTLA4
+    E-cadherin: CDH1
+    FAK: PTK2
+    HER2: ERBB2
+    HER3: ERBB3
+    HER4: ERBB4
+    HSP90: HSP90AA1
+    LAG-3: LAG3
+    mTOR: MTOR
+    N-cadherin: CDH2
+    p53: TP53
+    PD-1: PDCD1
+    PD-L1: CD274
+    PI3K: PIK3CA
+    Rb: RB1
+    TIM-3: HAVCR2
+    VEGFR2: KDR
+    # ── Complex / pathway hub aliases (sub-mode A+B+C BioASQ fix) ──
+    # Complex names: map to the hub subunit; db_llm_rules expands to full member list
+    mTORC1: MTOR
+    mTORC2: RICTOR
+    TORC1: MTOR
+    Raptor: RPTOR
+    Rictor: RICTOR
+    cohesin: RAD21
+    "cohesin complex": RAD21
+    "COP9 signalosome": COPS5
+    CSN: COPS5
+    "nuclear pore basket": NUP153
+    "ERK scaffold": KSR1
+    "Notch complex": NOTCH1
+    "Notch transcriptional activation complex": NOTCH1
+    "Fanconi anemia complex": FANCD2
+    # Annotation-routed aliases (sub-mode B)
+    Treslin: TICRR
+    CaMKII: CAMK2D
+    CMA: LAMP2
+    "LAMP-2A": LAMP2
+    "P-body": DDX6
+    "processing body": DDX6
+    "membrane scission": DNM1L
+    Groucho: TLE1
+    sclerostin: SOST
+    "Polycomb group": EZH2
+    "Polycomb repressor complex": EZH2
+    PcG: EZH2
+    PRC2: EZH2
+    # Yeast ortholog names (both proteins confirmed in protein_alias_string_v2.parquet)
+    CTF4: WDHD1
+    Ctf4: WDHD1
+    CTF18: CHTF18
+    Ctf18: CHTF18
+    AND1: WDHD1
+questions:
+  literal:
+  - label: find_interactors
+    question: What proteins interact with EGFR in STRING?
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors
+    question: List all known protein interaction partners of TP53.
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors
+    question: Which proteins interact with BRCA1 according to STRING?
+    required:
+    - gene_symbol
+    - association_score
+  - label: high_confidence_interactions
+    question: Show me high-confidence interactions (score above 900) for KRAS.
+    required:
+    - gene_symbol
+    - association_score
+  - label: high_confidence_interactions
+    question: What are the highest confidence STRING interactions for MYC (combined score >= 900)?
+    required:
+    - gene_symbol
+    - association_score
+  - label: high_confidence_interactions
+    question: Find interaction partners of PIK3CA with a combined score above 900.
+    required:
+    - gene_symbol
+    - association_score
+  - label: physical_interactions
+    question: What are the physical binding partners of EGFR in STRING?
+    required:
+    - gene_symbol
+    - physical_score
+  - label: physical_interactions
+    question: Show physical protein-protein interactions for AKT1.
+    required:
+    - gene_symbol
+    - physical_score
+  - label: physical_interactions
+    question: Which proteins physically bind to ERBB2 based on STRING physical interaction data?
+    required:
+    - gene_symbol
+    - physical_score
+  - label: experimental_evidence
+    question: Find interaction partners of TNF supported by experimental evidence in STRING.
+    required:
+    - gene_symbol
+    - experimental
+    - channel_combined_score
+  - label: experimental_evidence
+    question: Which proteins interact with MTOR with high experimental score in STRING?
+    required:
+    - gene_symbol
+    - experimental
+    - channel_combined_score
+  - label: coexpression_channel
+    question: What proteins are co-expressed with VEGFA according to STRING?
+    required:
+    - gene_symbol
+    - coexpression
+    - channel_combined_score
+  - label: coexpression_channel
+    question: List interaction partners of CDK4 with a high co-expression score.
+    required:
+    - gene_symbol
+    - coexpression
+    - channel_combined_score
+  - label: database_channel
+    question: Which proteins interact with PTEN based on curated database evidence in STRING?
+    required:
+    - gene_symbol
+    - database
+    - channel_combined_score
+  - label: textmining_channel
+    question: Find proteins that co-mention with RB1 in PubMed literature according to STRING text-mining
+      scores.
+    required:
+    - gene_symbol
+    - textmining
+    - channel_combined_score
+  - label: interaction_between_two_genes
+    question: Does EGFR interact with ERBB2 in STRING, and what is their combined score?
+    required:
+    - gene_symbol
+    - association_score
+  - label: interaction_between_two_genes
+    question: What is the STRING interaction score between TP53 and MDM2?
+    required:
+    - gene_symbol
+    - association_score
+  - label: interaction_between_two_genes
+    question: Is there a STRING interaction between MYC and CDK2, and what evidence channels support it?
+    required:
+    - gene_symbol
+    - channel_combined_score
+    - experimental
+    - database
+    - textmining
+  - label: top_interactors
+    question: What are the top 10 interaction partners of KRAS ranked by combined score in STRING?
+    required:
+    - gene_symbol
+    - association_score
+  - label: top_interactors
+    question: Give me the top interactors of BCL2 by STRING confidence score.
+    required:
+    - gene_symbol
+    - association_score
+  - label: multi_channel_evidence
+    question: Show all per-channel scores (experimental, database, coexpression, textmining) for the interactions
+      of TP63.
+    required:
+    - gene_symbol
+    - experimental
+    - database
+    - coexpression
+    - textmining
+    - channel_combined_score
+  - label: multi_channel_evidence
+    question: What are the neighborhood and fusion scores for BRCA1 interaction partners in STRING?
+    required:
+    - gene_symbol
+    - neighborhood
+    - fusion
+    - channel_combined_score
+  - label: cooccurence_channel
+    question: Which proteins show high phylogenetic co-occurrence with CDK2 in STRING?
+    required:
+    - gene_symbol
+    - cooccurence
+    - channel_combined_score
+  - label: protein_annotation
+    question: What is the functional annotation of EGFR in the STRING protein master table?
+    required:
+    - gene_symbol
+    - annotation
+  - label: protein_alias
+    question: What are the alternate identifiers for KRAS in the STRING database, and which source databases
+      are they from?
+    required:
+    - gene_symbol
+    - alias
+    - source
+  - label: hub_proteins
+    question: What are the most highly connected proteins (hubs) in the STRING network by number of interaction
+      partners?
+    required:
+    - gene_symbol
+    - association_score
+  - label: shared_interactors
+    question: Which proteins interact with both EGFR and MET in STRING?
+    required:
+    - gene_symbol
+    - association_score
+  - label: protein_size
+    question: What is the amino acid length of the BRCA2 protein in STRING?
+    required:
+    - gene_symbol
+    - protein_size
+  - label: neighborhood_score
+    question: Which interaction partners of ABL1 have a non-zero genomic neighbourhood score in STRING?
+    required:
+    - gene_symbol
+    - neighborhood
+    - channel_combined_score
+  - label: fusion_evidence
+    question: Are there any gene-fusion supported interactions for ALK in the STRING database?
+    required:
+    - gene_symbol
+    - fusion
+    - channel_combined_score
+  - label: alias_lookup_uniprot
+    question: What STRING protein ID corresponds to UniProt accession P00533?
+    required:
+    - alias
+    - source
+  - label: experimental_only
+    question: Show interaction partners of PTEN that have experimental evidence score above 500 in STRING.
+    required:
+    - gene_symbol
+    - experimental
+    - channel_combined_score
+  - label: database_only
+    question: Which proteins interact with APC based only on curated database evidence in STRING?
+    required:
+    - gene_symbol
+    - database
+    - channel_combined_score
+  - label: isolated_check
+    question: Does PCSK9 have any STRING interaction partners above the confidence threshold?
+    required:
+    - gene_symbol
+    - association_score
+  - label: annotation_lookup
+    question: What is the STRING functional annotation for the MDM2 protein?
+    required:
+    - gene_symbol
+    - annotation
+  - label: cross_alias
+    question: Find the gene symbol for the protein with Ensembl ID ENSP00000275493 in STRING.
+    required:
+    - alias
+    - gene_symbol
+  - label: physical_vs_all
+    question: Which physical binding partners of CDKN1A also appear in the full STRING functional association
+      network?
+    required:
+    - gene_symbol
+    - association_score
+  - label: experimental_only
+    question: Which proteins interact with EGFR with experimental evidence only?
+    required:
+    - gene_symbol
+    - experimental
+    - channel_combined_score
+  - label: experimental_only
+    question: Show experimental evidence interactions for HER2 in STRING.
+    required:
+    - gene_symbol
+    - experimental
+    - channel_combined_score
+  - label: experimental_only
+    question: What proteins bind to BRCA1 based on experimental biochemical evidence in STRING?
+    required:
+    - gene_symbol
+    - experimental
+    - channel_combined_score
+  - label: experimental_only
+    question: Find TP53 interaction partners supported only by experimental evidence, not text mining.
+    required:
+    - gene_symbol
+    - experimental
+    - channel_combined_score
+  - label: experimental_only
+    question: List proteins that physically associate with AKT1 with high experimental evidence score
+      in STRING.
+    required:
+    - gene_symbol
+    - experimental
+    - channel_combined_score
+  - label: find_interactors_pathway_context
+    question: What proteins interact with SMAD4 in TGF-beta signaling?
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors_pathway_context
+    question: Which proteins interact with HER2 according to STRING?
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors_pathway_context
+    question: What are the high-confidence interactors of HER2 in STRING?
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors_pathway_context
+    question: List protein interactors of HER2 with high confidence.
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors_pathway_context
+    question: Which proteins does SMAD3 interact with in TGF-beta pathway?
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors_pathway_context
+    question: What are the STRING interactors of CTNNB1 in Wnt signaling?
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors_pathway_context
+    question: Which proteins interact with p53 in DNA damage response?
+    required:
+    - gene_symbol
+    - association_score
+  - label: find_interactors_pathway_context
+    question: What are the interaction partners of Bcl-2 in apoptosis signaling?
+    required:
+    - gene_symbol
+    - association_score
+db_llm_rules: |
+  COMPLEX / PATHWAY DECOMPOSITION — when the question names a complex or pathway rather than a
+  single gene, expand to its member gene symbols in the WHERE clause:
+    mTORC1 / TORC1          → gene_symbol IN [MTOR, RPTOR, MLST8, DEPTOR, AKT1S1]
+    Polycomb / PRC2 / PcG   → gene_symbol IN [EZH2, EED, SUZ12, RBBP4, JARID2]
+    COP9 signalosome / CSN  → gene_symbol IN [COPS5, COPS8, COPS1, COPS2, COPS3, COPS4]
+    cohesin complex         → gene_symbol IN [SMC1A, SMC3, RAD21, STAG1, STAG2]
+    nuclear pore basket     → gene_symbol IN [NUP153, NUP50, TPR, NUP98]
+    ERK scaffold proteins   → gene_symbol IN [KSR1, KSR2, IQGAP1, SHOC2]
+    Notch activation complex→ gene_symbol IN [NOTCH1, RBPJ, MAML1, MAML2, EP300]
+    Fanconi anemia complex  → gene_symbol IN [FANCD2, FANCA, BRCA1, BRCA2, PALB2]
+    mTORC2                  → gene_symbol IN [MTOR, RICTOR, MLST8, MAPKAP1, PRR5]
+
+  ANNOTATION ROUTING — for questions about function, role, disease involvement, modification,
+  or "is X involved in Y" (NOT "who interacts with X"), use protein_master_table annotation
+  column ONLY. Never use PPI tables for these; the annotation text answers directly.
+  Examples: "What is the function of EZH2?", "Is CaMKII involved in arrhythmias?",
+  "What histone modifications do PcG proteins deposit?", "Which receptor mediates CMA?"
+
+  YES/NO PPI + NON-PPI PROPERTY — when asked "Does X interact with Y [and also has property Z
+  that STRING doesn't store, e.g. circadian, temporal, tissue-specific]": return the PPI edge
+  (confirm the interaction exists with its score), then explicitly state STRING cannot confirm
+  the additional property. NEVER return zero rows when the PPI component is answerable.
+
+  SLASH-SEPARATED NAMES — "Treslin/TICRR", "LAMP-2A/CMA", "COPS5/JAB1" contain synonyms
+  separated by "/"; treat each part as an independent alias and resolve whichever maps first.

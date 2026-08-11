@@ -1,0 +1,390 @@
+# REVIEW before use: verify dtypes, factor `questions.literal` into params/templates,
+# and confirm exec_schema/kg_schema flags on denormalised columns.
+db: hpo
+display_name: HPO
+description: Human Phenotype Ontology — phenotype-gene and phenotype-disease associations with hierarchical
+  ontology structure
+parquet_dir: hpo
+tables:
+  gene_master_table_hpo:
+    parquet: gene_master_table_hpo_v2.parquet
+    role: master
+    columns:
+    - {name: gene_id, role: pk, key_column: true, description: 'internal HPO gene identifier (NCBIGene:XXXXXXXX)
+        — PK; sole home of gene identity, join key only'}
+    - {name: gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: HGNC
+        official symbol — p53→TP53, description: 'official HGNC gene symbol — the ONLY table that stores
+        gene_symbol; e.g. BRCA1, TP53, CFTR, FGFR3, LMNA'}
+  disease_master_table_hpo:
+    parquet: disease_master_table_hpo_v2.parquet
+    role: master
+    columns:
+    - {name: disease_id, role: pk, key_column: true, description: 'disease identifier in OMIM:XXXXXX / ORPHA:XXXXXX
+        / DECIPHER: format — PK; join key only'}
+    - {name: disease_name, queryable: true, key_column: true, concept_type: disease_name, llm_note: 'Orphanet
+        or OMIM disease name as stored; e.g. ''Marfan syndrome'', ''Phenylketonuria''', description: "name
+        of the disease or syndrome — the ONLY table that stores disease_name; e.g. Marfan syndrome, Down
+        syndrome, Neurofibromatosis type 1, Phenylketonuria. 215 of 14,868 rows (1.4%) have NULL disease_name
+        (all OMIM IDs for which no name is available); exclude these rows in disease-name-filtered queries."}
+  phenotype_master_table_hpo:
+    parquet: phenotype_master_table_hpo_v2.parquet
+    role: master
+    columns:
+    - {name: phenotype_id, role: pk, key_column: true, description: 'HPO term identifier in HP:XXXXXXX format —
+        PK; sole home of phenotype identity (all 19,389 terms), join key only; e.g. HP:0001250'}
+    - {name: phenotype_name, queryable: true, key_column: true, concept_type: phenotype_name, llm_note: official
+        HPO term name; do not use lay terms or synonyms as filter values, description: 'canonical HPO
+        term name — the ONLY table that stores phenotype_name; e.g. Seizure, Intellectual disability,
+        Ataxia, Microcephaly, Short stature'}
+    - {name: definition, queryable: true, key_column: true, concept_type: xref_id, description: "2,484 of 19,389
+        rows (12.8%) have NULL definition — filter with col.is_not_null() before displaying. Non-null
+        definitions describe the clinical meaning of the HPO phenotype term. Users may ask for 'definition'
+        or 'meaning' of a phenotype term."}
+    - {name: is_a_parents, exec_schema: false, kg_schema: false, description: pipe-separated list of parent HP IDs in the
+        ontology hierarchy — raw structural field; not queryable}
+    - {name: alt_ids, exec_schema: false, kg_schema: false, description: pipe-separated list of alternate HP IDs for this
+        term — raw cross-reference field; not queryable}
+    - {name: xrefs, exec_schema: false, kg_schema: false, description: 'pipe-separated list of cross-references to external
+        ontologies (UMLS, SNOMEDCT, etc.) — raw xref field; not queryable'}
+  gene_phenotype_association_hpo:
+    parquet: gene_phenotype_association_hpo_v2.parquet
+    role: association
+    columns:
+    - {name: gene_id, key_column: true, description: FK to gene_master_table_hpo.gene_id}
+    - {name: phenotype_id, key_column: true, description: FK to phenotype_master_table_hpo.phenotype_id}
+    - {name: gene_phenotype_frequency, queryable: true, key_column: true, concept_type: xref_id, description: observed
+        frequency of the phenotype in patients carrying this gene variant; expressed as fraction (e.g.
+        7/42) or HP frequency term}
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_hpo.disease_id}
+    - {name: gene_symbol, exec_schema: false, kg_schema: false, llm_note: HGNC official symbol — p53→TP53,
+        description: "denormalized HGNC gene symbol — join-convenience copy; authoritative value is gene_master_table_hpo.gene_symbol;\
+          \ excluded from exec/kg schema"}
+    - {name: phenotype_name, exec_schema: false, kg_schema: false, llm_note: official HPO term name; do
+        not use lay terms or synonyms as filter values, description: "denormalized HPO phenotype name —\
+          \ join-convenience copy; authoritative value is phenotype_master_table_hpo.phenotype_name; excluded\
+          \ from exec/kg schema"}
+  disease_phenotype_association_hpo:
+    parquet: disease_phenotype_association_hpo_v2.parquet
+    role: association
+    columns:
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_hpo.disease_id}
+    - {name: phenotype_id, key_column: true, description: FK to phenotype_master_table_hpo.phenotype_id}
+  phenotype_hierarchy_hpo:
+    parquet: phenotype_hierarchy_hpo_v2.parquet
+    role: association
+    columns:
+    - {name: phenotype_id, key_column: true, description: FK to phenotype_master_table_hpo.phenotype_id
+        — the child term}
+    - {name: parent_id, key_column: true, description: FK to phenotype_master_table_hpo.phenotype_id —
+        the parent term one level up in the HPO hierarchy}
+  phenotype_synonym_hpo:
+    parquet: phenotype_synonym_hpo_v2.parquet
+    role: association
+    columns:
+    - {name: phenotype_id, key_column: true, description: FK to phenotype_master_table_hpo.phenotype_id}
+    - {name: synonym, queryable: true, key_column: true, concept_type: phenotype_name, description: alternate
+        name or synonym for the HPO phenotype term; used for synonym-based lookups}
+  phenotype_gene_association_hpo:
+    parquet: phenotype_gene_association_hpo_v2.parquet
+    role: association
+    columns:
+    - {name: phenotype_id, key_column: true, description: 'FK to phenotype_master_table_hpo.phenotype_id;
+        e.g. HP:6000526'}
+    - {name: gene_id, key_column: true, description: FK to gene_master_table_hpo.gene_id}
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_hpo.disease_id}
+    - {name: phenotype_name, exec_schema: false, kg_schema: false, llm_note: official HPO term name; do
+        not use lay terms or synonyms as filter values, description: "denormalized HPO phenotype name —\
+          \ join-convenience copy; authoritative value is phenotype_master_table_hpo.phenotype_name; excluded\
+          \ from exec/kg schema"}
+    - {name: gene_symbol, exec_schema: false, kg_schema: false, llm_note: HGNC official symbol — p53→TP53,
+        description: "denormalized HGNC gene symbol — join-convenience copy; authoritative value is gene_master_table_hpo.gene_symbol;\
+          \ excluded from exec/kg schema"}
+  gene_disease_association_hpo:
+    parquet: gene_disease_association_hpo_v2.parquet
+    role: association
+    columns:
+    - {name: gene_id, key_column: true, description: FK to gene_master_table_hpo.gene_id}
+    - {name: ncbi_gene_id, queryable: true, key_column: true, concept_type: gene_xref_id, description: NCBI
+        Entrez Gene ID as a bare integer string; e.g. 121278; the prefix-stripped form of gene_id; used
+        when asking for NCBI gene ID}
+    - {name: association_type, queryable: true, key_column: true, concept_type: interaction_type, description: 'type
+        of gene-disease association; observed values: UNKNOWN (Orphanet-sourced, 8290 rows), MENDELIAN
+        (7043 rows), POLYGENIC (581 rows)'}
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_hpo.disease_id}
+    - {name: source, queryable: true, key_column: true, concept_type: xref_source, description: "Source
+        URL for the gene-disease association. Only two values appear on disk: 'http://www.orphadata.org/data/xml/en_product6.xml'
+        (8,290 rows, UNKNOWN association type) and 'ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/mim2gene_medgen'
+        (7,624 rows, MENDELIAN+POLYGENIC). Filter by URL substring to distinguish Orphanet vs OMIM-derived
+        associations."}
+    - {name: gene_symbol, exec_schema: false, kg_schema: false, llm_note: HGNC official symbol — p53→TP53,
+        description: "denormalized HGNC gene symbol — join-convenience copy; authoritative value is gene_master_table_hpo.gene_symbol;\
+          \ excluded from exec/kg schema"}
+  disease_phenotype_annotation_hpo:
+    parquet: disease_phenotype_annotation_hpo_v2.parquet
+    role: association
+    columns:
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_hpo.disease_id}
+    - {name: qualifier, dtype: 'null', queryable: true, key_column: true, concept_type: xref_id, description: 'qualifier
+        for the phenotype annotation; reserved for ''NOT'' to mark an explicitly-absent phenotype, but
+        in this snapshot the column is null in 100% of served rows (no ''NOT'' values present)'}
+    - {name: phenotype_id, key_column: true, description: FK to phenotype_master_table_hpo.phenotype_id}
+    - {name: reference, queryable: true, key_column: true, concept_type: pubmed_id, description: 'literature
+        or database reference supporting the annotation; e.g. PMID:12345678, OMIM:123456'}
+    - {name: evidence, queryable: true, key_column: true, concept_type: xref_id, enum: [IEA, PCS, TAS],
+      description: 'evidence code for the annotation; e.g. IEA (inferred from electronic annotation),
+        PCS (published clinical study)'}
+    - {name: onset, queryable: true, key_column: true, concept_type: phenotype_name, description: 'age
+        of onset HP term; e.g. HP:0003593 (Infantile onset), HP:0003577 (Congenital onset)'}
+    - {name: disease_phenotype_frequency, queryable: true, key_column: true, concept_type: xref_id, description: 'frequency
+        of the phenotype in affected patients; expressed as fraction (e.g. 7/42) or HP frequency term
+        (HP:0040282)'}
+    - {name: sex, queryable: true, key_column: true, concept_type: xref_id, description: 'sex-specific
+        restriction of the phenotype annotation; e.g. MALE, FEMALE; null when not sex-specific'}
+    - {name: modifier, queryable: true, key_column: true, concept_type: phenotype_name, description: 'clinical
+        modifier HP term for the annotation; e.g. HP:0012832 (Bilateral), HP:0012834 (Right)'}
+    - {name: aspect, queryable: true, key_column: true, concept_type: xref_id, enum: [P, C, M, H, I],
+      description: 'HPO annotation aspect: P=Phenotypic abnormality (264207 rows), C=Clinical course (8444
+        rows), I=Inheritance/Mode of inheritance (9104 rows), H=Past medical history (124 rows), M=Clinical
+        modifier (78 rows)'}
+    - {name: biocuration, key_column: true, description: 'biocuration metadata including curator identifier
+        and date; e.g. HPO:probinson[2021-06-21]'}
+    - {name: disease_name, exec_schema: false, kg_schema: false, llm_note: 'Orphanet or OMIM disease name
+        as stored; e.g. ''Marfan syndrome'', ''Phenylketonuria''', description: "denormalized disease name\
+          \ — join-convenience copy; authoritative value is disease_master_table_hpo.disease_name; excluded\
+          \ from exec/kg schema"}
+loader:
+  generated: false      # bespoke hand-written loader (per-table parquet reads; renames frequency per table)
+rules:
+  mandatory_entity_columns:
+    gene:
+    - gene_symbol
+    disease:
+    - disease_name
+    phenotype:
+    - phenotype_name
+  xref_id_columns:
+  - phenotype_id
+  - disease_id
+  - gene_id
+  - ncbi_gene_id
+  - reference
+  - onset
+  - modifier
+  - is_a_parents
+  - alt_ids
+  - xrefs
+  schema_grounding_notes:
+  - 'phenotype_name: use the official HPO term name — e.g. ''Seizure'' not ''seizures'', ''Intellectual
+    disability'' not ''mental retardation'''
+  - 'aspect: P=Phenotypic abnormality (264207 rows), C=Clinical course (8444 rows), I=Inheritance/Mode
+    of inheritance (9104 rows), H=Past medical history (124 rows), M=Clinical modifier (78 rows)'
+  - frequency in disease_phenotype_annotation_hpo is a raw fraction (e.g. '7/42') or HP frequency term
+    (e.g. HP:0040282); NOT an enum
+  - frequency in gene_phenotype_association_hpo is a raw fraction string or HP term; filter by numeric
+    range is not directly supported
+  - 'qualifier: reserved for the value ''NOT'' (phenotype explicitly absent), but in this snapshot the
+    column is null in 100% of served rows — no ''NOT'' values are present'
+  - 'onset: HP ontology term (e.g. HP:0003593) or free text age-of-onset string'
+  - 'source (gene_disease_association_hpo): stored as a full provenance URL, not a friendly label. There
+    are exactly two values — Orphanet rows contain ''orphadata'' (http://www.orphadata.org/data/xml/en_product6.xml)
+    and OMIM/MedGen rows contain ''mim2gene'' (ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/mim2gene_medgen).
+    When the user names a source, filter source by the URL substring: ''Orphanet'' -> ''orphadata'', ''OMIM''/''MedGen''
+    -> ''mim2gene''.'
+  co_output_rules:
+  - trigger_columns:
+    - phenotype_name
+    require_column: phenotype_id
+    require_behavior: requested
+    reason: HPO term names are not unique across versions; include phenotype_id (HP:XXXXXXX) for unambiguous
+      reference
+  - trigger_columns:
+    - phenotype_id
+    require_column: phenotype_name
+    require_behavior: requested
+    reason: opaque HP:XXXXXXX IDs need the human-readable phenotype name
+  - trigger_columns:
+    - disease_id
+    require_column: disease_name
+    require_behavior: requested
+    reason: disease IDs (OMIM/ORPHA) need the human-readable disease name
+  - trigger_columns:
+    - reference
+    require_column: disease_name
+    require_behavior: infer_from_question
+    reason: literature references need disease context
+  abbreviation_map:
+    CML: chronic myeloid leukemia
+    AML: acute myeloid leukemia
+    GBM: glioblastoma multiforme
+questions:
+  literal:
+  - label: gene+xref
+    question: Entrez gene ID for MYC
+    required:
+    - gene_symbol
+    - ncbi_gene_id
+  - label: phenotype+disease
+    question: diseases associated with the phenotype seizures
+    required:
+    - phenotype_name
+    - disease_name
+  - label: gene+xref
+    question: what is the NCBI gene ID for EGFR?
+    required:
+    - gene_symbol
+    - ncbi_gene_id
+  - label: gene+disease
+    question: what diseases are associated with BRAF?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+xref
+    question: what is the NCBI gene ID for MYC?
+    required:
+    - gene_symbol
+    - ncbi_gene_id
+  - label: phenotype+disease
+    question: diseases associated with the phenotype muscle weakness
+    required:
+    - phenotype_name
+    - disease_name
+  - label: phenotype+disease
+    question: which diseases present with short stature?
+    required:
+    - phenotype_name
+    - disease_name
+  - label: gene+disease
+    question: what diseases are associated with MYC?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+xref
+    question: Entrez gene ID for TP53
+    required:
+    - gene_symbol
+    - ncbi_gene_id
+  - label: phenotype+gene
+    question: what genes are associated with muscle weakness?
+    required:
+    - phenotype_name
+    - gene_symbol
+  - label: phenotype+disease
+    question: which diseases present with muscle weakness?
+    required:
+    - phenotype_name
+    - disease_name
+  - label: phenotype+gene
+    question: which genes cause the phenotype muscle weakness?
+    required:
+    - phenotype_name
+    - gene_symbol
+  - label: gene+disease
+    question: which conditions involve mutations in BRAF?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: phenotype+gene
+    question: what genes are associated with seizures?
+    required:
+    - phenotype_name
+    - gene_symbol
+  - label: gene+disease
+    question: which conditions involve mutations in TP53?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: phenotype+gene
+    question: what genes are associated with short stature?
+    required:
+    - phenotype_name
+    - gene_symbol
+  - label: gene+xref
+    question: what is the NCBI gene ID for BRAF?
+    required:
+    - gene_symbol
+    - ncbi_gene_id
+  - label: phenotype+disease
+    question: which diseases present with intellectual disability?
+    required:
+    - phenotype_name
+    - disease_name
+  - label: gene+xref
+    question: what is the NCBI gene ID for TP53?
+    required:
+    - gene_symbol
+    - ncbi_gene_id
+  - label: gene+xref
+    question: Entrez gene ID for BRAF
+    required:
+    - gene_symbol
+    - ncbi_gene_id
+  - label: phenotype+gene
+    question: what genes are associated with intellectual disability?
+    required:
+    - phenotype_name
+    - gene_symbol
+  - label: phenotype+disease
+    question: which diseases present with seizures?
+    required:
+    - phenotype_name
+    - disease_name
+  - label: phenotype+gene
+    question: which genes cause the phenotype intellectual disability?
+    required:
+    - phenotype_name
+    - gene_symbol
+  - label: gene+disease
+    question: which conditions involve mutations in MYC?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: which conditions involve mutations in EGFR?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: phenotype+disease
+    question: diseases associated with the phenotype intellectual disability
+    required:
+    - phenotype_name
+    - disease_name
+  - label: gene+xref
+    question: Entrez gene ID for EGFR
+    required:
+    - gene_symbol
+    - ncbi_gene_id
+  - label: phenotype+gene
+    question: which genes cause the phenotype seizures?
+    required:
+    - phenotype_name
+    - gene_symbol
+  - label: phenotype+gene
+    question: which genes cause the phenotype short stature?
+    required:
+    - phenotype_name
+    - gene_symbol
+  - label: gene+disease
+    question: what diseases are associated with EGFR?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: phenotype+disease
+    question: diseases associated with the phenotype short stature
+    required:
+    - phenotype_name
+    - disease_name
+  - label: gene+disease
+    question: what diseases are associated with TP53?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: phenotype+disease
+    question: Which diseases present with seizures?
+    required:
+    - phenotype_name
+    - disease_name
+  - label: gene+phenotype
+    question: What phenotypes are associated with BRCA1 mutations?
+    required:
+    - gene_symbol
+    - phenotype_name

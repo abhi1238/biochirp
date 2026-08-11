@@ -1,0 +1,249 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300mm" height="362mm" viewBox="0 0 300 362" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ar" markerUnits="userSpaceOnUse" markerWidth="4" markerHeight="4" refX="3.2" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#5a6b85"/>
+    </marker>
+    <marker id="arw" markerUnits="userSpaceOnUse" markerWidth="4" markerHeight="4" refX="3.2" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#c0492f"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="300" height="362" fill="#ffffff"/>
+
+  <!-- ================= HEADER ================= -->
+  <rect x="0" y="0" width="300" height="24" fill="#15233f"/>
+  <text x="12" y="11.2" font-size="6.2" font-weight="700" fill="#ffffff">BioChirp — Federated Architecture: one shared engine, ~28 pluggable datasets</text>
+  <text x="12" y="19" font-size="3.4" fill="#aebbcf">How every query flows  ·  what is shared vs per-dataset  ·  how to add a new database  ·  why extension stays cheap</text>
+
+  <!-- effort legend -->
+  <g font-size="2.5">
+    <rect x="186" y="3.4" width="6" height="4.4" rx="1" fill="#2faf63"/><text x="194" y="6.9" fill="#dfe6f0">Easy / declarative</text>
+    <rect x="186" y="9.4" width="6" height="4.4" rx="1" fill="#e0922a"/><text x="194" y="12.9" fill="#dfe6f0">Moderate — real domain work</text>
+    <rect x="186" y="15.4" width="6" height="4.4" rx="1" fill="#c0492f"/><text x="194" y="18.9" fill="#dfe6f0">Hard — only for unusual datasets</text>
+    <rect x="252" y="3.4" width="6" height="4.4" rx="1" fill="#2f7fd0"/><text x="260" y="6.9" fill="#dfe6f0">Automatic — no work</text>
+  </g>
+
+  <!-- ================= SECTION 1 : RUNTIME PIPELINE ================= -->
+  <text x="12" y="34.5" font-size="4.7" font-weight="700" fill="#15233f">1 — How every database query flows</text>
+  <text x="118" y="34.5" font-size="3.1" fill="#5a6b85">the SHARED pipeline — byte-identical for all ~28 datasets; a new DB reuses it unchanged</text>
+
+  <rect x="8" y="38" width="284" height="84" rx="3" fill="#eef4fe" stroke="#cdddf5" stroke-width="0.5"/>
+  <text x="14" y="44" font-size="2.7" fill="#2f63cf" font-style="italic">SHARED ENGINE — written once</text>
+
+  <!-- row 1 : clarifier / router / interpreter -->
+  <g font-size="3.5" font-weight="700" fill="#15233f" text-anchor="middle">
+    <rect x="10"  y="46.5" width="62" height="17" rx="2.5" fill="#ffffff" stroke="#9aa6ba" stroke-width="0.5"/>
+    <text x="41" y="53">User question</text>
+    <rect x="82.7"  y="46.5" width="62" height="17" rx="2.5" fill="#ffffff" stroke="#2f63cf" stroke-width="0.6"/>
+    <text x="113.7" y="53">Clarifier</text>
+    <rect x="155.3" y="46.5" width="62" height="17" rx="2.5" fill="#ffffff" stroke="#2f63cf" stroke-width="0.6"/>
+    <text x="186.3" y="53">Router</text>
+    <rect x="228" y="46.5" width="62" height="17" rx="2.5" fill="#ffffff" stroke="#2f63cf" stroke-width="0.6"/>
+    <text x="259" y="53">Interpreter</text>
+  </g>
+  <g font-size="2.55" fill="#5a6b85" text-anchor="middle">
+    <text x="41"    y="59.2">(optional memory check)</text>
+    <text x="113.7" y="59.2">rewrites to a canonical form</text>
+    <text x="186.3" y="59.2">in-scope biomedical? else web</text>
+    <text x="259"   y="59.2">entities → structured filters</text>
+  </g>
+  <g stroke="#5a6b85" stroke-width="0.55">
+    <line x1="72.5" y1="55" x2="82.2" y2="55" marker-end="url(#ar)"/>
+    <line x1="145.2" y1="55" x2="154.8" y2="55" marker-end="url(#ar)"/>
+    <line x1="217.8" y1="55" x2="227.5" y2="55" marker-end="url(#ar)"/>
+    <line x1="259" y1="63.5" x2="259" y2="69.5" marker-end="url(#ar)"/>
+  </g>
+
+  <!-- row 2 : database tool -->
+  <rect x="12" y="70" width="276" height="29" rx="2.5" fill="#fdf6ec" stroke="#dd8a2c" stroke-width="0.7"/>
+  <text x="150" y="75.6" font-size="3.3" font-weight="700" fill="#b9701f" text-anchor="middle">DATABASE TOOL  —  runs the structured query against THIS dataset's parquet files</text>
+  <g font-size="3" font-weight="700" fill="#15233f" text-anchor="middle">
+    <rect x="17"   y="78.5" width="62" height="16.5" rx="2.2" fill="#ffffff" stroke="#dd8a2c" stroke-width="0.5"/>
+    <text x="48" y="84.4">Expand &amp; Match</text>
+    <rect x="84.3" y="78.5" width="62" height="16.5" rx="2.2" fill="#ffffff" stroke="#dd8a2c" stroke-width="0.5"/>
+    <text x="115.3" y="84.4">Planner</text>
+    <rect x="151.6" y="78.5" width="62" height="16.5" rx="2.2" fill="#ffffff" stroke="#dd8a2c" stroke-width="0.5"/>
+    <text x="182.6" y="84.4">Join &amp; Filter</text>
+    <rect x="218.9" y="78.5" width="62" height="16.5" rx="2.2" fill="#ffffff" stroke="#dd8a2c" stroke-width="0.5"/>
+    <text x="249.9" y="84.4">Finalize</text>
+  </g>
+  <g font-size="2.5" fill="#5a6b85" text-anchor="middle">
+    <text x="48"    y="90.3">match names: fuzzy /</text><text x="48" y="93.2">semantic / synonyms</text>
+    <text x="115.3" y="90.3">choose tables</text><text x="115.3" y="93.2">&amp; joins</text>
+    <text x="182.6" y="90.3">scan parquet,</text><text x="182.6" y="93.2">apply filters</text>
+    <text x="249.9" y="90.3">build result table</text><text x="249.9" y="93.2">+ data version</text>
+  </g>
+  <g stroke="#5a6b85" stroke-width="0.55">
+    <line x1="79.5" y1="86.7" x2="83.8" y2="86.7" marker-end="url(#ar)"/>
+    <line x1="146.8" y1="86.7" x2="151.1" y2="86.7" marker-end="url(#ar)"/>
+    <line x1="214.1" y1="86.7" x2="218.4" y2="86.7" marker-end="url(#ar)"/>
+  </g>
+
+  <!-- row 3 : synthesizer / critic / answer -->
+  <line x1="60" y1="99" x2="60" y2="105" stroke="#5a6b85" stroke-width="0.55" marker-end="url(#ar)"/>
+  <g font-size="3.5" font-weight="700" fill="#15233f" text-anchor="middle">
+    <rect x="35"  y="105.5" width="80" height="13.5" rx="2.5" fill="#ffffff" stroke="#2f63cf" stroke-width="0.6"/>
+    <text x="75" y="111">Synthesizer</text>
+    <rect x="130" y="105.5" width="80" height="13.5" rx="2.5" fill="#ffffff" stroke="#2f63cf" stroke-width="0.6"/>
+    <text x="170" y="111">Critic</text>
+    <rect x="225" y="105.5" width="62" height="13.5" rx="2.5" fill="#e8f0fe" stroke="#2f63cf" stroke-width="0.6"/>
+    <text x="256" y="111">Verified answer</text>
+  </g>
+  <g font-size="2.55" fill="#5a6b85" text-anchor="middle">
+    <text x="75"  y="116.3">writes answer from rows</text>
+    <text x="170" y="116.3">checks every claim is grounded</text>
+    <text x="256" y="116.3">streamed to the user</text>
+  </g>
+  <g stroke="#5a6b85" stroke-width="0.55">
+    <line x1="115.5" y1="112.2" x2="129.5" y2="112.2" marker-end="url(#ar)"/>
+    <line x1="210.5" y1="112.2" x2="224.5" y2="112.2" marker-end="url(#ar)"/>
+  </g>
+  <path d="M160,105.5 C160,101 90,101 90,105.3" fill="none" stroke="#c0492f" stroke-width="0.6" marker-end="url(#arw)"/>
+  <text x="125" y="103" font-size="2.5" fill="#c0492f" text-anchor="middle">reject → regenerate (max 2 fixes)</text>
+
+  <!-- ================= SECTION 2 : SHARED vs PER-DB ================= -->
+  <rect x="0" y="126" width="300" height="104" fill="#f4f6fa"/>
+  <text x="12" y="135.5" font-size="4.7" font-weight="700" fill="#15233f">2 — What is shared vs what you add per dataset</text>
+
+  <!-- LEFT : shared -->
+  <rect x="8" y="140" width="138" height="84" rx="3" fill="#e8f0fe" stroke="#2f63cf" stroke-width="0.7"/>
+  <text x="77" y="147" font-size="3.5" font-weight="700" fill="#1d4ed8" text-anchor="middle">SHARED CORE — built once, reused by all ~28 DBs</text>
+  <g font-size="3" font-weight="700" fill="#15233f">
+    <rect x="12" y="150.5" width="130" height="11.4" rx="1.8" fill="#ffffff" stroke="#9fb6e0" stroke-width="0.45"/>
+    <text x="15.5" y="155.2">Web interface</text>
+    <rect x="12" y="163" width="130" height="11.4" rx="1.8" fill="#ffffff" stroke="#9fb6e0" stroke-width="0.45"/>
+    <text x="15.5" y="167.7">Service factories</text>
+    <rect x="12" y="175.5" width="130" height="11.4" rx="1.8" fill="#ffffff" stroke="#9fb6e0" stroke-width="0.45"/>
+    <text x="15.5" y="180.2">Query pipeline</text>
+    <rect x="12" y="188" width="130" height="11.4" rx="1.8" fill="#ffffff" stroke="#9fb6e0" stroke-width="0.45"/>
+    <text x="15.5" y="192.7">Support services</text>
+    <rect x="12" y="200.5" width="130" height="11.4" rx="1.8" fill="#ffffff" stroke="#9fb6e0" stroke-width="0.45"/>
+    <text x="15.5" y="205.2">3-tier prompt — shared bodies</text>
+    <rect x="12" y="213" width="130" height="11.4" rx="1.8" fill="#ffffff" stroke="#9fb6e0" stroke-width="0.45"/>
+    <text x="15.5" y="217.7">Packaging</text>
+  </g>
+  <g font-size="2.5" fill="#5a6b85">
+    <text x="15.5" y="159.5">chat UI, result tables, sharing — one HTML app for every DB</text>
+    <text x="15.5" y="172">a new DB's chat &amp; tool services are auto-built from config</text>
+    <text x="15.5" y="184.5">clarifier · router · interpreter · synthesizer · critic (Section 1)</text>
+    <text x="15.5" y="197">interpreter · expand &amp; match · planner · fuzzy/semantic · web · cache</text>
+    <text x="15.5" y="209.5">generic LLM rules — never edited to add a database (Section 4)</text>
+    <text x="15.5" y="222">one container template + one shared base image</text>
+  </g>
+
+  <!-- middle arrow -->
+  <line x1="146" y1="182" x2="154" y2="182" stroke="#5a6b85" stroke-width="0.7" marker-end="url(#ar)"/>
+  <text x="150" y="178.5" font-size="2.4" fill="#5a6b85" text-anchor="middle">plug</text>
+  <text x="150" y="188.6" font-size="2.4" fill="#5a6b85" text-anchor="middle">in</text>
+
+  <!-- RIGHT : per-DB -->
+  <rect x="154" y="140" width="138" height="84" rx="3" fill="#fdf6ec" stroke="#dd8a2c" stroke-width="0.7"/>
+  <text x="223" y="147" font-size="3.5" font-weight="700" fill="#b9701f" text-anchor="middle">PER-DATABASE PLUG-IN — the only new work</text>
+  <g font-size="3" font-weight="700" fill="#15233f">
+    <rect x="158" y="150.5" width="130" height="13.3" rx="1.8" fill="#ffffff" stroke="#e6b27a" stroke-width="0.45"/>
+    <text x="161.5" y="155.2">Preprocessed parquet</text>
+    <rect x="158" y="165.3" width="130" height="13.3" rx="1.8" fill="#ffffff" stroke="#e6b27a" stroke-width="0.45"/>
+    <text x="161.5" y="170">Schema</text>
+    <rect x="158" y="180.1" width="130" height="13.3" rx="1.8" fill="#ffffff" stroke="#e6b27a" stroke-width="0.45"/>
+    <text x="161.5" y="184.8">Scope YAML (manifest)</text>
+    <rect x="158" y="194.9" width="130" height="13.3" rx="1.8" fill="#ffffff" stroke="#e6b27a" stroke-width="0.45"/>
+    <text x="161.5" y="199.6">Per-DB prompt notes — Tier 2</text>
+    <rect x="158" y="209.7" width="130" height="13.3" rx="1.8" fill="#ffffff" stroke="#e6b27a" stroke-width="0.45"/>
+    <text x="161.5" y="214.4">Worker hooks</text>
+  </g>
+  <g font-size="2.5" fill="#5a6b85">
+    <text x="161.5" y="159.6">cleaned, standardised dataset tables — the curated data itself</text>
+    <text x="161.5" y="174.4">declared tables &amp; columns the system may query</text>
+    <text x="161.5" y="189.2">what the DB covers · valid/invalid example queries · routing hints</text>
+    <text x="161.5" y="204">enums, naming quirks, known failure modes for THIS dataset</text>
+    <text x="161.5" y="218.8">small optional per-DB tweaks to the shared pipeline</text>
+  </g>
+  <!-- effort dots on right items -->
+  <g>
+    <rect x="270" y="151.6" width="15" height="4.6" rx="1" fill="#e0922a"/><text x="277.5" y="155" font-size="2.5" fill="#ffffff" text-anchor="middle">MOD.</text>
+    <rect x="272" y="166.4" width="13" height="4.6" rx="1" fill="#2faf63"/><text x="278.5" y="169.8" font-size="2.5" fill="#ffffff" text-anchor="middle">EASY</text>
+    <rect x="272" y="181.2" width="13" height="4.6" rx="1" fill="#2faf63"/><text x="278.5" y="184.6" font-size="2.5" fill="#ffffff" text-anchor="middle">EASY</text>
+    <rect x="270" y="196" width="15" height="4.6" rx="1" fill="#e0922a"/><text x="277.5" y="199.4" font-size="2.5" fill="#ffffff" text-anchor="middle">MOD.</text>
+    <rect x="262" y="210.8" width="23" height="4.6" rx="1" fill="#2faf63"/><text x="273.5" y="214.2" font-size="2.4" fill="#ffffff" text-anchor="middle">EASY · rarely HARD</text>
+  </g>
+
+  <!-- ================= SECTION 3 : ADD A NEW DATASET ================= -->
+  <text x="12" y="240" font-size="4.7" font-weight="700" fill="#15233f">3 — Adding a new database, step by step</text>
+  <text x="150" y="240" font-size="3.1" fill="#5a6b85">effort marked honestly — most steps are declarative; the shared engine is never touched</text>
+
+  <g>
+    <!-- step rows -->
+    <g font-size="3.1" font-weight="700" fill="#15233f">
+      <rect x="8" y="244" width="284" height="10.4" rx="1.8" fill="#fbfcfe" stroke="#dde3ec" stroke-width="0.4"/>
+      <circle cx="14" cy="249.2" r="2.6" fill="#15233f"/><text x="14" y="250.2" font-size="3" fill="#fff" text-anchor="middle">1</text>
+      <text x="20" y="248.4">Preprocess raw data into clean parquet tables</text>
+      <rect x="255" y="246" width="33" height="6.4" rx="1.4" fill="#e0922a"/><text x="271.5" y="250.4" font-size="2.7" fill="#fff" text-anchor="middle">MODERATE</text>
+
+      <rect x="8" y="256" width="284" height="10.4" rx="1.8" fill="#fbfcfe" stroke="#dde3ec" stroke-width="0.4"/>
+      <circle cx="14" cy="261.2" r="2.6" fill="#15233f"/><text x="14" y="262.2" font-size="3" fill="#fff" text-anchor="middle">2</text>
+      <text x="20" y="260.4">Declare the schema — tables &amp; columns</text>
+      <rect x="266" y="258" width="22" height="6.4" rx="1.4" fill="#2faf63"/><text x="277" y="262.4" font-size="2.7" fill="#fff" text-anchor="middle">EASY</text>
+
+      <rect x="8" y="268" width="284" height="10.4" rx="1.8" fill="#fbfcfe" stroke="#dde3ec" stroke-width="0.4"/>
+      <circle cx="14" cy="273.2" r="2.6" fill="#15233f"/><text x="14" y="274.2" font-size="3" fill="#fff" text-anchor="middle">3</text>
+      <text x="20" y="272.4">Write the scope YAML (manifest)</text>
+      <rect x="266" y="270" width="22" height="6.4" rx="1.4" fill="#2faf63"/><text x="277" y="274.4" font-size="2.7" fill="#fff" text-anchor="middle">EASY</text>
+
+      <rect x="8" y="280" width="284" height="10.4" rx="1.8" fill="#fbfcfe" stroke="#dde3ec" stroke-width="0.4"/>
+      <circle cx="14" cy="285.2" r="2.6" fill="#15233f"/><text x="14" y="286.2" font-size="3" fill="#fff" text-anchor="middle">4</text>
+      <text x="20" y="284.4">Write per-DB prompt notes — the Tier-2 block</text>
+      <rect x="255" y="282" width="33" height="6.4" rx="1.4" fill="#e0922a"/><text x="271.5" y="286.4" font-size="2.7" fill="#fff" text-anchor="middle">MODERATE</text>
+
+      <rect x="8" y="292" width="284" height="10.4" rx="1.8" fill="#fbfcfe" stroke="#dde3ec" stroke-width="0.4"/>
+      <circle cx="14" cy="297.2" r="2.6" fill="#15233f"/><text x="14" y="298.2" font-size="3" fill="#fff" text-anchor="middle">5</text>
+      <text x="20" y="296.4">Worker hooks — small per-DB tweaks</text>
+      <rect x="246" y="294" width="42" height="6.4" rx="1.4" fill="#7a8699"/><text x="267" y="298.4" font-size="2.55" fill="#fff" text-anchor="middle">USUALLY NONE · rarely HARD</text>
+
+      <rect x="8" y="304" width="284" height="10.4" rx="1.8" fill="#fbfcfe" stroke="#dde3ec" stroke-width="0.4"/>
+      <circle cx="14" cy="309.2" r="2.6" fill="#15233f"/><text x="14" y="310.2" font-size="3" fill="#fff" text-anchor="middle">6</text>
+      <text x="20" y="308.4">Generate &amp; wire the services</text>
+      <rect x="256" y="306" width="32" height="6.4" rx="1.4" fill="#2f7fd0"/><text x="272" y="310.4" font-size="2.7" fill="#fff" text-anchor="middle">AUTOMATIC</text>
+    </g>
+    <g font-size="2.5" fill="#5a6b85">
+      <text x="20" y="252.6">the genuine bottleneck — source formats differ; clean, rename columns, deduplicate. Dataset-specific, but mechanical.</text>
+      <text x="20" y="264.6">one declarative file listing the tables &amp; columns the engine is allowed to query.</text>
+      <text x="20" y="276.6">describe what the DB covers + a few valid / invalid example queries + routing hints. Declarative.</text>
+      <text x="20" y="288.6">enums, naming quirks, failure modes — needs domain knowledge, refined iteratively by watching real queries fail.</text>
+      <text x="20" y="300.6">most datasets need none. HARD only for unusual multi-table joins or odd identifiers — a small minority.</text>
+      <text x="20" y="312.6">one script builds the chat service, tool service, programmatic (MCP) tool and deployment config — zero hand-coding.</text>
+    </g>
+  </g>
+  <rect x="8" y="317.5" width="284" height="9" rx="2" fill="#eafaf0" stroke="#2faf63" stroke-width="0.6"/>
+  <text x="150" y="323.6" font-size="3.1" font-weight="700" fill="#1a7a44" text-anchor="middle">Result: the new database is live on the chat, multi-DB and programmatic surfaces — the shared engine is never modified.</text>
+
+  <!-- ================= SECTION 4 : 3-TIER PROMPT ================= -->
+  <rect x="0" y="330" width="300" height="32" fill="#f4f0fb"/>
+  <text x="12" y="338.5" font-size="4.4" font-weight="700" fill="#15233f">4 — Why extension stays cheap: the 3-tier prompt</text>
+
+  <g text-anchor="middle">
+    <rect x="8"   y="341" width="66" height="17.5" rx="2.2" fill="#ffffff" stroke="#6f54c4" stroke-width="0.55"/>
+    <text x="41"  y="346.4" font-size="3" font-weight="700" fill="#4a3a8f">TIER 1 · Shared body</text>
+    <text x="41"  y="350.6" font-size="2.4" fill="#5a6b85">generic LLM rules</text>
+    <text x="41"  y="354.4" font-size="2.4" fill="#2faf63" font-weight="700">written once · never edited</text>
+
+    <rect x="84"  y="341" width="66" height="17.5" rx="2.2" fill="#ffffff" stroke="#6f54c4" stroke-width="0.55"/>
+    <text x="117" y="346.4" font-size="3" font-weight="700" fill="#4a3a8f">TIER 2 · Per-DB notes</text>
+    <text x="117" y="350.6" font-size="2.4" fill="#5a6b85">enums · quirks · failure modes</text>
+    <text x="117" y="354.4" font-size="2.4" fill="#e0922a" font-weight="700">the ONE block you write</text>
+
+    <rect x="160" y="341" width="66" height="17.5" rx="2.2" fill="#ffffff" stroke="#6f54c4" stroke-width="0.55"/>
+    <text x="193" y="346.4" font-size="3" font-weight="700" fill="#4a3a8f">TIER 3 · Runtime</text>
+    <text x="193" y="350.6" font-size="2.4" fill="#5a6b85">user entities + retrieved rows</text>
+    <text x="193" y="354.4" font-size="2.4" fill="#2f7fd0" font-weight="700">filled in automatically</text>
+
+    <rect x="236" y="341" width="56" height="17.5" rx="2.2" fill="#6f54c4"/>
+    <text x="264" y="347.2" font-size="3" font-weight="700" fill="#ffffff">Assembled prompt</text>
+    <text x="264" y="351.8" font-size="2.4" fill="#ddd4f3">per stage: interpreter ·</text>
+    <text x="264" y="355.4" font-size="2.4" fill="#ddd4f3">synthesizer · summarizer</text>
+  </g>
+  <g fill="#6f54c4" font-size="4" font-weight="700" text-anchor="middle">
+    <text x="79" y="351.4">+</text>
+    <text x="155" y="351.4">+</text>
+  </g>
+  <line x1="226.5" y1="349.7" x2="235" y2="349.7" stroke="#5a6b85" stroke-width="0.6" marker-end="url(#ar)"/>
+</svg>

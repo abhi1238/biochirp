@@ -1,0 +1,21 @@
+# BioChirp shared base image
+#
+# Built once with: scripts/build_base_image.sh   (or: docker build -f Dockerfile.base -t biochirp/base:latest .)
+# Consumed by every per-DB tool/chat service via `FROM biochirp/base:latest`.
+#
+# Bumping the pinned python-slim digest or requirements-base.txt invalidates
+# this image; rebuild and then `docker compose build` to propagate.
+
+FROM python:3.11-slim@sha256:9a7765b36773a37061455b332f18e265e7f58f6fea9c419a550d2a8b0e9db834
+
+RUN useradd -m myuser
+WORKDIR /app
+
+COPY requirements-base.txt /tmp/requirements-base.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-base.txt && rm /tmp/requirements-base.txt
+
+# Pre-download the BGE-small ONNX model used by _row_relevance.py so every
+# per-DB service inherits it from the image layer — no per-container download.
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5')"
+
+ENV PYTHONPATH=/app

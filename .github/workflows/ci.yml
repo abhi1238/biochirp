@@ -1,0 +1,146 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Minimal CI gate. Heavier integration jobs (Docker stack, Qdrant ingest,
+# end-to-end query evaluation) live elsewhere and are deliberately not run
+# here so this workflow stays fast (<2 min) and runnable on every PR.
+#
+# Five gates, each independently informative:
+#   1. reproducibility-pins — asserts litellm_config.yaml still matches the
+#      paper-pinned alias→upstream mapping, that cache is off, that Qdrant
+#      image is pinned, and that PYTHONHASHSEED is set.
+#   2. embedding-pins — asserts every active embedding model in
+#      config/settings.py is pinned to a 40-char HF commit SHA AND that
+#      similarity_filtered.py loads with `revision=`.
+#   3. schema-fk-lint — runs scripts/check_schema_fks.py against
+#      scripts/.schema_fks_baseline.txt; fails on NEW schema bugs but
+#      tolerates pre-existing tech debt.
+#   4. database-manifests — verifies every DB with parquets has a
+#      MANIFEST.json + CHECKSUMS.txt and that the parquet inventory matches.
+#   5. import-smoke — imports the planner and schema modules and asserts
+#      their public surfaces still resolve.
+
+jobs:
+  reproducibility-pins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal deps
+        run: pip install --quiet pyyaml
+      - name: Verify LiteLLM paper-pinned mapping
+        run: python scripts/check_litellm_pinning.py
+      - name: Verify Qdrant image is pinned (not :latest)
+        run: |
+          if grep -E "^\s*image:\s*qdrant/qdrant:latest\s*$" docker-compose.yml; then
+            echo "::error file=docker-compose.yml::qdrant must be pinned to a specific tag/digest, not :latest"
+            exit 1
+          fi
+          echo "Qdrant image pin OK"
+      - name: Verify PYTHONHASHSEED is frozen in x-defaults
+        run: |
+          if ! grep -q "PYTHONHASHSEED=0" docker-compose.yml; then
+            echo "::error file=docker-compose.yml::PYTHONHASHSEED=0 missing from x-defaults environment — set/dict iteration becomes non-reproducible"
+            exit 1
+          fi
+          echo "PYTHONHASHSEED pin OK"
+
+  embedding-pins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify embedding model revisions are pinned
+        run: python scripts/check_embedding_pins.py
+
+  database-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify per-DB MANIFEST.json + CHECKSUMS.txt (metadata-only)
+        # Hash verification is opt-in (`--verify-hashes`) because the
+        # dataset is multi-GB and CI clones don't include LFS-pulled
+        # parquets. Local maintainers should run with --verify-hashes
+        # before tagging a release.
+        run: python scripts/check_database_manifests.py
+
+  schema-fk-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Lint config/schema.py against baseline
+        run: python scripts/check_schema_fks.py
+      - name: No FK-isolated tables in schema_kg planner inputs
+        run: python scripts/check_schema_kg_fk_isolation.py
+      - name: Every active DB registered in VALID_DATABASES
+        run: python scripts/check_valid_databases.py
+      - name: schema_kg table-naming convention (_<db> suffix; new tables only)
+        run: python scripts/check_table_naming.py
+      - name: Install pyyaml for SSOT check
+        run: pip install --quiet pyyaml
+      - name: Per-DB SSOT generated surfaces in sync (config block + schema_kg JSONs + loader)
+        # Every dbs/<db>/schema.yaml must regenerate its derived artifacts byte-for-byte;
+        # fails if anyone hand-edited a generated file. The exact parquet/dtype gate
+        # (assert_db_schema_exact) needs the data volume and runs in preflight, not CI.
+        run: python scripts/gen_schema.py --check --all
+
+  import-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install runtime deps for imported modules
+        run: pip install --quiet pydantic networkx
+      - name: Run import smoke test
+        run: python scripts/smoke_test_imports.py
+
+  service-port-env:
+    # Asserts every per-DB service that uses the shared Dockerfile.service
+    # carries a SERVICE_PORT (build arg OR environment). Older images that
+    # lack it bind to no port and silently fail their healthcheck on
+    # `docker compose up` — see memory/stale_image_env_gotcha.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal deps
+        run: pip install --quiet pyyaml
+      - name: Verify SERVICE_PORT present on every shared-Dockerfile service
+        run: python scripts/check_service_port_env.py
+
+  config-consistency:
+    # Cross-validates the four DB-config surfaces (dbs/*/manifest.yaml,
+    # frontend/configs/db_chats.json, resources/db_profiles/registry.md,
+    # resources/prompts/db_notes.yaml) stay in sync. Failure here means a
+    # DB landed in one surface without being wired into the others — the
+    # symptoms are subtle (missing chat tile, LLM routing fallback to WEB,
+    # summarizer KeyError) so the gate runs on every PR.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal deps
+        run: pip install --quiet pyyaml
+      - name: Verify services_registry / db_chats / registry.md / db_notes agree
+        run: python scripts/check_config_consistency.py

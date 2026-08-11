@@ -1,0 +1,251 @@
+name: orphanet
+display_name: Orphanet
+description: 'Orphanet. Reference database for rare diseases. Contains validated gene-rare disease associations
+  with inheritance patterns (autosomal dominant/recessive, X-linked), disease prevalence (Point prevalence,
+  Prevalence at birth, Lifetime Prevalence, Annual incidence, Cases/families), and clinical classifications.
+  Covers 10,247 rare diseases overall; 4,128 of these have established gene-disease associations.
+
+  '
+schema:
+  inputs:
+  - field: disease_name
+  - field: gene_symbol
+  - field: hpo_term
+  outputs:
+  - field: disease_name
+  - field: gene_symbol
+  - field: hpo_term
+  tables:
+    disease_master_table_orphanet:
+      description: 'Full Orphanet rare-disease catalog: 10,247 unique disease_ids, covering every disease_id
+        referenced by any other Orphanet table (0 orphans). Of these, 4,128 have at least one row in gene_disease_association
+        (i.e. are gene-mapped); the other ~6,119 are non-gene-mapped diseases that still carry phenotype,
+        epidemiology, onset/ inheritance, classification, and cross-reference data. NOTE: clinically well-known
+        diseases (e.g. canonical Marfan syndrome ORPHA:558) are split into numbered subtypes in Orphanet;
+        the parent ORPHA entry (ORPHA:558) IS present here but has no gene associations of its own. ORPHA:287
+        is present as "Classical Ehlers-Danlos syndrome" with established COL5A1/COL5A2/COL1A1 associations.
+        Search disease_name with substring match (e.g. LIKE "%Marfan%") to capture all subtypes.'
+      key_columns:
+      - name: disease_id
+        description: Orphanet identifier in the format "ORPHA:" + integer (e.g. "ORPHA:586" = Cystic fibrosis,
+          "ORPHA:399" = Huntington disease, "ORPHA:284963" = Marfan syndrome type 1). ORPHA:558 (canonical
+          "Marfan syndrome") is present in this table but has no gene associations in gene_disease_association.
+          Users may ask for "Orphanet ID", "ORPHA ID", or "ORPHA number".
+      - name: disease_name
+        description: Orphanet rare-disease name (e.g. "Cystic fibrosis", "Huntington disease"). Users
+          may ask for "disease", "rare disease", "disorder", or just type the name.
+    gene_master_table_orphanet:
+      description: 'Orphanet gene master table: 4,552 unique genes linked to at least one Orphanet rare-disease
+        association. The v2 parquet on disk carries columns gene_symbol, ensembl_accession, entrez, and
+        gene_id (gene_id equals gene_symbol and is the FK join key used by gene_disease_association_orphanet).
+        Primary query key is gene_symbol (HGNC official symbol).'
+      key_columns:
+      - name: gene_id
+        description: Internal join key; value equals the HGNC gene_symbol string (e.g. "FBN1", "CFTR").
+          FK target for gene_disease_association.gene_id. Join key only — filter/display via gene_symbol.
+      - name: gene_symbol
+        description: HGNC short gene symbol (e.g. "CFTR", "NF1", "FBN1", "DMD"). 4,552 distinct symbols
+          (no nulls). Users may ask for "gene" or "gene symbol".
+      - name: ensembl_accession
+        description: Ensembl gene ID (e.g. "ENSG00000166813" for KIF7, "ENSG00000001626" for CFTR).
+          Users may ask for "Ensembl ID".
+      - name: entrez
+        description: OMIM gene-locus identifier despite the column name (e.g. FBN1=134797, CFTR=602421
+          — these are OMIM IDs, NOT NCBI Entrez gene IDs). Values range ~100690..621202 (the OMIM gene-ID
+          space). Users asking for "Entrez ID" or "NCBI gene ID" should be told this column is OMIM-coded.
+    gene_disease_association_orphanet:
+      description: Runtime columns are ["disease_id","gene_symbol","ensembl_accession","entrez","gene_disease_association_type","gene_id"].
+        gene_symbol is the on-disk name (HGNC short symbol); ensembl_accession is renamed from ensembl_id
+        and entrez is renamed from entrez_id at runtime. JOIN to gene_master_table on gene_symbol, and
+        to disease_master_table or disease_xref_orphanet on disease_id.
+      key_columns:
+      - name: gene_id
+        description: FK to gene_master_table.gene_id (value = HGNC gene_symbol string; present on disk in
+          the _v2 parquet). The planner joins gene_master_table.gene_id -> gene_disease_association.gene_id.
+      - name: gene_symbol
+        description: HGNC short gene symbol of the gene associated with the disease (on-disk column). This
+          is the planner output column for gene-disease questions ("which genes cause disease X?") — the
+          db_llm_rules route GENE-DISEASE queries to gene_disease_association_orphanet and emit gene_symbol
+          from this table (plan = gene_disease_association_orphanet + disease_master_table_orphanet). For
+          gene-centric xref lookups (Ensembl/Entrez) use gene_master_table_orphanet as the canonical source.
+      - name: disease_id
+        description: Orphanet disease identifier (FK to disease_master_table.disease_id and disease_xref_orphanet.disease_id).
+          Format "ORPHA:" + integer. Users may ask for "disease", "ORPHA ID".
+      - name: gene_disease_association_type
+        description: 'Orphanet association type (long descriptive text). Full enum (verified, by row count):
+          "Disease-causing germline mutation(s) in" (5298), "Disease-causing germline mutation(s) (loss
+          of function) in" (1226), "Major susceptibility factor in" (463), "Candidate gene tested in"
+          (307), "Role in the phenotype of" (272), "Part of a fusion gene in" (255), "Disease-causing
+          somatic mutation(s) in" (227), "Disease-causing germline mutation(s) (gain of function) in"
+          (218), "Modifying germline mutation in" (59), "Biomarker tested in" (49). Users may ask for
+          "association type", "causal", "causative gene", or "disease-causing".'
+    disease_phenotype_association_orphanet:
+      description: Runtime columns are ["disease_id","phenotype_id","hpo_term","frequency"] — the on-disk
+        column hpo_id is renamed to phenotype_id by the loader. 115,853 rows across 4,335 unique disease_ids.
+        There is NO disease_name column on this table; to render disease labels, join on disease_id to
+        disease_master_table (covers all 10,247 disease_ids, including every disease_id in this table)
+        or to disease_xref_orphanet.
+      key_columns:
+      - name: disease_id
+        description: Orphanet disease identifier (ORPHA:NNNN format). FK to disease_master_table.disease_id.
+          Join on this to render disease labels; this table has no disease_name column. Join key only.
+      - name: phenotype_id
+        description: HPO phenotype identifier (e.g. "HP:0001250"). On-disk column name is hpo_id; loader
+          renames it to phenotype_id at runtime. Users may ask for "HPO ID".
+      - name: hpo_term
+        description: HPO phenotype term name observed in the disease (e.g. "Seizure"). Users may ask for
+          "phenotype", "symptom", or "clinical feature".
+      - name: frequency
+        description: 'Frequency of the phenotype in the disease. Full enum (verified, by frequency): "Occasional
+          (29-5%)", "Frequent (79-30%)", "Very frequent (99-80%)", "Very rare (<4-1%)", "Excluded (0%)",
+          "Obligate (100%)". Users may ask for "frequency" or "how common".'
+    disease_xref_orphanet:
+      description: 'External cross-reference table: 50,128 raw parquet rows across 9,964 unique disease_ids
+        (each disease_id maps to multiple external vocabularies), plus 2 supplemental rows injected at load
+        time with xref_source="ORPHANET_SUPPLEMENT" for FK resolution (50,130 rows served total). For exhaustive disease_name coverage across ALL 10,247 disease_ids, use disease_master_table;
+        this table is the source for external-ID cross-references (OMIM/ICD/MONDO/UMLS/etc.).'
+      key_columns:
+      - name: disease_id
+        description: Orphanet disease identifier (ORPHA:NNNN format). FK to disease_master_table.disease_id.
+          Join on this to render disease labels for a cross-reference. Join key only.
+      - name: xref_source
+        description: 'External database providing the cross-reference. Original enum (by row count): "UMLS",
+          "OMIM", "MONDO", "ICD-10", "ICD-11", "GARD", "MeSH", "MedDRA". Supplementary rows added for
+          FK resolution carry xref_source="ORPHANET_SUPPLEMENT". Users may ask for "xref database" or
+          "cross-reference source".'
+      - name: xref_id
+        description: External identifier in xref_source (e.g. "219700" in OMIM). Users may ask for "cross-reference
+          ID" or "xref ID".
+      - name: mapping_relation
+        description: 'Mapping precision. Stored as full descriptive strings prefixed by the code; filtering
+          on bare "E"/"NTBT"/"BTNT"/"ND" returns ZERO rows. Exact literal values: "E (Exact mapping: the
+          two concepts are equivalent)", "NTBT (ORPHAcode is narrower than the targeted code used to represent
+          it)", "BTNT (ORPHAcode is broader than the targeted code used to represent it)", "ND (not yet
+          decided/unable to decide: the alignment cannot be qualified by any of the existing labels)".
+          Use substring match on the leading code. Users may ask for "mapping relation" or "mapping precision".'
+      - name: disease_xref_validation_status
+        description: Curator validation status (e.g. "Validated").
+    disease_epidemiology_orphanet:
+      description: 'Orphanet epidemiological prevalence estimates: 16,657 rows covering 6,443 unique rare
+        diseases. Each row represents a prevalence estimate for a disease in a specific geographic region.
+        Prevalence types include Point prevalence, Cases/families, Annual incidence, Prevalence at birth,
+        and Lifetime Prevalence. Validated estimates (14,767 rows) are curator-approved; literature-backed
+        rows cite PMIDs in the source field.'
+      key_columns:
+      - name: disease_id
+        description: Orphanet disease identifier (ORPHA:NNNN format). FK to disease_master_table_orphanet.disease_id.
+          Filter by this to get prevalence data for a specific disease.
+      - name: source
+        description: Free-text provenance string for the prevalence estimate, often PMID-tagged (e.g.
+          "11389160[PMID]_9689990[PMID]_ [EXPERT]", "15523498[PMID]"). ~8,004 distinct values. Use substring/regex
+          match on "[PMID]" to filter literature-backed rows. Users may ask for "source", "citation",
+          or "PMID".
+      - name: prevalence_type
+        description: 'Prevalence type. Full enum (verified, by row count): "Point prevalence", "Cases/families",
+          "Annual incidence", "Prevalence at birth", "Lifetime Prevalence" (capital P in Prevalence).
+          Note: "Birth prevalence", "Lifetime prevalence" (lowercase p) and "Incidence" do NOT appear
+          and will return zero rows. Users may ask for "prevalence type".'
+      - name: prevalence_qualification
+        description: Qualifying description for the prevalence value.
+      - name: prevalence_class
+        description: Prevalence class bucket (e.g. "1-9 / 100 000", "1-5 / 10 000", "<1 / 1 000 000").
+          Users may ask for "prevalence" or "how common".
+      - name: val_moy
+        description: Mean prevalence value, string-encoded float (stored as Python str, e.g. "4.0", "0.0",
+          "0.037", "0.1"). Cast to float before numeric comparison; raw string compare will misorder.
+          Users may ask for "prevalence mean" or "prevalence value".
+      - name: geographic
+        description: Geographic area for the prevalence estimate (e.g. "Europe", "Worldwide"). Users may
+          ask for "geography", "country", or "region".
+      - name: disease_epidemiology_validation_status
+        description: 'Curator validation status. Exact literal values (by row count): "Validated" (14,767),
+          "Not yet validated" (1,887), plus 3 null rows. Filter on "Validated" for curator-approved prevalence
+          estimates. Users may ask for "validated" or "curated".'
+    disease_onset_inheritance_orphanet:
+      description: 'Orphanet age-of-onset and inheritance pattern data: 19,093 rows across rare diseases.
+        The attribute column holds either "age_of_onset" or "inheritance"; the value column holds the corresponding
+        label (e.g. "Infancy", "Neonatal", "Adult" for onset; "Autosomal recessive", "Autosomal dominant",
+        "X-linked recessive" for inheritance). Always filter by attribute before using value to distinguish
+        onset from inheritance records.'
+      key_columns:
+      - name: disease_id
+        description: Orphanet disease identifier (ORPHA:NNNN format). FK to disease_master_table_orphanet.disease_id.
+          Filter by this to get onset/inheritance data for a specific disease.
+      - name: attribute
+        description: 'Attribute kind. Exact literal values are "age_of_onset" or "inheritance" (note:
+          bare "onset" does NOT appear).'
+      - name: value
+        description: Attribute value (e.g. "Adult", "Childhood", "Autosomal recessive", "X-linked dominant").
+          Users may ask for "age of onset", "inheritance", or "inheritance pattern".
+    disease_natural_history_orphanet:
+      description: Functionally a (disease_id -> broad parent category) mapping with only 31 distinct
+        broad parents. association_type is constant "Preferential parent" across all 9,848 rows.
+      key_columns:
+      - name: disease_id
+        description: Orphanet disease identifier (ORPHA:NNNN format). FK to disease_master_table_orphanet.disease_id.
+          Filter by this to get the broad parent category for a specific disease.
+      - name: target_disease_id
+        description: ORPHA-prefixed identifier of the broad parent category (matches disease_id formatting,
+          e.g. "ORPHA:93419" = "Rare bone disease", "ORPHA:98006" = "Rare neurologic disease"). Only 31
+          distinct values across the whole table. Users may ask for "broad category ID" or "parent category
+          ID".
+      - name: target_disease_name
+        description: Related broad-category disease name (e.g. "Rare bone disease", "Rare neurologic disease",
+          "Rare inborn errors of metabolism"). Only 31 distinct values; paired 1:1 with target_disease_id.
+      - name: disease_history_association_type
+        description: Natural-history relation type. Constant value "Preferential parent" across all 9,848
+          rows; not useful for filtering.
+    disease_classification_orphanet:
+      description: 'Orphanet hierarchical classification of rare diseases: 37,269 rows placing diseases
+        into named taxonomy trees (e.g. "Orphanet classification of rare neurological diseases", "Orphanet
+        classification of rare bone diseases"). Each row links a disease_id to its parent classification
+        node (parent_disease_id / parent_disease_name) and records its disorder_type (e.g. Disease, Malformation
+        syndrome, Clinical syndrome). A single disease may appear in multiple classification trees.'
+      key_columns:
+      - name: disease_id
+        description: Orphanet disease identifier (ORPHA:NNNN format). FK to disease_master_table_orphanet.disease_id.
+          Filter by this to get classification data for a specific disease.
+      - name: classification
+        description: Classification taxonomy name.
+      - name: disorder_type
+        description: Orphanet disorder type (e.g. "Disease", "Malformation syndrome", "Clinical syndrome").
+          Users may ask for "disorder type".
+      - name: parent_disease_id
+        description: ORPHA-prefixed identifier of the parent classification node (same format as disease_id,
+          e.g. "ORPHA:97929", "ORPHA:167848", "ORPHA:247"). 2,646 distinct values. Use to navigate the
+          classification tree by ORPHA ID. Users may ask for "parent ID" or "parent ORPHA ID".
+      - name: parent_disease_name
+        description: Parent disease name in the classification tree. Users may ask for "parent disease".
+valid_queries:
+- What genes cause Marfan syndrome and what is the inheritance pattern?
+- What rare diseases are caused by mutations in the DMPK gene?
+- What is the prevalence of Huntington disease?
+- What is the inheritance pattern of cystic fibrosis?
+- Which genes are associated with Ehlers-Danlos syndrome?
+- What rare diseases map to the FBN1 gene?
+invalid_queries:
+- What genes are associated with type 2 diabetes? (use ClinVar — Orphanet covers rare diseases only)
+- What drugs treat cystic fibrosis? (use DrugCentral/TTD — Orphanet has no drug data)
+- Is the CFTR F508del variant pathogenic? (use ClinVar for specific variant classification)
+- What pathways does FBN1 participate in? (use Reactome — Orphanet has no pathway data)
+- What is the HPO phenotype frequency distribution for cystic fibrosis? (use HPO for full HPO ontology
+  hierarchy queries)
+explicit_id_patterns:
+- regex: \b(?:ORPHA|Orphanet):\d+\b
+  description: ''
+force_relations:
+  gene_disease: 1.0
+  disease_gene: 1.0
+  phenotype: 0.95
+skip_relations:
+- cancer_genomics
+service:
+  tool:
+    port: 8083
+    memory_reservation: 2g
+derived:
+  relation_weights:
+    gene_disease: 1.0
+    disease_gene: 1.0
+    phenotype: 0.95
+    cancer_genomics: 0.45

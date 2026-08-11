@@ -1,0 +1,1133 @@
+# REVIEW before use: verify dtypes, factor `questions.literal` into params/templates,
+# and confirm exec_schema/kg_schema flags on denormalised columns.
+db: hcdt
+display_name: HCDT
+description: High-Confidence Drug-Target database (HCDT) — drug/gene/disease/pathway/RNA associations
+  with bioactivity data
+parquet_dir: hcdt
+tables:
+  drug_master_table:
+    parquet: drug_master_table_v2.parquet
+    role: master
+    columns:
+    - {name: drug_id, key_column: true, description: internal HCDT drug identifier (PubChem CID) — join
+        key only}
+    - {name: drug_name, queryable: true, key_column: true, concept_type: drug_name, description: 'name
+        of the drug, compound, or medication; used to find which drug you are asking about — returns the
+        drug''s INN/trivial name or full IUPAC chemical name (e.g. Imatinib, Gefitinib, Erlotinib, Crizotinib);
+        trade/brand names (Gleevec, Iressa, Tarceva, Herceptin) live in drug_synonyms, not here; the entry
+        point when the user asks for a drug name or compound name'}
+    - {name: drug_synonyms, exec_schema: false, key_column: true, description: 'alternate names, brand names, trade names,
+        and synonyms for the drug; pipe-delimited multi-value string (e.g. ''Gleevec(TM)|STI571'' for
+        imatinib, ''Xalkori'' for crizotinib); not ANN-indexed (queryable=false) — synonym matching is
+        handled by the synonym expansion service, not by ANN routing on this column; use drug_synonyms_association_hcdt for exact synonym lookup'}
+    - {name: drug_mw, queryable: true, key_column: true, concept_type: mol_weight, llm_note: 'molecular
+        weight in Daltons — stored as STRING (dtype=object); cast to float before numeric comparison;
+        range approximately 1.01–8272 Da; use numeric comparators (greater than, less than, between) after
+        casting, not string matching', description: molecular weight or molecular mass of the drug in
+        Daltons; used when asking for molecular weight or mass; stored as STRING (dtype=object) — cast
+        to float before numeric comparison; e.g. 493.6 Da}
+    - {name: drug_formula, queryable: true, key_column: true, concept_type: mol_formula, description: 'chemical
+        molecular formula of the drug, e.g. C29H31N7O; used when asking for formula or elemental composition'}
+    - {name: drug_inchi, queryable: true, key_column: true, concept_type: inchi, description: 'full InChI
+        structural string for the chemical structure; used when asking for InChI, full structure string,
+        or exact structural identifier'}
+    - {name: drug_smiles_iso, queryable: true, key_column: true, concept_type: smiles, description: isomeric
+        SMILES structure of the drug preserving stereochemistry; used when asking for SMILES or SMILES
+        structure without an explicit canonical qualifier — this is the default SMILES form}
+    - {name: drug_smiles_canon, queryable: true, key_column: true, concept_type: smiles_canon, description: canonical
+        SMILES structure of the drug; used only when the user explicitly asks for canonical SMILES or
+        canonicalized structure — not the default SMILES form}
+    - {name: drug_inchikey, queryable: true, key_column: true, concept_type: inchikey, description: InChIKey
+        structural hash for the drug; used when asking for InChIKey or structure key; 27-character uppercase
+        hash (e.g. AAKJLRGGTJKAMG-UHFFFAOYSA-N for erlotinib) identifying molecular structure — distinct
+        from drug name; stored as string — literal 'NA' sentinel marks unknown (~6.5% of rows); filter
+        out 'NA' before use}
+    - {name: drug_iupac, queryable: true, key_column: true, concept_type: iupac_name, description: 'IUPAC
+        systematic name or chemical name of the drug; used when asking for IUPAC name, systematic chemical
+        name, or chemical nomenclature; gives the full standardised chemical name (e.g. ''N-(3-ethynylphenyl)-6,7-bis(2-methoxyethoxy)quinazolin-4-amine''
+        for erlotinib) — distinct from the trivial drug name; stored as string — literal ''NA'' sentinel
+        marks unknown (~8.5% of rows); filter out ''NA'' before use'}
+  drug_synonyms_association:
+    parquet: drug_synonyms_association_hcdt_v2.parquet
+    role: association
+    description: Drug synonym lookup — one row per drug_id × synonym, derived at load time by exploding
+      drug_master_table_hcdt.drug_synonyms. Use for exact synonym-to-drug mapping (brand names, trade
+      names, alternate INN forms).
+    columns:
+    - {name: drug_id, key_column: true, description: HCDT drug identifier (PubChem CID) — FK to drug_master_table_hcdt.drug_id}
+    - {name: synonym, queryable: true, key_column: true, concept_type: drug_name, description: 'alternate
+        name, brand name, or trade name for the drug; e.g. ''Gleevec(TM)'' or ''STI571'' for imatinib,
+        ''Xalkori'' for crizotinib; use for exact synonym-to-drug lookup to resolve a brand name to its
+        canonical drug_id and drug_name'}
+  drug_gene_association:
+    parquet: drug_gene_association_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true}
+    - {name: gene_id, key_column: true, description: FK to gene_master_table.gene_id — internal join key
+        (= gene_symbol value); use gene_master_table for gene display name and xref IDs}
+    - {name: datasource, exec_schema: false, description: 'comma-and-space-delimited (`, `) list of source databases confirming this drug-gene pair (e.g. "BindingDB, TTD" or "ChemBL, DGidb, DrugBank, TTD") — source for computing source_count and ttd_confirmed at load time; not directly queryable'}
+    - {name: source_count, added_at_load: true, queryable: false, description: number of distinct source databases confirming
+        this drug-gene pair (computed at load time from datasource); use for ORDER BY source_count DESC
+        to rank primary targets above resistance/transporter noise — not a user-facing output column}
+    - {name: ttd_confirmed, added_at_load: true, queryable: false, description: 1 if TTD (Therapeutic Target Database) is
+        among the datasources for this drug-gene pair else 0 (computed at load time); ORDER BY
+        ttd_confirmed DESC first to surface curated primary targets — not a user-facing output column}
+    - {name: drug_name, exec_schema: false, description: denormalized drug name — join drug_master_table on drug_id for the canonical name}
+    - {name: uniprot_id, exec_schema: false, description: 'UniProt accession — denormalized from gene; join gene_master_table for canonical uniprot column'}
+    - {name: hgnc_id, exec_schema: false, description: 'HGNC ID — denormalized; join gene_master_table for canonical hgnc column'}
+    - {name: ensembl_id, exec_schema: false, description: 'Ensembl gene ID — denormalized; join gene_master_table for canonical ensembl column'}
+    - {name: entrez_id, exec_schema: false, description: 'Entrez gene ID — denormalized; join gene_master_table for canonical entrez column'}
+  drug_disease_association:
+    parquet: drug_disease_association_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true}
+    - {name: disease_id, key_column: true}
+    - {name: drug_name, exec_schema: false, description: denormalized drug name — join drug_master_table on drug_id for the canonical name}
+    - {name: disease_name, exec_schema: false, description: denormalized disease name — join disease_master_table on disease_id for the canonical name}
+    - {name: icd11, exec_schema: false, description: 'ICD-11 code — denormalized from disease_master_table; join disease_master_table for canonical icd11 column'}
+    - {name: mesh_id, exec_schema: false, description: 'MeSH ID cross-reference for the disease — sparse; join disease_master_table for canonical values'}
+    - {name: omim_id, exec_schema: false, description: 'OMIM ID cross-reference — denormalized from disease_master_table; join disease_master_table for canonical omim_xref column'}
+    - {name: datasource, exec_schema: false, description: 'source database provenance for this drug-disease association'}
+  drug_pathway_association:
+    parquet: drug_pathway_association_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true}
+    - {name: pathway_id, key_column: true}
+    - {name: drug_name, exec_schema: false, description: denormalized drug name — join drug_master_table on drug_id for the canonical name}
+    - {name: pathway_name, exec_schema: false, description: denormalized pathway name — join pathway_master_table on pathway_id for the canonical name}
+    - {name: datasource, exec_schema: false, description: 'source database provenance for this drug-pathway association'}
+    - {name: reactome_id, exec_schema: false, description: 'Reactome pathway ID cross-reference — raw denormalized column; pathway_id is the canonical FK join key'}
+    - {name: kegg_hsa_id, exec_schema: false, description: 'KEGG human pathway ID cross-reference — raw denormalized column; pathway_id is the canonical FK join key'}
+    - {name: smpdb_id, exec_schema: false, description: 'SMPDB pathway ID cross-reference — raw denormalized column; pathway_id is the canonical FK join key'}
+  disease_master_table:
+    parquet: disease_master_table_v2.parquet
+    role: master
+    columns:
+    - {name: disease_id, role: pk, key_column: true, description: 'internal HCDT disease identifier (derived as
+        coalesce of MeSH D-code, NCI/UMLS C-code, icd11, disease_name — in that priority order) — 40.5%
+        of rows (613 of 1,514) are D+digit MeSH descriptors (e.g. D009369); 1.3% (20 rows) use NCI/UMLS
+        C-prefix codes (e.g. C536109); 58.1% (879 rows) use ICD-11 codes as PK; 0.1% (2
+        rows) fall back to disease_name as PK (no MeSH/NCI/ICD-11 available) — join key only; omim_xref
+        is stored as output attribute only and is never used as the PK'}
+    - {name: disease_name, queryable: true, key_column: true, concept_type: disease_name, description: 'name
+        of the disease, condition, or indication that a drug treats; used when asking for disease name,
+        condition, indication, or OMIM disease cross-reference — disease_name is the correct filter column
+        even when the user asks for an OMIM ID (omim_xref is sparse and non-queryable; always filter on
+        disease_name first); e.g. Non-small cell lung cancer, Chronic myeloid leukemia, Type 2 diabetes
+        mellitus, Breast cancer, Hypertension, Acute myeloid leukemia, HIV infection, Tuberculosis (values
+        are Title-Case as curated by HCDT — match case-insensitively)'}
+    - {name: icd11, key_column: true, description: ICD-11 classification code for the disease or condition;
+        output attribute only — not ANN-indexed (queryable=false); do not use as a filter column — use
+        disease_name for disease lookups}
+    - {name: omim_xref, parquet_name: omim_id, key_column: true, description: 'OMIM disease identifier cross-reference; output
+        attribute only — not directly filterable due to sparsity (~13.2% of disease rows, 200 of 1,514
+        populated); unknown rows are stored as empty strings (not NULL) in the parquet; some cells carry SPACE-DELIMITED
+        multi-value strings (e.g. ''603933 612624 612634'') — split on space before lookup; display value
+        for OMIM ID e.g. 143100 (Huntington disease)'}
+    - {name: mesh_id, exec_schema: false, description: 'MeSH descriptor ID for the disease (e.g. D006973) — output attribute only; use disease_name or disease_id for filtering'}
+  gene_master_table:
+    parquet: gene_master_table_v2.parquet
+    role: master
+    columns:
+    - {name: gene_id, key_column: true, role: pk, description: 'PK of gene_master_table (= HGNC symbol value, e.g.
+        EGFR, TP53); FK join key in drug_gene_association, drug_target_negative, and pathway_gene_association;
+        not directly user-queryable — internal join key only; gene_symbol is the user-facing alias of
+        gene_id. Explicit role:pk: gene_id is the sole _id PK; the 4 xref outputs use non-_id logical
+        names (uniprot/hgnc/ensembl/entrez via parquet_name) so they stay exec-visible without tripping
+        the single-pk-per-master rule (C1)'}
+    - {name: gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: 'HGNC
+        official symbol — map aliases before filtering: PD-1→PDCD1, PD-L1→CD274, p53→TP53', description: 'display
+        alias for gene_id — same HGNC symbol value (e.g. EGFR, BRAF, TP53, KRAS, ABL1, PIK3CA, ERBB2);
+        the user-facing filter and output column for gene queries — always filter on gene_symbol, not
+        gene_id; exists in gene_master_table only (not in association tables); not directly queryable
+        in association tables — join to gene_master_table on gene_id to retrieve gene_symbol'}
+    - {name: uniprot, parquet_name: uniprot_id, queryable: true, key_column: true, concept_type: protein_id,
+      description: 'UniProt protein accession for the encoded protein product; e.g. P00533 for EGFR, P15056
+        for BRAF; used when asking for UniProt ID or protein accession number'}
+    - {name: hgnc, parquet_name: hgnc_id, queryable: true, key_column: true, concept_type: xref_id, description: 'HGNC
+        identifier of the gene; e.g. HGNC:3236; used when asking for HGNC ID'}
+    - {name: ensembl, parquet_name: ensembl_id, queryable: true, key_column: true, concept_type: xref_id,
+      description: Ensembl gene identifier; e.g. ENSG00000146648; used when asking for Ensembl ID}
+    - {name: entrez, parquet_name: entrez_id, queryable: true, key_column: true, concept_type: xref_id,
+      description: 'NCBI Entrez gene ID — a numeric integer gene identifier (e.g. 1956 for EGFR, 7157
+        for TP53, 673 for BRAF); used when asking for Entrez ID, Entrez gene number, NCBI gene ID, or
+        NCBI gene number — distinct from the Ensembl gene identifier and HGNC ID'}
+  pathway_master_table:
+    parquet: pathway_master_table_v2.parquet
+    role: master
+    columns:
+    - {name: pathway_id, key_column: true, description: 'internal HCDT pathway identifier (derived as
+        coalesce of Reactome R-HSA-/R-ALL- ID, kegg_hsa_xref, smpdb_xref, kegg_xref, pathway_name — in
+        that priority order; Reactome source column is a temp variable dropped after coalescing and does
+        not appear as a separate column in the final parquet) — ~79.8% of rows (1,668 of 2,089) are R-HSA-/R-ALL-
+        prefixed Reactome IDs — join key only'}
+    - {name: pathway_name, queryable: true, key_column: true, concept_type: pathway_name, description: 'name
+        of the biological signaling or metabolic pathway that a drug affects; e.g. Wnt signaling pathway,
+        mTOR signaling pathway, NF-kappa B signaling pathway, Regulation of Apoptosis, PI3K Cascade; used
+        when asking which pathway or signaling cascade'}
+    - {name: kegg_hsa_xref, key_column: true, description: KEGG human pathway identifier cross-reference;
+        e.g. hsa04514; direct column on pathway_master_table — also unpivoted into pathway_xref at load
+        time as xref_id where xref_source='kegg_hsa'; not ANN-indexed (queryable=false); returned as co-output
+        when pathway_name is queried with a KEGG cross-reference request}
+    - {name: smpdb_xref, key_column: true, description: Small Molecule Pathway Database identifier cross-reference;
+        e.g. SMP0000563; direct column on pathway_master_table — also unpivoted into pathway_xref at load
+        time as xref_id where xref_source='smpdb'; not ANN-indexed (queryable=false); returned as co-output
+        when pathway_name is queried with an SMPDB cross-reference request}
+    - {name: chebi_xref, key_column: true, description: 'ChEBI compound identifier cross-reference for
+        pathway; stored as bare numeric string (e.g. ''64317'', ''16108'') — NOT prefixed with ''CHEBI:'';
+        populated for ~17.2% of pathway rows (360 of 2,089); unknown rows are stored as NULL
+        (1,722 rows) — 7 rows hold the literal string ''NA'' — filter on non-null AND != ''NA'' before
+        use; direct column on pathway_master_table — also unpivoted into pathway_xref
+        at load time as xref_id where xref_source=''chebi''; not ANN-indexed (queryable=false)'}
+    - {name: kegg_xref, key_column: true, description: 'KEGG pathway identifier cross-reference (general,
+        non-species-specific); e.g. map00190; distinct from kegg_hsa_xref (hsa-prefixed, species-specific);
+        direct column on pathway_master_table — also unpivoted into pathway_xref at load time as xref_id
+        where xref_source=''kegg''; not ANN-indexed (queryable=false)'}
+    - {name: gene_xref, exec_schema: false, kg_schema: false, key_column: true, description: 'pipe-separated Entrez gene IDs associated with
+        this pathway — internal raw source for pathway_gene_association, not directly queryable'}
+    - {name: datasource, exec_schema: false, kg_schema: false, description: 'source database tag for the pathway entry — internal provenance column'}
+  rna_master_table:
+    parquet: rna_master_table_v2.parquet
+    role: master
+    columns:
+    - {name: rna_id, key_column: true, description: 'RNA identifier (PK) — format depends on rna_type:
+        MIMAT-prefixed for miRBase mature miRNA (e.g. MIMAT0000459), MI0-prefixed for miRBase precursor
+        miRNA (e.g. MI0003144), ENSG-prefixed for lncRNA (e.g. ENSG00000260565), hsa_circ_* or hsa-circRNA-*
+        pattern for circRNA (e.g. hsa_circ_0000199, hsa-circRNA-007874), 4-character lowercase PDB accession
+        for RNA catch-all (e.g. 8g5z) — PK of rna_master_table; FK target for drug_rna_association.rna_id;
+        not directly queryable — join key only'}
+    - {name: rna_name, queryable: true, key_column: true, concept_type: rna_name, description: 'name or
+        symbol of a specific RNA molecule that a drug interacts with or regulates; used when asking about
+        drug effects on a named miRNA, lncRNA, circRNA, or non-coding RNA, or when the user gives the
+        name or identifier of a specific RNA molecule (e.g. miR-21, miR-125a-5p for miRNA; HOTAIR, MALAT1
+        for lncRNA; circPVT1, hsa_circ_0000199, hsa_circ_0004015 for circRNA; 8g5z for RNA catch-all)
+        — NAME/IDENTIFIER lookup column; for RNA class filtering (lncRNA vs miRNA vs circRNA) use rna_type
+        instead'}
+    - {name: rna_type, queryable: true, key_column: true, concept_type: rna_type, enum: [lncRNA, miRNA,
+        RNA, circRNA], llm_note: 'enum — MUST be one of: lncRNA | miRNA | RNA | circRNA (not ''microRNA'',
+        ''snoRNA'', ''siRNA'', ''long non-coding RNA'')', description: 'RNA class or category filter;
+        used when filtering or grouping by RNA molecule class — enum, exactly one of: lncRNA, miRNA, RNA,
+        circRNA (listed by frequency: lncRNA ~63%, miRNA ~36%, RNA <1%, circRNA <1%); use this when the
+        user asks for an RNA class, RNA category, or RNA type filter — NOT for retrieving specific RNA
+        molecule names or identifiers (use rna_name for that)'}
+  drug_rna_association:
+    parquet: drug_rna_association_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, key_column: true}
+    - {name: rna_id, key_column: true}
+    - {name: drug_name, exec_schema: false, description: denormalized drug name — join drug_master_table on drug_id for the canonical name}
+    - {name: datasource, exec_schema: false, description: 'source database provenance for this drug-RNA association'}
+    - {name: rna_name, exec_schema: false, description: denormalized RNA name — join rna_master_table on rna_id for the canonical name}
+    - {name: rna_type, exec_schema: false, description: 'RNA type classifier (lncRNA, miRNA, circRNA, etc.) — denormalized; join rna_master_table for the canonical rna_type column'}
+  drug_target_negative:
+    parquet: drug_target_negative_v2.parquet
+    role: association
+    columns:
+    - {name: drug_id, queryable: true, key_column: true, concept_type: xref_id, description: 'PubChem
+        CID compound identifier in the drug-target negative assay table — an IDENTIFIER column for looking
+        up a specific compound by its PubChem CID number; used when the user asks to query or retrieve
+        data for a compound BY PubChem CID; NOT a numeric affinity value (Ki, IC50, or Kd are separate
+        columns); ~48% of rows are raw PubChem assay CIDs absent from drug_master but intentionally retained'}
+    - {name: gene_id, key_column: true, description: 'FK to gene_master_table.gene_id — internal join
+        key (= gene_symbol value); FK enforced at build time — orphan gene_id values not in
+        gene_master_table were dropped during preprocess, so the served parquet has 0 gene_id FK
+        orphans; not directly queryable; join to gene_master_table
+        for gene display name and xref IDs'}
+    - {name: ki_nm, parquet_name: ki_nM, queryable: true, key_column: true, concept_type: bioactivity_ic50, description: 'Ki
+        in nanomolar — numeric inhibition constant for a drug-target interaction; used when asking specifically
+        for the Ki value or inhibition constant Ki in a drug-target assay (e.g. 0.5 nM) — NOT for gene
+        or protein name lookup (use gene_symbol) and NOT the same as IC50 or Kd; stored as string, ''NA''
+        where not measured; pipe-delimited when multiple measurements exist (e.g. ''160000|158489.32'')
+        — split on ''|'' and drop NA tokens before numeric comparison'}
+    - {name: ic50_nm, parquet_name: ic50_nM, queryable: true, key_column: true, concept_type: bioactivity_ic50, description: 'IC50
+        in nanomolar — concentration required to inhibit 50 percent of target activity; used when asking
+        for IC50, half-maximal inhibitory concentration, or potency, e.g. 10 nM; stored as string, ''NA''
+        where not measured; pipe-delimited when multiple measurements exist — split on ''|'' and drop
+        NA tokens before numeric comparison'}
+    - {name: kd_nm, parquet_name: kd_nM, queryable: true, key_column: true, concept_type: bioactivity_ic50, description: 'dissociation
+        constant Kd in nanomolar — equilibrium binding affinity; used when asking for Kd value, dissociation
+        constant Kd, or binding affinity Kd, e.g. 1.2 nM — distinct from Ki (inhibition constant) and
+        IC50; stored as string, ''NA'' where not measured; pipe-delimited when multiple measurements exist
+        — split on ''|'' and drop NA tokens before numeric comparison'}
+    - {name: drug_name, exec_schema: false, description: denormalized drug name — join drug_master_table on drug_id for the canonical name}
+    - {name: hgnc_id, exec_schema: false, description: 'HGNC ID — denormalized from gene_master_table; join gene_master_table for canonical hgnc column'}
+    - {name: uniprot_id, exec_schema: false, description: 'UniProt accession — denormalized from gene_master_table; join gene_master_table for canonical uniprot column'}
+  pathway_gene_association:
+    parquet: pathway_gene_association_v2.parquet
+    role: association
+    columns:
+    - {name: gene_id, key_column: true, description: FK to gene_master_table.gene_id — internal join key
+        (= gene_symbol value); use gene_master_table for gene display name and xref IDs}
+    - {name: pathway_id, key_column: true}
+    - {name: pathway_name, exec_schema: false, description: denormalized pathway name — join pathway_master_table on pathway_id for the canonical name}
+  pathway_xref:
+    parquet: _loader_derived_:pathway_xref_hcdt_v2.parquet
+    role: association
+    description: 'synthetic table built at runtime by database_loader by unpivoting pathway_master_table
+      columns {kegg_hsa_xref, smpdb_xref, chebi_xref, kegg_xref} into long form (pathway_id, xref_source,
+      xref_id); not a parquet file on disk (all columns added_at_load); Reactome IDs are the pathway_id
+      itself and are NOT duplicated in this table'
+    columns:
+    - {name: pathway_id, key_column: true, added_at_load: true, kg_schema: false}
+    - {name: xref_source, key_column: true, added_at_load: true, kg_schema: false, description: 'name of the external database being cross-referenced
+        — enum, exactly one of: kegg_hsa, kegg, smpdb, chebi; note that kegg_hsa (hsa-prefixed IDs e.g.
+        hsa04514) and kegg (map-prefixed IDs e.g. map00190) are two distinct cross-refs from the same
+        source family; Reactome IDs resolve via pathway_id directly; not directly queryable — query via
+        pathway_name or pathway_id then join to pathway_xref'}
+    - {name: xref_id, key_column: true, added_at_load: true, kg_schema: false, description: 'external pathway identifier in the cross-reference
+        database; e.g. hsa04514 for kegg_hsa, map00190 for kegg, SMP0000563 for smpdb, 64317 for chebi;
+        not directly queryable — output column populated when querying via pathway_xref join'}
+
+loader:
+  generated: false      # bespoke hand-written loader (reads each parquet directly; no _TABLES tuple;
+                        # DERIVES pathway_xref by unpivoting pathway_master_table xref columns at load)
+
+rules:
+  _few_shot_comment: Optional concrete few-shot examples injected into the mapper prompt. Absent → neutral
+    DB-agnostic examples are used. parsed_value follows the filter=[value] / output='requested' / omit
+    convention.
+  few_shot_examples:
+  - question: gefitinib IC50 against EGFR
+    parsed_value:
+      drug_name:
+      - gefitinib
+      gene_symbol:
+      - EGFR
+      ic50_nm: requested
+    note: both entities explicit -> filters; the IC50 value is requested output; ki_nm/kd_nm OMITTED (not
+      asked)
+  - question: which drugs treat Parkinson disease?
+    parsed_value:
+      disease_name:
+      - Parkinson disease
+      drug_name: requested
+    note: 'disease-indication query: disease_name is the filter; drug_name is the ONLY output. ki_nm/ic50_nm/kd_nm
+      OMITTED (user did not ask for binding affinities). gene_symbol OMITTED (user did not ask for gene
+      targets). drug_synonyms OMITTED (user did not ask for synonyms).'
+  - question: what diseases are treated by gefitinib?
+    parsed_value:
+      drug_name:
+      - gefitinib
+      disease_name: requested
+    note: disease is the asked-for output, NOT a hallucinated filter value
+  - question: which lncRNAs are associated with imatinib?
+    parsed_value:
+      drug_name:
+      - imatinib
+      rna_type:
+      - lncRNA
+      rna_name: requested
+    note: rna_type extracted verbatim from the enum; rna_name is the requested output
+  - question: what are the protein targets of crizotinib?
+    parsed_value:
+      drug_name:
+      - crizotinib
+      gene_symbol: requested
+    note: 'drug-target query: drug_name is the filter, gene_symbol is the ONLY output. datasource column
+      exists on drug_gene_association_hcdt and sibling association tables — surface it in responses. disease_name
+      OMITTED — diseases were not asked. pathway_name OMITTED. ic50_nm/ki_nm/kd_nm OMITTED (no affinity asked).'
+  - question: which diseases are associated with BRAF?
+    parsed_value:
+      gene_symbol:
+      - BRAF
+      disease_name: requested
+    note: 'gene-disease query: gene_symbol is the filter, disease_name is the ONLY output. drug_name OMITTED
+      — no drug was mentioned. pathway_name OMITTED. ic50_nm/ki_nm/kd_nm OMITTED.'
+  - question: which genes are associated with breast cancer?
+    parsed_value:
+      disease_name:
+      - breast cancer
+      gene_symbol: requested
+    note: 'disease-gene query: disease_name is the filter, gene_symbol is the ONLY output. drug_name OMITTED
+      — no drug was mentioned.'
+  - question: which diseases are associated with TP53?
+    parsed_value:
+      gene_symbol:
+      - TP53
+      disease_name: requested
+    note: 'gene-disease query: gene_symbol is the filter, disease_name is the ONLY output. drug_name OMITTED
+      even though TP53-targeting drugs exist — they were not asked for. pathway_name OMITTED.'
+  - question: which pathways is JAK2 involved in?
+    parsed_value:
+      gene_symbol:
+      - JAK2
+      pathway_name: requested
+    note: 'gene-pathway query: gene_symbol is the filter, pathway_name is the ONLY output. drug_name OMITTED
+      — use pathway_gene_association, NOT drug_pathway_association. disease_name OMITTED.'
+  - question: which pathways does VEGFA participate in?
+    parsed_value:
+      gene_symbol:
+      - VEGFA
+      pathway_name: requested
+    note: 'gene-pathway query: pathway_name ONLY output. drug_name OMITTED — even though VEGFA is a major
+      drug target, drug_name must NOT appear in gene-pathway results.'
+  - question: which genes are associated with type 2 diabetes?
+    parsed_value:
+      disease_name:
+      - type 2 diabetes
+      gene_symbol: requested
+    note: 'disease-gene query: gene_symbol ONLY output. drug_name OMITTED — join path passes through drug
+      tables internally but drug_name is a join key, NOT output. pathway_name OMITTED.'
+  - question: what is the trade name of sildenafil?
+    parsed_value:
+      drug_name:
+      - sildenafil
+      synonym: requested
+    note: 'synonym/trade-name query: drug_name is the filter; synonym is the ONLY output — resolved via
+      drug_synonyms_association_hcdt. gene_symbol OMITTED, disease_name OMITTED, pathway_name OMITTED.
+      Use this pattern for any question asking for trade names, brand names, aliases, or synonyms of a drug.'
+  - question: what are the brand names of imatinib?
+    parsed_value:
+      drug_name:
+      - imatinib
+      synonym: requested
+    note: 'brand-name query: same pattern as trade-name — drug_name filter, synonym output only.'
+  - question: what drug is known by the code DX-88?
+    parsed_value:
+      synonym:
+      - DX-88
+      drug_name: requested
+    note: 'reverse synonym lookup: synonym is the FILTER (investigational code, brand name, or alias);
+      drug_name is the OUTPUT — find which drug has this code. Opposite of trade-name queries where
+      drug_name is filter. Use this pattern for: "What drug is [code]?", "[code] is the investigational
+      name of which drug?", "What is [brand name] the brand name of?"'
+  - question: RTA-408 is the investigational name of which drug?
+    parsed_value:
+      synonym:
+      - RTA-408
+      drug_name: requested
+    note: 'reverse synonym lookup: synonym=filter, drug_name=output. Same pattern as DX-88 reverse lookup.'
+  - question: KEGG IDs for cell cycle pathways involving CDK4
+    parsed_value:
+      gene_symbol:
+      - CDK4
+      pathway_name:
+      - cell cycle
+    note: 'NAMED PATHWAY FILTER: ''cell cycle'' is named before ''pathways'' → pathway_name: [''cell
+      cycle''] as FILTER, NOT ''requested''. gene_symbol: [''CDK4''] is the co-filter. kegg_hsa_xref
+      is NOT in parsed_value — co_output_rules add it automatically when ''kegg'' appears in the question.
+      WRONG: pathway_name: ''requested''.'
+  - question: which drugs are involved in the mTOR signaling pathway?
+    parsed_value:
+      pathway_name:
+      - mTOR signaling
+      drug_name: requested
+    note: 'NAMED PATHWAY FILTER: ''mTOR signaling'' is named verbatim → pathway_name: [''mTOR signaling'']
+      as FILTER. drug_name is the open output. Strip the generic suffix ''pathway'' from ''mTOR signaling
+      pathway'' → ''mTOR signaling'' (Rule 5). WRONG: pathway_name: ''requested''.'
+  - question: KEGG pathway IDs for MAPK signaling altered by imatinib
+    parsed_value:
+      drug_name:
+      - imatinib
+      pathway_name:
+      - MAPK signaling
+    note: 'NAMED PATHWAY FILTER: ''MAPK signaling'' named in question → pathway_name: [''MAPK signaling'']
+      as FILTER (not ''requested''). drug_name: [''imatinib''] is co-filter. kegg_hsa_xref added by
+      co_output_rules — omit from parsed_value. WRONG: pathway_name: ''requested''.'
+  filter_few_shot_examples:
+  - question: what drug is known by the code DX-88?
+    keep:
+    - synonym
+    - drug_name
+    note: 'reverse synonym lookup: synonym (WHERE filter on investigational code), drug_name (SELECT output).
+      Keep BOTH — synonym filters, drug_name is the answer.'
+  - question: RTA-408 is the investigational name of which drug?
+    keep:
+    - synonym
+    - drug_name
+    note: 'reverse synonym lookup: synonym (WHERE filter on RTA-408), drug_name (SELECT output). drug_name
+      is the OUTPUT here, not a filter. Keep both synonym and drug_name.'
+  - question: what is the trade name of sildenafil?
+    keep:
+    - drug_name
+    - synonym
+    note: 'trade-name query: drug_name (WHERE filter on sildenafil), synonym (SELECT output — the trade
+      names). Keep both. This is forward lookup, opposite of DX-88 reverse lookup.'
+  - question: what are the brand names of imatinib?
+    keep:
+    - drug_name
+    - synonym
+    note: 'brand-name query: drug_name filter, synonym output. Same forward pattern as trade name.'
+  - question: which diseases are associated with BRAF?
+    keep:
+    - gene_symbol
+    - disease_name
+    note: 'gene-disease query: keep gene_symbol (filter) + disease_name (output). Drop drug_name if
+      present — hallucinated co-output; gene-disease does not go through drug tables.'
+  - question: what are the protein targets of crizotinib?
+    keep:
+    - drug_name
+    - gene_symbol
+    note: 'drug-target query: keep drug_name (filter) + gene_symbol (output). Drop disease_name, pathway_name
+      — not requested.'
+  - question: gefitinib IC50 against EGFR
+    keep:
+    - drug_name
+    - gene_symbol
+    - ic50_nm
+    note: 'affinity query: keep drug_name + gene_symbol (filters) + ic50_nm (output). ki_nm and kd_nm
+      OMITTED — only IC50 was asked.'
+  - question: KEGG IDs for cell cycle pathways involving CDK4
+    keep:
+    - gene_symbol
+    - pathway_name
+    note: 'named-pathway KEGG query: keep gene_symbol (filter) + pathway_name (named filter — ''cell
+      cycle''). kegg_hsa_xref is injected by co_output_rules, not the mapper; do not drop it if present.'
+  _orchestrator_examples_comment: Few-shot examples for the orchestrator (disagreement resolver). Show
+    correct output when one mapper hallucinates extra columns the question never requested.
+  orchestrator_examples:
+  - question: which diseases are associated with BRAF?
+    mapper_1:
+      gene_symbol:
+      - BRAF
+      disease_name: requested
+    mapper_2:
+      gene_symbol:
+      - BRAF
+      disease_name: requested
+      drug_name: requested
+    correct:
+      gene_symbol:
+      - BRAF
+      disease_name: requested
+    reasoning: drug_name not in query — mapper_2 hallucinated it. Reject the extra column, use mapper_1.
+  - question: which genes are associated with breast cancer?
+    mapper_1:
+      disease_name:
+      - breast cancer
+      gene_symbol: requested
+    mapper_2:
+      disease_name:
+      - breast cancer
+      gene_symbol: requested
+      drug_name: requested
+    correct:
+      disease_name:
+      - breast cancer
+      gene_symbol: requested
+    reasoning: No drug mentioned. drug_name is a hallucinated co-output — omit it.
+  - question: which pathways does MTOR participate in?
+    mapper_1:
+      gene_symbol:
+      - MTOR
+      pathway_name: requested
+    mapper_2:
+      gene_symbol:
+      - MTOR
+      drug_name: requested
+      pathway_name: requested
+    correct:
+      gene_symbol:
+      - MTOR
+      pathway_name: requested
+    reasoning: Gene-pathway query. MTOR is a heavily-drugged target but the user asked for pathways. drug_name
+      hallucinated by mapper_2 — pathway_gene_association is the correct table, drug_name must not appear.
+  - question: which genes are associated with type 2 diabetes?
+    mapper_1:
+      disease_name:
+      - type 2 diabetes
+      gene_symbol: requested
+    mapper_2:
+      disease_name:
+      - type 2 diabetes
+      gene_symbol: requested
+      drug_name: requested
+    correct:
+      disease_name:
+      - type 2 diabetes
+      gene_symbol: requested
+    reasoning: Disease-gene query. Many diabetes drugs exist but user asked for genes only. drug_name
+      is a join-key intermediate only — it must NOT appear as output. Reject mapper_2.
+  - question: what drugs target EGFR and what are their IC50 values?
+    mapper_1:
+      gene_symbol:
+      - EGFR
+      drug_name: requested
+    mapper_2:
+      gene_symbol:
+      - EGFR
+      drug_name: requested
+      ic50_nm: requested
+    correct:
+      gene_symbol:
+      - EGFR
+      drug_name: requested
+      ic50_nm: requested
+    reasoning: ic50 explicitly in query — mapper_2 is correct, keep ic50_nm.
+  - question: RTA-408 is the investigational name of which drug?
+    mapper_1:
+      synonym:
+      - RTA-408
+      drug_name: requested
+    mapper_2:
+      drug_name: requested
+    correct:
+      synonym:
+      - RTA-408
+      drug_name: requested
+    reasoning: REVERSE synonym lookup — RTA-408 is the synonym/code (filter), drug_name is the output.
+      synonym IS the FILTER here (not hallucinated). mapper_1 is correct — keep synonym as the filter
+      value AND drug_name as the output. mapper_2 discarded the filter; reject it.
+  - question: what drug is known by the code DX-88?
+    mapper_1:
+      synonym:
+      - DX-88
+      drug_name: requested
+    mapper_2:
+      drug_name: requested
+    correct:
+      synonym:
+      - DX-88
+      drug_name: requested
+    reasoning: REVERSE synonym lookup — DX-88 is the investigational code (synonym filter), drug_name is
+      the output. Keep synonym as filter + drug_name as output (mapper_1). mapper_2 lost the filter.
+  mandatory_entity_columns:
+    drug:
+    - drug_name
+    disease:
+    - disease_name
+    gene:
+    - gene_symbol
+    pathway:
+    - pathway_name
+    rna:
+    - rna_name
+  xref_id_columns:
+  - omim_xref
+  - icd11
+  - hgnc
+  - uniprot
+  - ensembl
+  - entrez
+  - kegg_hsa_xref
+  - smpdb_xref
+  - chebi_xref
+  - kegg_xref
+  - xref_id
+  gene_xref_id_columns:
+  - uniprot
+  - hgnc
+  - ensembl
+  - entrez
+  disease_xref_id_columns:
+  - omim_xref
+  - icd11
+  paired_enum_columns:
+  - name_col: rna_name
+    type_col: rna_type
+    verbatim_extraction: true
+  schema_grounding_notes:
+  - 'pathway vs disease MUTUAL EXCLUSION: pathway_name and disease_name must NEVER both be ''requested''
+    in the same parsed_value — they are separate relationships via separate tables. If the query asks
+    for pathways → pathway_name: ''requested'', omit disease_name entirely. If the query asks for diseases
+    → disease_name: ''requested'', omit pathway_name entirely. Mixing both causes a cross-join explosion.
+    The words ''pathway'', ''pathways'', ''signaling'', ''KEGG'', ''gene set'', ''biological process''
+    → pathway_name. The words ''disease'', ''diseases'', ''indication'', ''disorder'', ''condition'',
+    ''treat'', ''therapy'' → disease_name.'
+  - ki_nm / ic50_nm / kd_nm (binding affinity columns) belong ONLY to explicit binding-potency questions
+    where the user says 'Ki', 'IC50', 'Kd', 'affinity', or 'potency'. NEVER include them for disease-indication
+    queries ('which drugs treat X?') or general drug-target queries ('which drugs target EGFR?') — those
+    use drug_disease_association or drug_gene_association WITHOUT drug_target_negative. drug_gene_association
+    and drug_target_negative are MUTUALLY EXCLUSIVE in the same parsed_value.
+  - 'gene_symbol: use HGNC official symbol only. Apply these common aliases: PD-1→PDCD1, PD-L1→CD274,
+    p53→TP53. Never emit an alias or synonym as the gene_symbol filter value.'
+  - 'drug CLASS queries (TKI, kinase inhibitor, checkpoint inhibitor, CDK inhibitor, mAb, etc.): HCDT
+    has no mechanism-of-action column. Rule: (a) the class term itself (e.g. ''TKI'', ''kinase inhibitor'')
+    is NOT a valid drug_name filter — omit it; (b) emit drug_name: ''requested'' as output; (c) if the
+    query ALSO names a specific gene/target (e.g. ''Which kinase inhibitors target EGFR?''), KEEP gene_symbol:
+    [''EGFR''] as a filter — the gene filter is valid even though the class term is not. Example CORRECT:
+    q=''Which CDK inhibitors target CDK4?'' → {gene_symbol: [''CDK4''], drug_name: ''requested''}. Example
+    WRONG: {drug_name: [''CDK inhibitor''], gene_symbol: [''CDK4'']} — class term as drug filter is invalid.'
+  - brand/trade name lookup (Glivec→imatinib, Iressa→gefitinib, Keytruda→pembrolizumab, Tarceva→erlotinib,
+    etc.) is resolved via trade_name_map → drug_name before querying; emit the INN name as the filter,
+    not the brand name.
+  - 'drug_name FORBIDDEN as output in disease-gene and gene-pathway queries: if the query asks ONLY for
+    (gene + disease) or ONLY (gene + pathway), drug_name must be ABSENT from parsed_value — it is a join-key
+    intermediate, never an output. Correct: {disease_name: [''X''], gene_symbol: ''requested''}. Wrong:
+    {disease_name: [''X''], gene_symbol: ''requested'', drug_name: ''requested''}.'
+  co_output_rules:
+  - trigger_columns:
+    - drug_smiles_iso
+    - drug_smiles_canon
+    - drug_inchi
+    - drug_inchikey
+    - drug_formula
+    - drug_iupac
+    require_columns:
+    - drug_name
+    require_behavior: requested
+    reason: structural properties are not interpretable without a drug name
+  - trigger_columns:
+    - rna_name
+    require_columns:
+    - rna_type
+    require_behavior: infer_from_question
+    trigger_keywords:
+    - lncRNA
+    - miRNA
+    - circRNA
+    - microRNA
+    - circular RNA
+    - circular rna
+    - non-coding
+    - noncoding
+    - long non-coding
+    reason: RNA type filter (lncRNA/miRNA/circRNA/RNA) is only relevant when the user's question specifies
+      an RNA class
+  - trigger_columns:
+    - drug_name
+    require_columns:
+    - synonym
+    require_behavior: infer_from_question
+    trigger_keywords:
+    - synonym
+    - synonyms
+    - also known as
+    - alias
+    - brand name
+    - brand names
+    - trade name
+    - trade names
+    - alternative name
+    - alternate name
+    - investigational name
+    - investigational
+    - inn
+    - also called
+    - also referred to
+    - known as
+    reason: synonym column from drug_synonyms_association_hcdt surfaces alongside drug_name when user asks for synonyms, trade names, or investigational names
+  - trigger_columns:
+    - gene_symbol
+    require_columns:
+    - uniprot
+    - hgnc
+    - ensembl
+    - entrez
+    require_behavior: infer_from_question
+    trigger_keywords:
+    - uniprot
+    - hgnc
+    - ensembl
+    - entrez
+    - identifier
+    - accession
+    - gene id
+    - xref
+    - cross-reference
+    - cross reference
+    reason: gene xref IDs surface alongside gene_symbol only when user asks for identifiers
+  - trigger_columns:
+    - disease_name
+    require_columns:
+    - omim_xref
+    - icd11
+    require_behavior: infer_from_question
+    trigger_keywords:
+    - omim
+    - icd
+    - icd11
+    - icd-11
+    - code
+    - identifier
+    - disease id
+    - xref
+    - cross-reference
+    - cross reference
+    reason: disease xref IDs surface alongside disease_name only when user explicitly requests a cross-reference
+      code
+  - trigger_columns:
+    - pathway_name
+    require_columns:
+    - kegg_hsa_xref
+    - smpdb_xref
+    - chebi_xref
+    - kegg_xref
+    - xref_source
+    - xref_id
+    require_behavior: infer_from_question
+    trigger_keywords:
+    - kegg
+    - smpdb
+    - chebi
+    - xref
+    - identifier
+    - pathway id
+    - cross-reference
+    - cross reference
+    - external id
+    reason: pathway xref IDs surface alongside pathway_name only when user requests an external pathway
+      identifier (KEGG, SMPDB, ChEBI, or general xref)
+  - trigger_columns:
+    - drug_name
+    - gene_symbol
+    require_columns:
+    - ki_nm
+    - ic50_nm
+    - kd_nm
+    require_behavior: infer_from_question
+    trigger_keywords:
+    - ki
+    - ic50
+    - kd
+    - potency
+    - affinity
+    - binding constant
+    - inhibition constant
+    - dissociation constant
+    - binding affinity
+    - binding potency
+    reason: binding affinity values (ki_nm, ic50_nm, kd_nm) exist ONLY in drug_target_negative — not in
+      drug_gene_association; surface only when user asks about potency, affinity, Ki, IC50, or Kd
+  - trigger_columns:
+    - omim_xref
+    - icd11
+    require_columns:
+    - disease_name
+    require_behavior: requested
+    reason: disease cross-reference IDs (OMIM, ICD-11) are not interpretable without the accompanying
+      disease_name
+  - trigger_columns:
+    - kegg_hsa_xref
+    - kegg_xref
+    - smpdb_xref
+    - chebi_xref
+    - xref_id
+    - xref_source
+    require_columns:
+    - pathway_name
+    require_behavior: requested
+    reason: pathway cross-reference IDs are not interpretable without the accompanying pathway_name
+  expander_clean_query_examples:
+  - 'ROLE RULE: ''Which drugs treat X?'' → X is [disease_name:filter], drugs is [drug_name:output]. ''Which
+    diseases are treated by Y?'' → Y is [drug_name:filter], diseases is [disease_name:output].'
+  - Which [drug_name:output] treat Alzheimer disease [disease_name:filter]?
+  - Which [drug_name:output] treat AD [disease_name:filter]?
+  - Which [drug_name:output] are used for Parkinson disease [disease_name:filter]?
+  - Which [drug_name:output] are used for PD [disease_name:filter]?
+  - Which [drug_name:output] target EGFR [gene_symbol:filter]?
+  - Which [gene_symbol:output] are associated with breast cancer [disease_name:filter]?
+  - Which [disease_name:output] are treated by imatinib [drug_name:filter]?
+  abbreviation_map:
+    AD: Alzheimer disease
+    CML: Chronic myeloid leukemia
+    AML: Acute myeloid leukemia
+    CLL: Chronic lymphocytic leukemia
+    RCC: Renal cell carcinoma
+    HCC: Hepatocellular carcinoma
+    MDS: Myelodysplastic syndrome
+  class_entity_rules:
+  - '"TKI" expands to "tyrosine kinase inhibitor" — do NOT replace with a specific drug like imatinib'
+  - 'For drug CLASS queries (e.g. ''checkpoint inhibitors'', ''PARP inhibitors'', ''CDK4/6 inhibitors''): do NOT expand to specific drugs and do NOT emit the class as a drug_name filter value. Use drug_name: ''requested'' as output; let the gene/target anchor drive the query.'
+  - '"mAb" expands to "monoclonal antibody" — do NOT replace with a specific antibody'
+  class_column: drug_name
+  pathway_alias_map:
+    NF-kB: NF-kappa B signaling pathway
+    Wnt: Wnt signaling pathway
+    mTOR pathway: mTOR signaling pathway
+questions:
+  literal:
+  - label: drug+disease+OMIM
+    question: what OMIM cross-references correspond to diseases treated by imatinib?
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+disease+OMIM
+    question: give OMIM identifiers for indications of pembrolizumab
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+disease+ICD11
+    question: ICD-11 codes for diseases where nivolumab is indicated
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+disease+OMIM+ICD11
+    question: find OMIM and ICD-11 codes for the indication of imatinib in chronic myeloid leukemia
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+disease+OMIM
+    question: OMIM cross-references for autoimmune diseases where adalimumab is used
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+disease+OMIM+ICD11
+    question: OMIM and ICD-11 codes for rare cancers treated by imatinib
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+disease+OMIM
+    question: OMIM ID for drugs treating Huntington disease
+    required:
+    - drug_name
+    - disease_name
+  - label: drug+gene+UniProt
+    question: what UniProt accession does gefitinib bind to?
+    required:
+    - drug_name
+    - gene_symbol
+    - uniprot
+  - label: drug+gene+HGNC
+    question: what is the HGNC ID of the gene targeted by vemurafenib?
+    required:
+    - drug_name
+    - gene_symbol
+    - hgnc
+  - label: drug+gene+Entrez
+    question: what Entrez gene ID corresponds to the target of erlotinib?
+    required:
+    - drug_name
+    - gene_symbol
+    - entrez
+  - label: drug+gene+UniProt+HGNC
+    question: give both UniProt and HGNC IDs for EGFR targeted by afatinib
+    required:
+    - drug_name
+    - gene_symbol
+    - uniprot
+    - hgnc
+  - label: drug+gene+UniProt
+    question: UniProt accession of JAK2 targeted by ruxolitinib
+    required:
+    - drug_name
+    - gene_symbol
+    - uniprot
+  - label: drug+gene+HGNC
+    question: HGNC IDs of CDK4 and CDK6 targeted by ribociclib
+    required:
+    - drug_name
+    - gene_symbol
+    - hgnc
+  - label: drug+gene+Entrez
+    question: Entrez gene ID for PARP1 targeted by olaparib
+    required:
+    - drug_name
+    - gene_symbol
+    - entrez
+  - label: drug+gene+HGNC+Entrez
+    question: HGNC and Entrez IDs for genes targeted by ponatinib
+    required:
+    - drug_name
+    - gene_symbol
+    - hgnc
+    - entrez
+  - label: drug+gene+UniProt+HGNC
+    question: both UniProt and HGNC IDs for AKT1 targeted by MK-2206
+    required:
+    - drug_name
+    - gene_symbol
+    - uniprot
+    - hgnc
+  - label: drug+pathway+KEGG
+    question: KEGG pathway IDs for mTOR signaling affected by everolimus
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+pathway+KEGG
+    question: KEGG pathway IDs for apoptosis pathways perturbed by bortezomib
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+pathway+SMPDB
+    question: SMPDB identifier for the mTOR pathway affected by rapamycin
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+pathway+KEGG+SMPDB
+    question: both KEGG and SMPDB IDs for MAPK signaling altered by imatinib
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+pathway+KEGG
+    question: KEGG pathway IDs for pathways perturbed by lapatinib via EGFR
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+pathway+KEGG
+    question: KEGG pathway IDs for VEGF signaling pathways affected by erlotinib
+    required:
+    - drug_name
+    - pathway_name
+  - label: drug+rna+type
+    question: which miRNA molecules does imatinib regulate?
+    required:
+    - drug_name
+    - rna_name
+    - rna_type
+  - label: drug+rna+type
+    question: list lncRNA targets of tamoxifen
+    required:
+    - drug_name
+    - rna_name
+    - rna_type
+  - label: drug+rna+type
+    question: circRNA interactions of metformin
+    required:
+    - drug_name
+    - rna_name
+    - rna_type
+  - label: drug+rna+type
+    question: what RNA molecules (miRNA, lncRNA, circRNA) does gefitinib regulate?
+    required:
+    - drug_name
+    - rna_name
+    - rna_type
+  - label: drug+rna+type
+    question: what lncRNA molecules are associated with crizotinib?
+    required:
+    - drug_name
+    - rna_name
+    - rna_type
+  - label: drug+rna+type
+    question: what lncRNA does cetuximab regulate?
+    required:
+    - drug_name
+    - rna_name
+    - rna_type
+  - label: gene+disease+drug
+    question: drugs that target KRAS and treat pancreatic cancer
+    required:
+    - gene_symbol
+    - disease_name
+    - drug_name
+  - label: gene+disease+drug
+    question: drugs targeting ERBB2 used for breast cancer treatment
+    required:
+    - gene_symbol
+    - disease_name
+    - drug_name
+  - label: gene+disease+drug
+    question: what drugs targeting ALK are approved for lung cancer?
+    required:
+    - gene_symbol
+    - disease_name
+    - drug_name
+  - label: gene+disease+drug
+    question: drugs targeting TP53 in colorectal cancer
+    required:
+    - gene_symbol
+    - disease_name
+    - drug_name
+  - label: gene+pathway+KEGG
+    question: KEGG pathway IDs for pathways involving EGFR
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: gene+pathway+KEGG
+    question: KEGG pathway IDs for MAPK signaling pathways involving BRAF
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: gene+pathway+SMPDB
+    question: which SMPDB pathways involve TP53?
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: gene+pathway+KEGG
+    question: KEGG IDs for cell cycle pathways involving CDK4
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: gene+pathway+KEGG
+    question: KEGG pathway IDs for apoptosis pathways involving BCL2
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: gene+pathway+KEGG
+    question: KEGG IDs for pathways involving MTOR
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: gene+pathway+SMPDB
+    question: SMPDB IDs for DNA repair pathways involving BRCA1
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: gene+pathway+SMPDB
+    question: SMPDB IDs for metabolic pathways involving LDHA
+    required:
+    - gene_symbol
+    - pathway_name
+  - label: smiles+disease
+    question: SMILES of drugs approved for acute myeloid leukemia
+    required:
+    - drug_name
+    - drug_smiles_iso
+    - disease_name
+  - label: inchikey+disease
+    question: what is the InChIKey of drugs used to treat tuberculosis?
+    required:
+    - drug_name
+    - drug_inchikey
+    - disease_name
+  - label: inchi+gene
+    question: what are the InChI strings of drugs that target EGFR?
+    required:
+    - drug_name
+    - drug_inchi
+    - gene_symbol
+  - label: smiles+gene
+    question: SMILES of drugs that target CDK4
+    required:
+    - drug_name
+    - drug_smiles_iso
+    - gene_symbol
+  - label: formula+gene
+    question: molecular formula of drugs targeting PARP1
+    required:
+    - drug_name
+    - drug_formula
+    - gene_symbol
+  - label: drug+synonym
+    question: what is the trade name of sildenafil?
+    required:
+    - drug_name
+    - synonym
+  - label: drug+synonym
+    question: what are the brand names of imatinib?
+    required:
+    - drug_name
+    - synonym
+  - label: drug+synonym
+    question: what are the synonyms of gefitinib?
+    required:
+    - drug_name
+    - synonym
+  - label: drug+synonym+gene
+    question: trade names and brand synonyms of drugs targeting EGFR
+    required:
+    - drug_name
+    - gene_symbol
+    - synonym
+  - label: drug+gene+disease+UniProt
+    question: what are the UniProt targets of drugs that target BRAF and treat melanoma?
+    required:
+    - drug_name
+    - gene_symbol
+    - disease_name
+    - uniprot
+  - label: drug+gene+pathway
+    question: which drugs target PIK3CA and are involved in the PI3K-Akt pathway?
+    required:
+    - drug_name
+    - gene_symbol
+    - pathway_name
+  - label: drug+disease+gene+OMIM
+    question: OMIM cross-references for breast cancer treated by EGFR-targeting drugs
+    required:
+    - drug_name
+    - disease_name
+    - gene_symbol
+  - label: drug+gene+UniProt+Ensembl
+    question: UniProt and Ensembl IDs for VEGFA targeted by gefitinib
+    required:
+    - drug_name
+    - gene_symbol
+    - uniprot
+    - ensembl

@@ -1,0 +1,5 @@
+# schema_mapper service — the ONE heavy schema_kg image.
+# torch / sentence-transformers / qdrant-client come from biochirp/base-schemakg
+# (built via Dockerfile.service-schemakg). networkx is in biochirp/base.
+# python-dotenv for env loading parity with other services.
+python-dotenv==1.2.1

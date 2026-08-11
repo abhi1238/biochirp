@@ -1,0 +1,637 @@
+clinvar:
+  agent_orchestrator:
+    failure_modes: |
+      - Empty rows on a HGVS variant: try the protein-level form (`p.Arg175His` ↔ `R175H`)
+        or the rsID equivalent; if still empty, fall back to web with the disclaimer prefix.
+      - "What drugs target X" or "what drugs respond to variant X" — ClinVar has NO drug
+        data; route to TTD / DGIdb / DrugCentral, or CIViC for variant-stratified drug
+        response.
+      - "What pathway is the gene in" — ClinVar has no pathway data; route to Reactome /
+        WikiPathways.
+    routing_hints: |
+      - Variant queries ("BRCA1 c.5266dupC"): set `gene_symbol=BRCA1` AND
+        `variant_name=c.5266dupC`. The interpreter handles HGVS canonicalisation.
+      - "Is X pathogenic" → `aggregate_clinical_significance=pathogenic` AND set the gene + variant
+        OR rsID filter. Always also return `aggregate_review_status` so the user knows the star level.
+      - rsID queries ("rs28934578"): set `rsid=rs28934578` (lives in
+        `variant_citation_clinvar`); the interpreter joins back to the variant master row.
+      - "Highest-confidence assertions" → `aggregate_review_status` in {`practice guideline`,
+        `reviewed by expert panel`}.
+      - "Conflicting variants" → `aggregate_clinical_significance=conflicting classifications of
+        pathogenicity`.
+      - Somatic-cancer questions → query `variant_submission_clinvar.somatic_clinical_impact`
+        and `.oncogenicity`, not the germline `aggregate_clinical_significance`.
+      - Genomic coordinate queries → set `assembly=GRCh38` by default; if the user mentions
+        `hg19` use `GRCh37`.
+    skip_if: |
+      - The question asks for pharmacogenomics variant-drug response — route to PharmGKB.
+      - The question asks for cancer somatic-variant drug response — route to CIViC.
+      - The question asks for population allele frequencies — route to gnomAD.
+      - The question asks for GWAS associations — route to GWAS Catalog.
+      - The question asks for pathway / PPI / 3D-structure data — ClinVar does not store
+        these.
+  description: ClinVar is NCBI's public archive of human genetic variants with clinical interpretations submitted by laboratories
+    and expert panels. It stores aggregated aggregate_clinical_significance (pathogenic / likely pathogenic / uncertain significance
+    / likely benign / benign / conflicting classifications of pathogenicity), submission-level details (submitter, SCV, date_last_evaluated,
+    collection_method, submitted_phenotype, reported_phenotype, origin_counts, somatic_clinical_impact, oncogenicity), aggregate_review_status
+    star levels, HGVS variant_name, dbSNP rsID, citations, and full genomic coordinates on GRCh37 and GRCh38 (chrom, pos,
+    ref, alt, molecular_consequence, variant_class) for both germline and somatic variants.
+  display: ClinVar
+  extra_constraints:
+  - Always state aggregate_clinical_significance AND aggregate_review_status (star level) when present. Clearly distinguish
+    pathogenic, likely pathogenic, VUS (uncertain significance), likely benign, conflicting, and benign classifications.
+  tips: |-
+    * ClinVar's primary keys are variant_id (VCV / RCV), variant_name (HGVS), gene_symbol, variant_disease_name. Pass HGVS short form (`NM_007294.4:c.5266dupC`) verbatim; the interpreter handles `c.` / `p.` / rsID forms.
+    * Controlled `aggregate_clinical_significance` enum (all lowercase on disk): `pathogenic`, `likely pathogenic`, `uncertain significance` (VUS), `likely benign`, `benign`, `conflicting classifications of pathogenicity`, `drug response`, `risk factor`, `affects`, `other`, `benign/likely benign`, `pathogenic/likely pathogenic`, `no classification for the single variant`. Map user phrasings: "pathogenic" → `pathogenic`; "VUS" → `uncertain significance`; "benign" → `benign`; "conflicting" → `conflicting classifications of pathogenicity`. DO NOT pass raw user text. Use `aggregate_clinical_significance` for variant-level queries, `disease_clinical_significance` for variant-disease pair queries, `submission_clinical_significance` for submitter-level queries.
+    * `aggregate_review_status` star levels (highest → lowest): - 4★ `practice guideline` - 3★ `reviewed by expert panel` - 2★ `criteria provided, multiple submitters, no conflicts` - 1★ `criteria provided, single submitter` / `criteria provided, conflicting classifications` - 0★ `no assertion criteria provided` / `no classification provided`
+    * Somatic variant fields live in `variant_submission_clinvar`: `somatic_clinical_impact` (`Tier I` / `Tier II`) and `oncogenicity` (`Oncogenic`, `Likely oncogenic`, `Benign`, `Likely benign`, `Uncertain significance`). Use these for somatic questions, NOT the germline `aggregate_clinical_significance` column.
+    * Variant accession formats: `VCV` (variation), `RCV` (reference assertion), `SCV` (submission). Recognise all three.
+    * Genome `assembly` is `GRCh37` (a.k.a. `hg19`) or `GRCh38` (a.k.a. `hg38`) — when the user asks for a position, default to GRCh38 unless they explicitly say hg19.
+    * Controlled `molecular_consequence` SO terms include `missense_variant`, `nonsense`, `frameshift_variant`, `synonymous_variant`, `splice_donor_variant`, `splice_acceptor_variant`, `intron_variant`, `5_prime_UTR_variant`, `3_prime_UTR_variant`, `inframe_deletion`, `inframe_insertion`. Note: this DB stores `nonsense` (SO:0001587), NOT `stop_gained` — map "stop_gained" / "nonsense" → `nonsense`; "frameshift" → `frameshift_variant`.
+    * For drug-response evidence in cancer use **CIViC**, not ClinVar — ClinVar's `somatic_clinical_impact` is tier-only, no drug recommendations.
+ctd:
+  agent_orchestrator:
+    failure_modes: |
+      - Empty rows on a chemical name: lowercase + try the MeSH preferred term (e.g. "BPA"
+        → `bisphenol a`); try the CAS number if available (e.g. `80-05-7`).
+      - Empty rows on a disease: try the MeSH preferred term (e.g. "Alzheimer's" →
+        `Alzheimer Disease`).
+      - "What is the IC50 / Ki of chemical X on Y" — CTD has NO numeric activity values;
+        route to ChEMBL / DrugCentral.
+      - "Approval status of drug X" — CTD has no clinical approval data; route to
+        TTD / DrugCentral.
+    routing_hints: |
+      - "What genes does X affect" → `chemical_gene_association` with `drug_name=X`; always
+        return `chemical_gene_interaction_actions` so the user knows up vs down vs affects.
+      - "What chemicals upregulate / downregulate gene Y" → filter
+        `gene_symbol=Y` AND `chemical_gene_interaction_actions=increases^expression` (or `decreases^expression`).
+      - "Therapeutic chemicals for disease Z" → `chemical_disease_association` with
+        `disease_name=Z` AND `chem_disease_direct_evidence=therapeutic`.
+      - "Biomarker chemicals for disease Z" → `chem_disease_direct_evidence=marker/mechanism`.
+      - "Top enriched pathways for chemical X" → query
+        `chemical_pathway_enriched` and sort ascending by `corrected_p_value`.
+      - "Chemical-phenotype interactions (GO biological processes)" → query `chemical_phenotype_ixn`.
+      - Exposure-event questions ("PM2.5 in females over 50") → `exposure_events_ctd` with
+        `stressor_name`, `sex`, `age`, `medium`, `event_study_countries` set.
+    skip_if: |
+      - The question asks for variant pathogenicity — route to ClinVar / CIViC.
+      - The question asks for protein-protein interactions — route to BioGRID / STRING /
+        OmniPath.
+      - The question asks for pathway topology / reaction-level mechanism — route to
+        Reactome / WikiPathways (CTD only links chemicals to pathway names + enrichment,
+        not reaction graphs).
+      - The question asks for chemical structure / SMILES / InChI — route to PubChem / ChEBI.
+  description: CTD (Comparative Toxicogenomics Database) provides literature-curated chemical↔gene, chemical↔disease, gene↔disease,
+    chemical↔pathway, chemical↔GO, chemical↔phenotype, and human exposure-event relationships for environmental chemicals,
+    drugs and industrial compounds. Each chemical-disease row is tagged as either direct evidence (`marker/mechanism` vs `therapeutic`)
+    or inferred via a shared `inference_gene` + numeric `inference_score`; chemical-gene rows use the controlled `chemical_gene_interaction_actions`
+    vocabulary (e.g. `increases^expression`, `decreases^activity`, `affects^methylation`); chemical-pathway / GO rows carry
+    enrichment `p_value` + `corrected_p_value` (FDR / Bonferroni); and `exposure_events_ctd` records human cohort exposure
+    studies with stressor, medium, demographics (sex, age, race, smoking_status), study_countries and outcome_relationship.
+  display: CTD
+  extra_constraints:
+  - Always distinguish between **direct** evidence (`chem_disease_direct_evidence=marker/mechanism` or `therapeutic`) and
+    **inferred** associations (driven by `inference_gene` + `inference_score`). Never silently merge the two.
+  - When reporting chemical-gene interactions, always include the controlled `chemical_gene_interaction_actions` term, not
+    just the free-text `interaction_text`.
+  tips: |-
+    * CTD's primary keys are drug_name (lowercase, MeSH-derived), gene_symbol (HGNC), disease_name (MeSH-derived), and pathway_name. Pass canonical lowercase chemical names (e.g. `arsenic`, `bisphenol a`, `acetaminophen`) — not brand names.
+    * **chem_disease_direct_evidence enum** (controlled vocabulary on `chemical_disease_association`): - `marker/mechanism` — chemical is a biomarker of, or has a mechanism for, the disease - `therapeutic` — chemical is used to treat the disease - empty / NULL — the association is INFERRED via `inference_gene` (NOT direct) Map user phrasings: "treats" / "therapy" → `therapeutic`; "biomarker" / "causes" / "mechanism" → `marker/mechanism`.
+    * **chemical_gene_interaction_actions vocabulary** (on `chemical_gene_association`) uses the form `<verb>^<entity>`: - verbs: `increases`, `decreases`, `affects` - entities: `expression`, `activity`, `phosphorylation`, `methylation`, `acetylation`, `ubiquitination`, `binding`, `localization`, `stability`, `transport`, `secretion`, `degradation`, `cleavage`, `splicing`, `mutation rate`, `reaction`, `metabolic processing` Examples: `increases^expression`, `decreases^activity`, `affects^methylation`. Map user "upregulates" → `increases^expression`; "downregulates" → `decreases^expression`; "inhibits" → `decreases^activity`.
+    * Pathway IDs in `pathway_master_table_ctd.pathway_id` are KEGG `hsa` (e.g. `hsa04210`) or Reactome stable IDs (e.g. `R-HSA-109581`). When the user mentions a KEGG / Reactome ID, filter directly on `pathway_id`.
+    * `chemical_pathway_enriched` rows carry `p_value` AND `corrected_p_value` — when the user asks for "significant" enrichment, prefer `corrected_p_value` (FDR / Bonferroni-adjusted). For chemical-phenotype (GO biological process) interactions, use `chemical_phenotype_ixn` instead.
+    * `omim_ids` and `synonyms` are PIPE-delimited multi-value strings; split on `|` when reporting.
+    * `chemical_gene_organism_id` on chemical-gene rows is an NCBI taxon ID; `9606` = human. Filter to human-only with `chemical_gene_organism_id=9606` when the user asks about humans.
+    * `exposure_events_ctd` is the human-cohort exposure table — only query it when the user explicitly asks about exposure studies / epidemiology, not for chemical-gene MoA.
+hcdt:
+  description: HCDT (High-Confidence Drug-Target database) is an internal, harmonised dataset of clinically-validated human
+    drug-target associations integrated from multiple pharmacological sources. It records, for each drug, full chemistry (preferred
+    name, pipe-delimited synonyms, molecular weight, formula, InChI, isomeric and canonical SMILES, InChIKey, IUPAC name);
+    target genes with UniProt / HGNC / Ensembl / Entrez cross-references and a `datasource` provenance flag; disease indications
+    with ICD-11, MeSH and OMIM codes; pathways with Reactome, KEGG-hsa and SMPDB IDs (plus a generic `pathway_xref` table);
+    binding affinities Ki / IC50 / Kd in nanomolar; and associated RNA molecules (`rna_name`, `rna_type` — miRNA / lncRNA
+    / RNA / circRNA).
+  display: HCDT
+  extra_constraints:
+  - Always state the upstream `datasource` provenance when reporting a drug-gene interaction so the user knows which curated
+    source contributed the assertion.
+  - When the user asks for binding affinity, prefer numeric `ki_nm` / `ic50_nm` / `kd_nm` from `drug_target_negative` and
+    remind them that lower = more potent.
+  tips: |-
+    * HCDT's primary keys are drug_name, gene_symbol (HGNC), disease_name and pathway_name. Pass drug names — HCDT stores Title-Case INN names (e.g. `Imatinib`, `Gefitinib`, `Erlotinib`); filters are case-insensitive so either case works, but prefer Title-Case to match on-disk values. Brand names live in the drug_synonyms_association_hcdt table.
+    * Cross-DB identifier columns: - target: `uniprot` (`^P\d{5}$`-ish), `hgnc` (`HGNC:\d+`), `ensembl` (`ENSG\d+`), `entrez` (integer string) - disease: `icd11`, `omim_xref` (note: `mesh_id` is not in the exec schema and is not queryable) - pathway: `pathway_id` (`R-HSA-\d+` for Reactome IDs; pathway_id IS the Reactome ID), `kegg_hsa_xref` (`hsa\d+`), `smpdb_xref` Map user IDs onto the right column rather than guessing.
+    * Controlled `rna_type` vocabulary on `rna_master_table`: `miRNA`, `lncRNA`, `RNA`, `circRNA`. Map user "microRNA" → `miRNA`; "long non-coding" → `lncRNA`; "circular RNA" → `circRNA`; generic RNA → `RNA`.
+    * Binding-affinity columns live in `drug_target_negative` (units are nM): - `ki_nm` — inhibition constant - `ic50_nm` — half-maximal inhibitory concentration - `kd_nm` — dissociation constant Lower value = more potent. When the user asks "potent" / "strong binder", sort ascending by the relevant column.
+    * `drug_synonyms` is not exposed in query results (exec_schema=false) — use drug_synonyms_association_hcdt for synonym lookup; pathway xref columns kegg_hsa_xref/smpdb_xref/chebi_xref are pipe-delimited in the parquet.
+    * `datasource` is per-row provenance — surface it so the user knows which upstream DB (e.g. ChEMBL, DrugBank, TTD, GuideToPharmacology) contributed the assertion.
+    * HCDT is clinically-focused (human, clinically validated). It is NOT a hereditary-disease variant DB, a PPI network, or a chemical ontology — defer those to ClinVar, BioGRID and ChEBI respectively.
+hpo:
+  agent_orchestrator:
+    failure_modes: |
+      - Empty rows on a gene symbol: confirm the symbol is HGNC-approved (re-resolve via HGNC) before falling back to web.
+      - Empty rows on a phenotype name: try the HPO synonym table (`phenotype_synonym_hpo.synonym`) before web fallback.
+      - Empty rows on an HP ID: confirm it matches `HP:\d{7}` exactly. If the user typed only digits, prefix `HP:` and pad to 7 digits before retry.
+      - "What drugs treat disease X?" — HPO has NO drug data; route to TTD / DrugCentral.
+      - "Is variant X pathogenic?" — HPO has no variant pathogenicity; route to ClinVar / CIViC.
+    routing_hints: |
+      - Phenotype-to-gene queries ("what genes cause seizures"): join `phenotype_master_table_hpo` (filter by `phenotype_name` or `phenotype_id`) → `gene_phenotype_association_hpo` → `gene_master_table_hpo`; always return `gene_phenotype_frequency` so the user knows how often the phenotype appears.
+      - Gene-to-phenotype queries ("what phenotypes does FBN1 cause"): filter `gene_phenotype_association_hpo` by `gene_symbol`; surface the linked `phenotype_name` + `gene_phenotype_frequency`.
+      - Disease-to-phenotype queries ("what symptoms does Marfan have"): use `disease_phenotype_annotation_hpo` (NOT `gene_phenotype_association_hpo`) — surface `qualifier`, `evidence`, `onset`, `disease_phenotype_frequency`, `sex`, `modifier`, `aspect` together. Filter `qualifier!='NOT'` unless the user explicitly wants excluded features.
+      - Ontology questions ("parent term of X", "definition of X"): query `phenotype_master_table_hpo` — surface `definition`, `is_a_parents`, `alt_ids`, `xrefs`.
+      - Frequency questions: map user phrasings to HPO frequency HP IDs — `Very frequent`=`HP:0040281`, `Frequent`=`HP:0040282`, `Occasional`=`HP:0040283`, `Very rare`=`HP:0040284`, `Excluded`=`HP:0040285`. Fractions like `12/15` may also appear.
+      - Onset questions: canonical onset terms include `HP:0003577` (Congenital), `HP:0003581` (Adult), `HP:0003593` (Infantile), `HP:0011463` (Childhood), `HP:0003621` (Juvenile), `HP:0003584` (Late onset).
+    skip_if: |
+      - The question asks for drug treatments — route to TTD / DrugCentral / DGIdb.
+      - The question asks for variant pathogenicity / ACMG classification — route to ClinVar / CIViC.
+      - The question asks for Reactome pathway membership — route to Reactome / WikiPathways.
+      - The question asks for MONDO / DOID unified disease IDs — HPO only carries OMIM and ORPHA IDs.
+      - The question asks for tissue expression — route to GTEx / HPA.
+      - The question asks for protein-protein interactions — route to BioGRID / STRING / OmniPath.
+  description: HPO (Human Phenotype Ontology) is the standardised controlled vocabulary for clinical and phenotypic abnormalities
+    observed in human genetic diseases. Each phenotype carries a `phenotype_id` in the strict format `HP:` + 7 digits (e.g.
+    `HP:0001250` = Seizure, `HP:0000316` = Hypertelorism), a preferred `phenotype_name`, a free-text `definition`, `alt_ids`,
+    cross-references (`xrefs`) into MeSH / SNOMED / UMLS / ICD10, and `is_a_parents` (broader terms). HPO maps phenotypes
+    to causative genes via `gene_phenotype_association_hpo` (with curated `gene_phenotype_frequency`) and to diseases via
+    `disease_phenotype_annotation_hpo` (with `qualifier`, `evidence` code, `onset`, `disease_phenotype_frequency`, `sex`,
+    `modifier`, `aspect`). Disease IDs are OMIM (`OMIM:NNNNNN`) or Orphanet (`ORPHA:NNNNN`); HPO does NOT carry MONDO / DOID
+    identifiers natively.
+  display: HPO
+  extra_constraints:
+  - Always state the HPO term identifier (`HP:NNNNNNN`) alongside the phenotype name. Never conflate gene–phenotype (`gene_phenotype_association_hpo`)
+    with disease–phenotype (`disease_phenotype_annotation_hpo`) associations — they are separate tables with different schemas.
+  tips: |
+    * HPO's primary keys are `phenotype_id` (`HP:NNNNNNN`), `gene_symbol` (HGNC), and `disease_id` (`OMIM:NNNNNN` or `ORPHA:NNNNN`).
+      The phenotype-ID regex is `HP:\d{7}` — always padded to exactly 7 digits. When a user types `HP0001250`, `hp:1250`, or `1250`,
+      normalise to the canonical `HP:0001250` form before filtering.
+
+    * **Frequency vocabulary** (`HP:0040280` series) on `gene_phenotype_association_hpo.gene_phenotype_frequency` and `disease_phenotype_annotation_hpo.disease_phenotype_frequency`:
+        - `HP:0040280` = Obligate (100%)
+        - `HP:0040281` = Very frequent (80-99%)
+        - `HP:0040282` = Frequent (30-79%)
+        - `HP:0040283` = Occasional (5-29%)
+        - `HP:0040284` = Very rare (1-4%)
+        - `HP:0040285` = Excluded (0%)
+      Fractional frequencies like `12/15` may also appear. Map user phrasings ("very common", "rare") to these canonical HP IDs.
+
+    * **Onset modifiers** on `disease_phenotype_annotation_hpo.onset` are HPO terms — canonical values include
+      `HP:0003577` (Congenital onset), `HP:0003581` (Adult onset), `HP:0003593` (Infantile onset),
+      `HP:0011463` (Childhood onset), `HP:0003621` (Juvenile onset), `HP:0003584` (Late onset).
+
+    * **`gene_phenotype_association_hpo` vs `disease_phenotype_annotation_hpo` distinction**:
+        - `gene_phenotype_association_hpo` — phenotype linked DIRECTLY to a gene_symbol; carries only `gene_phenotype_frequency`. Use for genotype-first questions ("what phenotypes does FBN1 cause?").
+        - `disease_phenotype_annotation_hpo` — phenotype linked to a disease (OMIM / ORPHA); carries `qualifier`, `evidence`, `onset`, `disease_phenotype_frequency`, `sex`, `modifier`, `aspect`. Use for disease-first questions ("what symptoms does Marfan syndrome have?"). Filter `qualifier!='NOT'` unless explicitly asked for excluded features.
+
+    * **`aspect` enum** on `disease_phenotype_annotation_hpo`: `P` = phenotypic abnormality (the main symptoms), `I` = inheritance, `C` = clinical course, `M` = clinical modifier. Default to `aspect=P` for symptom questions.
+
+    * **Cross-references** (`phenotype_master_table_hpo.xrefs`) point into MeSH / SNOMED CT / UMLS / ICD10 — use them when the user wants to translate an HP term into another vocabulary.
+
+    * HPO disease IDs are OMIM (`OMIM:NNNNNN`) or Orphanet (`ORPHA:NNNNN`) only — NOT MONDO or DOID. Route MONDO / DOID lookups to those DBs.
+msigdb:
+  description: MSigDB (Molecular Signatures Database) is a curated collection of gene sets for gene-set enrichment analysis
+    (GSEA), covering human (Homo sapiens), mouse (Mus musculus) and a small amount of rat (Rattus norvegicus) data. It answers
+    "which genes are in gene set / signature / pathway X" and "which gene sets contain gene Y", plus per-set metadata (PMID,
+    GEO id, contributor, sub-collection, size). It is membership + provenance only — it has NO enrichment statistics, fold-changes,
+    or p-values for a user-supplied gene list (that is a GSEA computation, not stored data). Disease and biological-process
+    associations are encoded as keywords inside geneset_name (e.g. HALLMARK_INTERFERON_GAMMA_RESPONSE, WP_LUPUS_ERYTHEMATOSUS_PATHWAY)
+    — MSigDB has no disease_name column.
+  display: MSigDB
+  extra_constraints:
+  - Always surface the `collection` (Hallmark, Curated, Oncogenic, Immunologic, etc.) and `organism` alongside a gene set
+    — the same `geneset_name` can appear under multiple geneset_ids (876 within-organism duplicates exist; use `geneset_id`
+    for unambiguous joins).
+  - Report `gene_count` (set size) when listing gene sets; it is stored as a String, not an integer.
+  tips: |
+    * MSigDB's primary keys are `geneset_id` (unambiguous join key across all four tables), `geneset_name` (e.g.
+      `HALLMARK_APOPTOSIS`, `KEGG_MAPK_SIGNALING_PATHWAY` — NOT unique on its own; the same name may appear under multiple
+      geneset_ids within an organism — use geneset_id for joins), `gene_symbol` (HGNC for human, MGI for mouse),
+      `collection`, and `organism`.
+
+    * **Four tables**:
+      - `geneset_master_table` (52,429 rows; one row per geneset_id: name, collection, url, gene_count, organism)
+      - `gene_master_table` (105,301 rows; flat gene catalog keyed by composite `gene_id="<gene_symbol>|<organism>"`; source of `gene_symbol`)
+      - `gene_geneset_association` (~5.76M rows; FK-only edge [geneset_id, gene_id] — no gene_symbol/collection/organism stored here; use for "genes in set X" / "sets containing gene Y")
+      - `geneset_metadata` (52,429 rows; per-set provenance: PMID, GEO id, authors, contributor, sub_collection, brief/full descriptions — NO gene_symbol column here)
+      Join on `geneset_id`, not `geneset_name`. To get member gene symbols: association → gene_master on gene_id.
+
+    * **`collection` enum** (friendly-name vocabulary; **lives ONLY in geneset_master_table** — normalized, NOT mirrored into association or metadata tables): Hallmark, Positional, Curated, Regulatory, Computational, Ontology, Oncogenic, Immunologic, CellType, CellLineage. Both human and mouse sets use these same friendly names; legacy codes (H, C1..C9, MH, M1..M8) do NOT appear on disk. **KEGG, REACTOME, GO, BIOCARTA, WikiPathways are NOT collection values** — they are geneset_name PREFIXES (KEGG_, REACTOME_, GOBP_, WP_, BIOCARTA_) and sub_collection values in geneset_metadata.
+
+    * **`organism` enum**: `Homo sapiens` (~34k sets), `Mus musculus` (~18k sets), `Rattus norvegicus` (~31 sets). Default to Homo sapiens unless the user names a species.
+
+    * `url` is null or empty string for ~21% of sets (including all Hallmark human sets) — filter `(url.is_not_null()) & (url != "")` before presenting it as a link.
+  agent_orchestrator:
+    failure_modes: |
+      - Empty rows on a gene symbol: confirm it is HGNC-approved (human) or MGI-approved (mouse) before falling back to web; MSigDB stores the symbol in `gene_master_table` under the composite `gene_id` key
+        (`"<gene_symbol>|<organism>"`); re-resolve via HGNC if the symbol looks like an alias.
+      - Empty rows on a geneset_name: remember that `geneset_name` is NOT unique on its own (876 within-organism duplicates exist); always join through `geneset_id`.
+      - "What is the enrichment p-value / fold-change for gene list X" — MSigDB stores membership only, NOT enrichment statistics;
+        route GSEA computations to the user's own analysis tools (e.g. fgsea / GSEA desktop).
+      - "What is the expression level of gene X in tissue Y" — MSigDB has no expression data; route to GTEx / HPA.
+      - "What diseases does pathway X cause" — MSigDB has no disease_name column; disease context is embedded in geneset_name keywords only (e.g.
+        WP_LUPUS_ERYTHEMATOSUS_PATHWAY); for curated disease-gene associations route to CTD / ClinVar / OpenTargets.
+    routing_hints: |
+      - Geneset membership queries ("which genes are in HALLMARK_APOPTOSIS"): join `geneset_master_table` (filter `geneset_name=HALLMARK_APOPTOSIS`) → `gene_geneset_association` → `gene_master_table`; always surface
+        `collection`, `geneset_organism`, and `gene_count`.
+      - Gene-to-geneset queries ("which gene sets contain MYC", "what pathways is MYC in"): filter `gene_master_table.gene_symbol=MYC` (and `geneset_organism='Homo sapiens'` unless the user specifies a species) → `gene_geneset_association` → `geneset_master_table`.
+      - Hallmark queries ("show me Hallmark gene sets", "list Hallmark signatures"): filter `geneset_master_table.collection='Hallmark'`; note this is a `collection` value, not a geneset_name prefix.
+      - Source-DB prefix queries ("KEGG pathways in MSigDB", "all REACTOME gene sets", "GO biological process terms", "WikiPathways signatures"): filter
+        `geneset_name LIKE 'KEGG_%'` / `'REACTOME_%'` / `'GOBP_%'` / `'WP_%'` — these are geneset_name prefixes, NOT `collection` values.
+      - Sub-collection queries ("CP:KEGG_MEDICUS sets", "GO:BP terms"): use `geneset_metadata.sub_collection` with the appropriate prefix value.
+      - Provenance queries ("who contributed gene set X", "what paper describes HALLMARK_APOPTOSIS"): join `geneset_master_table` → `geneset_metadata` on `geneset_id`; surface `contributor`, `pmid`, `geoid`.
+    skip_if: |
+      - The question asks for drug-gene interactions or drug targets — route to HCDT / TTD / DGIdb; MSigDB has no drug-target table.
+      - The question asks for curated disease-gene associations with evidence scores — route to CTD / ClinVar / OpenTargets; MSigDB has no disease_name column.
+      - The question asks for protein 3D structure / SMILES / UniProt annotations — route to UniProt / PDBe / AlphaFold.
+      - The question asks for protein-protein interaction networks or confidence scores — route to STRING; MSigDB has no PPI edge table.
+      - The question asks for variant pathogenicity / ACMG classification — route to ClinVar / CIViC.
+      - The question asks for phenotype-gene mappings (HPO terms) — route to HPO; MSigDB HP_ gene sets are a subset and lack the structured phenotype ontology.
+      - The question asks for GSEA enrichment computation on a user-supplied gene list — MSigDB stores membership only, not statistics;
+        direct the user to a GSEA tool.
+orphanet:
+  agent_orchestrator:
+    failure_modes: |
+      - Empty rows on a disease name: try the OMIM xref (filter `disease_xref_orphanet.xref_source='OMIM'` + `xref_id=...`) to recover the ORPHA ID; if still empty, fall back to web.
+      - Empty rows on an ORPHA ID: confirm format matches `(?:ORPHA|Orphanet):\d+`. If the user typed only digits, prefix `ORPHA:` before retry.
+      - Empty rows on a gene symbol: HGNC-resolve first; Orphanet does not carry historical aliases.
+      - "What variants in gene X are pathogenic?" — Orphanet has no variant-level classifications; route to ClinVar / CIViC.
+      - "What drugs treat rare disease X?" — Orphanet has no drug pharmacology data despite the orphan-drug portal; route to DrugCentral / TTD.
+    routing_hints: |
+      - Disease → gene queries ("what genes cause Marfan syndrome"): join `disease_master_table_orphanet` → `gene_disease_association_orphanet` → `gene_master_table_orphanet`; ALWAYS surface `gene_disease_association_type` so the user knows whether it's `Disease-causing germline mutation(s) in`, a `Major susceptibility factor in`, a `Modifying germline mutation in`, etc.
+      - Gene → disease queries ("what rare diseases involve FBN1"): filter `gene_master_table_orphanet.gene_symbol=FBN1`.
+      - Prevalence questions: query `disease_epidemiology_orphanet` — surface `prevalence_type`, `prevalence_class`, `val_moy`, `geographic`, `prevalence_qualification` together. Filter `prevalence_type='Point prevalence'` for current-disease-burden questions; `'Prevalence at birth'` for incidence-at-birth questions.
+      - Inheritance / onset questions: query `disease_onset_inheritance_orphanet` — filter `attribute='inheritance'` for mode-of-inheritance, `attribute='age_of_onset'` for age-of-onset; canonical inheritance values include `Autosomal dominant`, `Autosomal recessive`, `X-linked dominant`, `X-linked recessive`, `Mitochondrial inheritance`, `Multigenic/multifactorial`.
+      - Cross-reference questions ("OMIM ID for X", "ICD-10 code for X"): query `disease_xref_orphanet` with the appropriate `xref_source`; ALWAYS surface `mapping_relation` (`E`=exact / `NTBT`=narrower / `BTNT`=broader / `ND`=not defined) so the user knows the mapping precision.
+      - Classification questions ("what is X a subtype of"): query `disease_classification_orphanet` — surface `classification`, `disorder_type`, `parent_disease_name`.
+      - HPO-coded phenotype queries: use `disease_phenotype_association_orphanet` — surface `phenotype_id` (`HP:NNNNNNN`), `hpo_term`, and the curated text `frequency` (e.g. `Very frequent (99-80%)`).
+    skip_if: |
+      - The question asks for common-disease genes (type 2 diabetes, hypertension, schizophrenia) — Orphanet is rare-disease only; route to CTD / OpenTargets / ClinVar.
+      - The question asks for variant-level pathogenicity / ACMG — route to ClinVar / CIViC.
+      - The question asks for drug treatments / approval status — route to DrugCentral / TTD; Orphanet has no drug pharmacology table.
+      - The question asks for Reactome pathway membership — route to Reactome / WikiPathways.
+      - The question asks for 3D structure / SMILES — route to PDBe / AlphaFold / ChEBI.
+      - The question asks for population allele frequencies — route to gnomAD.
+  description: Orphanet is the reference portal for rare diseases and orphan drug designations, covering >10,000 rare diseases
+    with established genetic causation. Each disease is keyed by `disease_id` in the format `ORPHA:` + integer (e.g. `ORPHA:558`
+    = Marfan syndrome, `ORPHA:773` = Neurofibromatosis type 1). Gene-disease associations carry a `gene_disease_association_type`
+    from a controlled long-text enum (`Disease-causing germline mutation(s) in`, `Disease-causing germline mutation(s) (loss
+    of function) in`, `Disease-causing somatic mutation(s) in`, `Major susceptibility factor in`, `Modifying germline mutation
+    in`, `Part of a fusion gene in`, `Role in the phenotype of`, `Biomarker tested in`, `Candidate gene tested in`). HPO-coded
+    phenotypes are stored in `disease_phenotype_association_orphanet` with a curated text `frequency` (`Very frequent (99-80%)`,
+    `Frequent (79-30%)`, `Occasional (29-5%)`, `Very rare (<4-1%)`, `Excluded (0%)`). Epidemiology lives in `disease_epidemiology_orphanet`
+    (`prevalence_type`, `prevalence_class`, `val_moy`, `geographic`). Onset / inheritance lives in `disease_onset_inheritance_orphanet`
+    keyed by `attribute` (`age_of_onset` / `inheritance`) + `value`. Cross-references into OMIM / ICD-10 / ICD-11 / MeSH /
+    UMLS / MedDRA live in `disease_xref_orphanet` with a `mapping_relation` precision flag.
+  display: Orphanet
+  extra_constraints:
+  - Always report the `gene_disease_association_type` text alongside any gene-disease claim — `Disease-causing germline mutation(s)
+    in` is a causal claim, `Modifying germline mutation in` or `Major susceptibility factor in` is NOT. Never silently merge
+    them.
+  - Always surface `mapping_relation` (`E` / `NTBT` / `BTNT` / `ND`) alongside any xref ID so the user knows the mapping precision.
+  - When presenting HPO phenotype results, preserve the row order from the data (sorted by frequency tier — Obligate first,
+    then Very frequent, Frequent, Occasional, Very rare, Excluded). Do NOT reorder alphabetically. The most clinically prevalent
+    features must appear first in the numbered list.
+  - "Yes/No row-presence rule: if the filtered table contains at least one matching row, this constitutes affirmative evidence
+    — answer 'Yes, confirmed'. Answer 'No' ONLY when (a) zero rows are returned for the entity, OR (b) a specific value column
+    explicitly contradicts the question's claim (e.g., question says 'recessive' but the inheritance value column shows
+    'Autosomal dominant')."
+  - "Gene-cluster '@' suffix: a gene_symbol ending in '@' (e.g. 'SNORD116@') denotes a gene cluster. When the question
+    references the plain symbol ('SNORD116') or uses the phrase 'cluster', a table row showing 'SNORD116@' IS a match —
+    treat as affirmative and answer 'Yes' when such rows are present."
+  - "Protein/enzyme alias in yes/no questions: when a question names a protein by its common name (e.g. 'acid alpha-glucosidase')
+    and the table contains the corresponding HGNC gene symbol (e.g. 'GAA'), these are the same molecular entity. Do NOT say
+    'No' due to this name difference — confirm 'Yes' when matching rows are present."
+  - "Inheritance yes/no comparison: when answering 'Is disease X inherited by mode Y?', read the `value` column from
+    disease_onset_inheritance_orphanet and compare directly. 'Autosomal dominant' ≠ 'recessive'; 'Autosomal recessive'
+    ≠ 'dominant'. If the table value contradicts the question's claimed mode, answer 'No — disease X is inherited as
+    [table value], not [claimed mode]'."
+  tips: |
+    * Orphanet's primary keys are `disease_id` (regex `(?:ORPHA|Orphanet):\d+`) and `gene_symbol` (HGNC symbol).
+      When a user types `ORPHA:558`, `Orphanet:558`, or just `558`, normalise to the canonical `ORPHA:558` form (prefix `ORPHA:` if missing) before filtering.
+
+    * **`mode_of_inheritance` enum** (from `disease_onset_inheritance_orphanet.value` when `attribute='inheritance'`): canonical values are
+        - `Autosomal dominant`
+        - `Autosomal recessive`
+        - `X-linked dominant`
+        - `X-linked recessive`
+        - `Mitochondrial inheritance`
+        - `Multigenic/multifactorial`
+        - `Y-linked`
+        - `Semi-dominant`
+        - `Sporadic`
+        - `Unknown`
+        - `Not applicable`
+      Map user phrasings ("AD", "recessive X-linked") to these canonical strings before filtering.
+
+    * **`prevalence_class` enum** (from `disease_epidemiology_orphanet.prevalence_class`): canonical buckets are
+        - `>1 / 1000`
+        - `6-9 / 10 000`
+        - `1-5 / 10 000`
+        - `1-9 / 100 000`
+        - `1-9 / 1 000 000`
+        - `<1 / 1 000 000`
+        - `Not yet documented`
+        - `Unknown`
+      When the user asks "how common is X", surface BOTH `prevalence_class` (the bucket) AND `val_moy` (the numeric mean) so they see the range and the point estimate.
+
+    * **`prevalence_type` enum**: `Point prevalence`, `Prevalence at birth`, `Lifetime Prevalence`, `Annual incidence`, `Cases/families`. Default to `Point prevalence` for current-disease-burden questions.
+
+    * **`age_of_onset` enum** (from `disease_onset_inheritance_orphanet.value` when `attribute='age_of_onset'`): canonical values are
+        - `Antenatal`
+        - `Neonatal`
+        - `Infancy`
+        - `Childhood`
+        - `Adolescent`
+        - `Adult`
+        - `Elderly`
+        - `All ages`
+        - `No data available`
+      These are coarser than HPO onset terms (`HP:0003577`, `HP:0003581`, …); Orphanet stores plain English strings here, not HP IDs.
+
+    * **`gene_disease_association_type` long enum** on `gene_disease_association_orphanet` is curated free text — when reporting causal genes, prefer rows where `gene_disease_association_type LIKE 'Disease-causing germline mutation%'` (the canonical causal claim). Treat `Major susceptibility factor in`, `Modifying germline mutation in`, `Biomarker tested in`, and `Candidate gene tested in` as NOT-fully-causal — always state which class the row falls in.
+
+    * **`mapping_relation` codes** in `disease_xref_orphanet`: `E`=exact match, `NTBT`=narrower-term broader-term, `BTNT`=broader-term narrower-term, `ND`=not defined. Default to `E` xrefs unless the user explicitly wants near-matches.
+
+    * HPO phenotype links in `disease_phenotype_association_orphanet` carry the curated text `frequency` (`Very frequent (99-80%)`, `Frequent (79-30%)`, …) — this is human-readable text, NOT the HP IDs HPO uses internally for frequency.
+reactome:
+  agent_orchestrator:
+    failure_modes: |-
+      - Empty rows on a stable ID: confirm it matches `R-HSA-\d+`. If the user typed only
+        digits (e.g. `109581`), prefix `R-HSA-` and retry once. If still empty, fall back to
+        web with the disclaimer prefix.
+      - Empty rows on a gene symbol: confirm it is HGNC-approved (re-resolve via HGNC).
+        Reactome does NOT store gene aliases / synonyms — retry with the official symbol.
+      - "What is the reaction kinetics / rate of X" — Reactome stores reaction *participation*
+        and topology, NOT kinetic parameters; route to BRENDA / ChEMBL bioactivity instead.
+      - "Drugs that hit pathway X" — Reactome has no drug-target table; route to
+        TTD / DGIdb / ChEMBL.
+    routing_hints: |-
+      - Gene-symbol queries ("What pathways is BRCA2 in?"): interpreter sets
+        `gene_symbol=BRCA2` and joins through `gene_pathway_association` →
+        `pathway_master_table`; always return `pathway_id` in canonical `R-HSA-NNNNNNN` form
+        alongside `pathway_name`.
+      - Stable-ID queries (`R-HSA-109581`): treat as a direct `pathway_id` lookup and skip
+        gene-symbol alias resolution. Accept the numeric suffix alone (`109581`) and prefix
+        `R-HSA-` before filtering.
+      - Hierarchy walks ("parent pathway of X" / "sub-pathways of X"): query
+        `pathway_hierarchy_reactome`. Parent walk: filter `child_pathway_name=X`, return `parent_pathway_name`.
+        Children walk: filter `parent_pathway_name=X`, return `child_pathway_name`. No join needed — the table is self-contained with denormalized name columns.
+      - UniProt-anchored queries (`P04637`): query `uniprot_pathway_reactome` with
+        `uniprot_accession=P04637`; surface the `uniprot_pathway_evidence` code with each pathway.
+      - Chemical participation ("ChEBI in the TCA cycle"): resolve the pathway in
+        `pathway_master_table` (`pathway_name LIKE %TCA%`) then join `chebi_pathway_reactome` on `pathway_id` (xref tables store only `pathway_id`, never `pathway_name`).
+      - Cross-reference questions (Ensembl / NCBI ID linked into pathways): query
+        `ensembl_pathway_reactome` / `ncbi_pathway_reactome` directly.
+    skip_if: |-
+      - The question asks for drug-target pairs or inhibitors — route to TTD / DGIdb /
+        ChEMBL.
+      - The question asks for variant pathogenicity — route to ClinVar / CIViC.
+      - The question asks for GSEA gene-set membership / collection (H, C1-C8) — route to
+        MSigDB (Reactome is pathway topology, NOT GSEA gene sets).
+      - The question asks for TF → target regulation — route to TRRUST / OmniPath.
+      - The question asks for protein-protein interactions outside curated pathway membership
+        — route to BioGRID / STRING / OmniPath.
+      - The question asks for tissue expression — route to GTEx / HPA.
+  description: Reactome is a manually-curated, peer-reviewed knowledgebase of human pathways — pathway-level annotations only.
+    No reaction-level, substrate/product, or kinetic data is available in this snapshot. Pathways are hierarchically organised
+    from top-level events (e.g. "Signal Transduction", "Metabolism", "Cell Cycle") with every pathway carrying a stable identifier
+    in the strict format `R-HSA-NNNNNNN` for human (`R-HSA-109581` = Apoptosis, `R-HSA-1640170` = Cell Cycle); the hierarchy
+    is encoded in `pathway_hierarchy_reactome` as denormalized `parent_pathway_name` → `child_pathway_name` rows (self-contained,
+    no join needed) so a sub-pathway can be walked back to its root. Gene participants are stored as HGNC `gene_symbol` +
+    NCBI `gene_id`, with a `gene_pathway_association.gene_pathway_evidence` code (`TAS`, `IEA`, …) on each link. Protein participants
+    live in `uniprot_pathway_reactome` (`uniprot_accession` + `uniprot_pathway_evidence`), with small molecules in `chebi_pathway_reactome`
+    (`chebi_id`), and Ensembl and NCBI Entrez cross-references in their own tables. Reactome data is human-only (`R-HSA-`
+    prefix); it does NOT store drug-target pairs, variant pathogenicity, disease associations, or GSEA gene sets.
+  display: Reactome
+  extra_constraints:
+  - Always emit the Reactome stable identifier in the canonical `R-HSA-NNNNNNN` form when reporting a pathway — never strip
+    the `R-HSA-` prefix.
+  - Distinguish *pathway* (a curated grouping of reactions) from *reaction* (a leaf step) — both share the `R-HSA-` ID space,
+    but only reactions correspond to a single biochemical event.
+  - Always surface the evidence code (`TAS`, `IEA`, …) — `gene_pathway_evidence` on gene-pathway links and `uniprot_pathway_evidence`
+    on UniProt-pathway links; never silently merge experimental and electronic annotations.
+  tips: |-
+    * Reactome's primary key is `pathway_id`, in the strict format `R-HSA-NNNNNNN` for human (e.g. `R-HSA-109581` = Apoptosis, `R-HSA-1640170` = Cell Cycle, `R-HSA-162582` = Signal Transduction). When a user types `R-HSA-109581`, `Reactome:R-HSA-109581`, or just the numeric suffix, normalise to the full `R-HSA-NNNNNNN` form before filtering. This snapshot is human-only; `R-MMU-` mouse pathways are NOT available.
+
+    * Reactome is a true **ontology / hierarchy**, not a flat catalogue. The `pathway_hierarchy_reactome` table is SELF-CONTAINED with denormalized `parent_pathway_name` and `child_pathway_name` columns — no join to `pathway_master_table` needed. Walk *up* from a leaf via `child_pathway_name = X` → return `parent_pathway_name`. Walk *down* via `parent_pathway_name = X` → return `child_pathway_name`. Top-level events (e.g. "Signal Transduction", "Cell Cycle", "Metabolism") have no parent. The raw `parent_id`/`child_id` columns are opaque internal join keys — do NOT filter or display them directly.
+
+    * **Pathway vs reaction**: both share the `R-HSA-` stable-ID space, but a *pathway* is a curated grouping of *reactions*. A user asking "what reactions does EGFR catalyse" wants the leaf nodes (children with no further children); a user asking "what pathways is EGFR in" wants the intermediate / top-level groupings. The hierarchy table is the same join either way — only the leaf-vs-internal filter differs.
+
+    * `gene_pathway_association.gene_pathway_evidence` follows GO evidence codes: `TAS` = Traceable Author Statement (curator-validated, strongest), `IEA` = Inferred from Electronic Annotation (automated, weakest). Always surface the evidence code with the pathway membership.
+
+    * `uniprot_accession` matches the UniProt regex (`^[OPQ][0-9][A-Z0-9]{3}[0-9]$` or `^[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2}$`); `chebi_id` is `CHEBI:NNNNNN` for small molecules.
+
+    * Reactome data in this snapshot is **human-only** (`R-HSA-` prefix, `Homo sapiens`). There is no mouse or other species data available — do not attempt to filter by `species=Mus musculus` or use `R-MMU-` prefixed pathway IDs.
+string:
+  agent_orchestrator:
+    failure_modes: |
+      - Empty rows on a gene symbol: confirm the symbol is HGNC-approved (re-resolve via HGNC).
+        STRING stores a wide `protein_alias` table — retry the lookup via the `alias` column
+        before giving up.
+      - Empty rows on a STRING ID: confirm it matches `^<taxon>\.ENSP\d+$` (e.g. `9606.ENSP00000275493`);
+        pass it verbatim to `protein_id` and skip alias resolution.
+      - "Reaction kinetics / pathway membership" — STRING does NOT store reaction-step content;
+        route to Reactome / WikiPathways.
+      - "Per-experiment PMIDs" — STRING collapses experimental evidence into a single channel score;
+        for per-publication evidence with `experiment_type` and `pubmed_id`, route to BioGRID.
+    routing_hints: |
+      - Gene-symbol queries ("interactors of EGFR"): set `gene_symbol=EGFR` on `ppi_association` and surface
+        `association_score`, then optionally the per-channel breakdown from `ppi_detailed_channels`
+        (`channel_combined_score` + individual channel columns).
+      - High-confidence threshold: `association_score>=700` (high), `>=900` (highest); this snapshot is pre-filtered to ≥700.
+        Never present unfiltered edges as biology — STRING ships many low-score links.
+      - Physical-only queries ("direct binding partners of X"): hit `ppi_physical` (separate table),
+        NOT `ppi_association`; filter on `physical_score`.
+      - Per-channel deep dive: when the user says "co-expression" / "text mining" /
+        "experimental evidence", hit `ppi_detailed_channels` and filter on the specific channel column
+        (`coexpression`, `textmining`, `experimental`, `database`, `neighborhood`, `fusion`, `cooccurence`);
+        surface `channel_combined_score` alongside. Note the schema spelling `cooccurence` (single-`r`).
+      - ID-mapping queries: query `protein_alias` with `alias` or `source` (`Ensembl_HGNC`, `RefSeq`, `UniProt`)
+        to bridge between user identifiers and STRING `protein_id`.
+    skip_if: |
+      - The question asks for variant pathogenicity — route to ClinVar / CIViC.
+      - The question asks for drug-target pairs / IC50 — route to TTD / DGIdb / ChEMBL.
+      - The question asks for reaction-level pathway topology — route to Reactome / WikiPathways.
+      - The question asks for TF → target gene regulation — route to TRRUST / OmniPath.
+      - The question asks for per-experiment literature evidence with `experiment_type` — route to BioGRID.
+      - The question asks for tissue expression — route to GTEx / HPA.
+      - The question asks for 3D structure — route to PDBe / AlphaFold.
+  description: STRING v12 is a protein-protein association network covering known and predicted edges across thousands of
+    organisms. Edges are scored across seven evidence channels — `neighborhood` (conserved genomic neighbourhood), `fusion`
+    (gene-fusion events), `cooccurence` (phylogenetic co-occurrence; note schema spelling), `coexpression` (co-expression
+    across organisms), `experimental` (biochemical evidence imported from BioGRID / IntAct / etc.), `database` (curated-database
+    evidence from Reactome / KEGG / etc.), and `textmining` (co-mention in PubMed abstracts). Three disjoint PPI tables are
+    available — `ppi_association` (functional associations, scored by `association_score`), `ppi_physical` (physical-only
+    binding evidence, scored by `physical_score`), and `ppi_detailed_channels` (per-channel breakdown plus `channel_combined_score`).
+    Each STRING protein is keyed by `protein_id` in `<taxon>.<ENSP>` form (e.g. `9606.ENSP00000275493` for human EGFR), with
+    `gene_symbol`, `protein_size` (amino acids) and free-text `annotation`. The `protein_alias` table maps every protein to
+    RefSeq, Ensembl, HGNC and UniProt identifiers.
+  display: STRING
+  extra_constraints:
+  - Always report the relevant score on every interaction row — `association_score` for `ppi_association`, `physical_score`
+    for `ppi_physical`, `channel_combined_score` for `ppi_detailed_channels`. Never present an unfiltered STRING edge as biology
+    without surfacing the score.
+  - When the user asks about evidence type, surface the per-channel breakdown (`neighborhood`, `fusion`, `cooccurence`, `coexpression`,
+    `experimental`, `database`, `textmining`) from `ppi_detailed_channels`, alongside `channel_combined_score`.
+  - Distinguish full-network `ppi_association` (functional association scored by `association_score`) from `ppi_physical`
+    (direct binding evidence scored by `physical_score`) — the two score columns are not interchangeable.
+  tips: |
+    * STRING's primary key is `protein_id` in the strict form `<taxon>.<ENSP>` (e.g. `9606.ENSP00000275493` for human
+      EGFR, `10090.ENSMUSP00000000001` for mouse). The taxon prefix is the NCBI taxonomy ID — `9606` for human,
+      `10090` for mouse, `559292` for *S. cerevisiae S288C*. When the user types just the ENSP accession, prefix `9606.`
+      for human queries.
+
+    * **Score columns by table**: `association_score` (ppi_association), `physical_score` (ppi_physical),
+      `channel_combined_score` (ppi_detailed_channels) — all integers 700–999 in this snapshot (pre-filtered to ≥700).
+      Canonical thresholds: 700 = high, 900 = highest. NEVER present unfiltered edges to the user — STRING ships many
+      low-score links that are not biology. Default to the table's score column `>=700` for general queries, `>=900` for
+      "high-confidence". Do NOT use the generic name `combined_score` — use the table-specific column name.
+
+    * **Seven evidence channels** (each scored 0–999) live in `ppi_detailed_channels`. The exact column names are:
+        - `neighborhood` — conserved genomic neighbourhood (most informative for prokaryotes)
+        - `fusion` — gene-fusion events across species
+        - `cooccurence` — phylogenetic co-occurrence / co-presence-absence (note the schema spelling: single-`r`)
+        - `coexpression` — co-expression across organisms
+        - `experimental` — biochemical evidence imported from BioGRID / IntAct / etc.
+        - `database` — curated-database evidence (Reactome, KEGG, …)
+        - `textmining` — co-mention in PubMed abstracts
+      Map user phrasings: "co-expression" → `coexpression`; "literature" / "text mining" → `textmining`;
+      "experimental evidence" → `experimental`; "curated DB" → `database`.
+
+    * **Three network tables** — keep them straight:
+        - `ppi_association` — full functional-association network (any combination of the 7 channels); score = `association_score`
+        - `ppi_physical` — physical-only sub-network (restricted to binding / complex evidence); score = `physical_score`
+        - `ppi_detailed_channels` — per-channel evidence breakdown; score = `channel_combined_score` (plus individual channel columns)
+      A "physical interaction" query MUST hit `ppi_physical`, not `ppi_association`.
+
+    * **Alias lookup**: `protein_alias.alias` covers RefSeq, Ensembl, HGNC, UniProt; `source` ∈
+      {`Ensembl_HGNC`, `RefSeq`, `UniProt`, `Ensembl_UniProt_AC`, …}. Use this table to bridge between
+      user-supplied identifiers and the STRING `protein_id`.
+
+    * `protein_size` is in amino acids; `annotation` is free-text function (e.g. "Receptor tyrosine kinase").
+      These are from STRING's own protein description table, not UniProt — for canonical function use UniProt instead.
+ttd:
+  description: TTD (Therapeutic Target Database) provides validated and clinical-trial therapeutic targets along with their
+    corresponding drugs/ligands, approval status, mechanism of action, and indicated diseases.
+  display: TTD
+  extra_constraints:
+  - Always state the `approval_status` value when present — it is TTD's headline clinical-trial signal (Approved / Phase N
+    / Preclinical / Discontinued / Withdrawn). Use the Title-Case value verbatim from the row.
+  - When reporting drug ↔ target rows, always surface `drug_mechanism_of_action_on_target` — it is the audit trail for the
+    pharmacology claim. State the TTD value verbatim (e.g. Inhibitor, Antagonist, Agonist, Modulator).
+  - When `drug_mechanism_of_action_on_target` is **"Modulator"**, TTD is using its broad catch-all for mechanisms not precisely
+    curated. Supplement with pharmacological knowledge to give the more specific functional class — for small-molecule drugs
+    targeting an enzyme or kinase "Modulator" typically means the drug functions as an **Inhibitor**; for monoclonal antibodies
+    "Modulator" typically means **Blocker** or **Antagonist**. State both the TTD value and the likely precise mechanism so
+    the user has the audit trail and the interpretation.
+  - For **mechanism-of-action questions** ("what is the mechanism of X", "how does X work", "describe the pharmacology of
+    X"), synthesise the TTD table rows into a **narrative summary paragraph** rather than a raw column dump. The paragraph
+    must — (1) name the drug; (2) state its molecular target using both the gene symbol and full target name from TTD; (3)
+    describe the mechanism — use the `drug_mechanism_of_action_on_target` value as the basis and supplement with pharmacological
+    knowledge to give a precise functional description (e.g. "acts as an inhibitor of …", "blocks the interaction between
+    …", "is an agonist of …"); (4) optionally state the therapeutic context if rows include a disease association. Do NOT
+    present the answer as a table, bullet list of raw column values, or JSON-style key:value pairs for MoA questions.
+  tips: |-
+    * TTD's primary keys are drug, target, and disease. Prefer canonical UniProt-style protein name (e.g. "epidermal growth factor receptor" or "EGFR"); prefer the generic INN for drugs.
+    * `approval_status` is a Title-Case controlled vocabulary — always surface the exact verbatim value from the row (e.g. Approved, Phase 1, Clinical trial, Preclinical, Discontinued in Phase 1/2/3). Do NOT paraphrase or normalise it.
+    * `drug_mechanism_of_action_on_target` is a Title-Case enum — always surface the verbatim value from the row (e.g. Inhibitor, Antagonist, Agonist, Modulator). Do NOT strip or rephrase qualifiers. The full enum lives in evaluation/schema_kg/inputs/ttd/schema_rules.json and dbs/ttd/schema.yaml.
+uniprot:
+  agent_orchestrator:
+    failure_modes: |
+      - Empty rows on a gene symbol: confirm the symbol is HGNC-approved (re-resolve via HGNC). If still empty, try
+        the protein recommended name (e.g. `Epidermal growth factor receptor`).
+      - Empty rows on an accession: confirm it matches the UniProt regex. If it looks like an old / secondary
+        accession, fall back to web with the disclaimer prefix.
+      - "What is the SMILES / structure of protein X" — UniProt has NO chemical structures; route to PDBe /
+        AlphaFold for 3D or to ChEMBL / PubChem for small-molecule cheminformatics.
+      - "Drugs that target X" — UniProt has no drug-target rows; route to ChEMBL / DGIdb / TTD / DrugCentral.
+    routing_hints: |
+      - Gene-symbol queries (e.g. "BRCA1", "TP53"): interpreter should set `gene_symbol` as filter. All entries are human Swiss-Prot reviewed — no `reviewed` filter needed.
+      - Accession queries (matches the UniProt regex): bypass alias resolution and set `protein_id` directly.
+      - "What is X?" / "What does X do?" / "role of X" / "function of X": query `protein_function_uniprot` (function_text, substring match); this is the
+        primary source for curated free-text function. Also surface GO aspect=F for structured MF terms.
+      - "Is X phosphorylated?" / "PTM sites of X" / "which kinase modifies X": query `ptm_sites_uniprot`; surface position + modification +
+        enzymes. For yes/no, also check protein_keyword_uniprot keyword_name='Phosphoprotein'.
+      - "What interacts with X?" / "binding partners" / "subunit composition": query `protein_interaction_uniprot`; filter interaction_type='BINARY'
+        for specific partner gene symbols, interaction_type='SUBUNIT' for complex membership text.
+      - "Molecular function of X": filter `gene_ontology_uniprot` with `aspect=F` AND `qualifier=['enables']`; surface `go_id` + `aspect` + `evidence` code. (qualifier='enables' is required — aspect=F alone also returns contributes_to/is_active_in rows that are not direct MF annotations)
+      - "Where is X located" / "subcellular compartment": prefer `protein_subcell_uniprot` JOIN `subcell_location_uniprot` on `subcell_id`; surface `subcell_name` (8 curated SL-locations per protein on average). Alternatively use `gene_ontology_uniprot` with `aspect=['C']` for ontology-level GO cellular component terms (more granular but expressed as GO: IDs). For simple "where is X?" questions use the subcell table; for "which GO cellular component terms" use the GO table.
+      - "Keywords / annotations on X": query `protein_keyword_uniprot` (JOIN `keyword_master_uniprot` on `keyword_id`); ALWAYS group by `category` so Biological process / Molecular function / Disease / PTM are visually separated.
+      - "Disease variants of X" / "what mutations are recorded": query `variant_disease_uniprot`; surface `ftid`, `swiss_prot_change`, `dbsnp`,
+        `disease_name` together.
+      - "Cross-references / external IDs for X": query `id_mapping_uniprot`; filter `db` to the requested resource (Ensembl, RefSeq, GeneID). NOTE: PDB cross-references are NOT in this DB; for 3D structure lookups
+        route to PDBe / AlphaFold.
+    skip_if: |
+      - The question asks for genome-wide PPI networks or confidence-scored interaction networks — route to STRING / BioGRID / OmniPath (UniProt protein_interaction_uniprot has direct binary partners + subunit text, not network topology).
+      - The question asks for Reactome pathway membership or pathway topology — route to Reactome / WikiPathways
+        (UniProt has GO terms, not Reactome IDs).
+      - The question asks for TF → target gene regulation — route to TRRUST / OmniPath.
+      - The question asks for variant pathogenicity / ACMG classification — route to ClinVar / CIViC.
+      - The question asks for tissue-level expression — route to GTEx / HPA.
+      - The question asks for population allele frequencies — route to gnomAD.
+      - The question asks for drug-target associations — UniProt has NO drug table; route to OpenTargets / HCDT / TTD.
+  description: UniProt Swiss-Prot (human) is the manually curated, reviewed protein knowledge base. Each entry carries a stable
+    UniProt accession (`protein_id`, e.g. `P04637`), an `entry_name` in SYMBOL_SPECIES form (e.g. `P53_HUMAN`), a full recommended
+    `protein_name`, HGNC `gene_symbol` + `hgnc_id`, and `organism` (scientific name, e.g. `Homo sapiens (Human)`), a `reviewed`
+    flag (string `'true'` = Swiss-Prot; all rows in this DB are Swiss-Prot reviewed), UniProt keywords with category (Biological
+    process / Cellular component / Molecular function / Disease / PTM / Technical term), curated subcellular locations via
+    `protein_subcell_uniprot` → `subcell_location_uniprot` (`subcell_id` / `subcell_name`), Gene Ontology annotations with
+    `go_id` + `qualifier` + GO `evidence` code + `aspect` (P / C / F), disease-linked variants (`ftid`, `swiss_prot_change`,
+    `dbsnp`, `disease_name`), external cross-references (`db`, `external_id`) into Ensembl, RefSeq, NCBI Gene and other resources
+    (PDB cross-references are not included; use PDBe or AlphaFold for structure data), free-text protein function descriptions
+    (`protein_function_uniprot`, `function_text` column, 17K proteins), PTM site annotations with position/modification/enzymes
+    (`ptm_sites_uniprot`, 56K sites), and protein interaction data — direct binary partners and subunit complex text — via
+    `protein_interaction_uniprot` (192K rows).
+  display: UniProt
+  extra_constraints:
+  - All entries in this DB are Swiss-Prot reviewed human proteins (reviewed='true'). No TrEMBL entries exist here — do not
+    add a reviewed filter or suggest the set is incomplete.
+  - When returning GO annotations, always surface `aspect` (P / C / F) alongside `go_id`. Surface `evidence` when the user
+    requests quality filtering, asks for 'experimental' or 'curated' annotations, or requests a broad GO annotation summary.
+    Do not add `evidence` as an unprompted output column when the user asks a simple gene→GO lookup — IDA/IPI/IMP are experimental,
+    IEA is electronic inference.
+  - When the user asks for a UniProt accession, validate it against the official regex `^[OPQ][0-9][A-Z0-9]{3}[0-9]$|^[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2}$`
+    before passing it to the tool.
+  tips: |
+    * UniProt's primary keys are `protein_id` (accession) and `gene_symbol`. Accessions follow the official regex
+      `^[OPQ][0-9][A-Z0-9]{3}[0-9]$` (e.g. `P04637`, `Q9Y6K5`) OR
+      `^[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2}$` (e.g. `A2BC19`, `A0A096LP49`) — when the user provides a string
+      matching either, treat it as an explicit `protein_id` lookup and skip alias resolution.
+
+    * `entry_name` is the SYMBOL_SPECIES mnemonic form (e.g. `P53_HUMAN`, `EGFR_HUMAN`, `BRCA1_HUMAN`). It is NOT the
+      accession — never confuse the two.
+
+    * **UniProt keyword vocabulary** (controlled, KW-#### IDs) groups annotations into 10 named categories — always surface
+      `category` alongside `keyword_name`:
+        - `Biological process` (e.g. `Apoptosis`, `Cell cycle`, `Transcription`) — 495 keywords
+        - `Molecular function` (e.g. `Kinase`, `Receptor`, `DNA-binding`) — 197 keywords
+        - `Cellular component` (e.g. `Cytoplasm`, `Membrane`, `Nucleus`) — 158 keywords
+        - `Disease` (e.g. `Tumor suppressor`, `Disease variant`) — 157 keywords
+        - `Ligand` (e.g. `Zinc`, `Iron`, `FAD`) — 69 keywords
+        - `PTM` (e.g. `Phosphoprotein`, `Ubl conjugation`) — ~47 keywords
+        - `Domain` (e.g. `Repeat`, `Coiled coil`, `SH2 domain`) — 35 keywords
+        - `Coding sequence diversity` (e.g. `Alternative splicing`) — 13 keywords
+        - `Technical term` (e.g. `Reference proteome`) — 11 keywords
+        - `Developmental stage` (e.g. `Blastocyst`, `Fetal protein`) — 9 keywords
+
+    * **GO term IDs** in `go_id` are `GO:NNNNNNN` (e.g. `GO:0006915` = apoptotic process). `aspect` is single-letter
+      (`P` = biological process, `C` = cellular component, `F` = molecular function). Filter on `aspect=F` for
+      "molecular function", `aspect=P` for "biological process", `aspect=C` for "subcellular component". `evidence`
+      uses ECO/GO codes (`IDA`, `IPI`, `IMP`, `IEA`, `TAS`, `ISS`, `IBA`, …).
+
+    * **Disease-linked variants** live in `variant_disease_uniprot` — `ftid` is the UniProt variant feature ID
+      (e.g. `VAR_005795`), `swiss_prot_change` is in HGVS-protein style (e.g. `p.Arg175His`), `dbsnp` is the rsID
+      cross-reference. This is NOT the same as ClinVar pathogenicity — UniProt links variants to disease names but
+      does not classify them ACMG/AMP.
+
+    * `organism` is the scientific name stored in `protein_master_table` (e.g. `Homo sapiens (Human)`). All rows in this DB are human Swiss-Prot; filter by `organism='Homo sapiens (Human)'` if
+      you need to be explicit. `reviewed` is a string column — its only value here is `'true'`. Do NOT use `taxon_id` as a filter
+      on `protein_master_table` — that column lives in `species_master_uniprot`, not in the protein master.
+
+    * **protein_function_uniprot** — free-text CC FUNCTION annotations (17K proteins). Column: `function_text`. Always use substring/contains
+      match, never exact. Join to protein master via `protein_id`.
+
+    * **ptm_sites_uniprot** — post-translational modification sites (56K rows). Columns: `position` (integer), `modification` (e.g.
+      'Phosphoserine', 'Phosphothreonine', 'N6-acetyllysine'), `enzymes` (free-text e.g. 'PKA', 'CK2'). Use substring match on `enzymes`.
+
+    * **protein_interaction_uniprot** — interactions (192K rows). `interaction_type`: 'BINARY' = specific partner (interactor_gene has the partner gene
+      symbol, nb_experiments = IntAct count), 'SUBUNIT' = complex/subunit free-text (interactor_gene null, description has the text).
+      For 'does X interact with Y' queries: filter BINARY rows where the anchor protein's gene_symbol=X (join protein_master_table_uniprot on protein_id) AND interactor_gene=Y (interactor_gene is the partner's HGNC symbol, directly filterable). Note: ~959 BINARY rows have null interactor_gene — cross-species (Xeno) interactions with no HGNC gene symbol; filter interactor_gene.is_not_null() for human-only results.

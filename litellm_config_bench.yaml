@@ -1,0 +1,516 @@
+# LiteLLM proxy configuration for BioChirp — BENCH / REPRODUCIBILITY PROFILE.
+#
+# Identical to litellm_config.yaml EXCEPT that prompt caching is disabled
+# (cache: false, no cache_params). Use this file when regenerating any
+# manuscript table or running the evaluation/ benchmarks — a cache hit
+# returns the EXACT prior completion, which collapses variance across
+# repeated calls and artificially inflates intra-run agreement metrics in
+# evaluation/same_question_robustness/.
+#
+# Switch by overriding the litellm volume mount in docker-compose.yml:
+#
+#   biochirp_litellm:
+#     volumes:
+#       - ./litellm_config_bench.yaml:/app/config.yaml:ro    # was litellm_config.yaml
+#
+# or with a compose override file (preferred — no edit to the main compose):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.bench.yaml up biochirp_litellm
+#
+# (see docker-compose.bench.yaml in the repo root.)
+#
+# CI gate scripts/check_litellm_pinning.py asserts:
+#   * litellm_config.yaml has cache: true
+#   * litellm_config_bench.yaml has cache: false
+#   * Both files share the same alias → upstream mapping.
+# Any drift between them fails CI — the mapping must stay byte-identical so
+# prod and bench resolve identical models for the same alias.
+#
+# ══════════════════════════════════════════════════════════════════════════
+# PAPER-PINNED MODEL MAPPING  (frozen 2026-05-12 for manuscript reproducibility)
+# ══════════════════════════════════════════════════════════════════════════
+# All result tables in evaluation/ and the manuscript were generated under
+# the alias → upstream mapping below. Legacy alias names (gpt-4.1-mini,
+# gpt-4.1-nano, gpt-4o-mini) are retained so call sites do not need to be
+# rewritten, but readers MUST treat the upstream column as authoritative.
+#
+#   alias              upstream (paper)      role
+#   ──────────────     ──────────────────    ──────────────────────────────
+#   gpt-5-mini         gpt-5-mini            orchestrator (multi-DB reasoning)
+#   gpt-4.1-mini       gpt-5.4-nano          router, interpreter, planner
+#   gpt-4.1-nano       gpt-4.1-nano          cheap classify/tag tier
+#   gpt-4o-mini        gpt-4.1-nano          legacy member-filter / web tool
+#   gpt-5.4-mini       gpt-5.4-mini          (available, not used in paper)
+#   gpt-5.4-nano       gpt-5.4-nano          (available, not used in paper)
+#
+# CHANGE-LOG (do NOT silently re-map aliases — append to this log instead):
+#   2026-05-11  gpt-4.1-mini  rerouted openai/gpt-4.1-mini → openai/gpt-5.4-nano
+#   2026-05-12  Mapping frozen for submission; cache disabled (see litellm_settings).
+#   2026-05-17  Refactored with YAML anchors (no semantic change; verified
+#               with assert old_resolved == new_resolved). Anchors live under
+#               `_anchors:` — top-level extras are ignored by litellm.
+#   2026-05-18  ADDED role-based aliases (synthesizer, router, decomposer,
+#               db_selector, db_summarizer, interpreter, planner, judge,
+#               member_filter, web_search, expand_filter,
+#               expand_filter_fallback, opentargets_agent, memory_agent).
+#               Each points to the SAME upstream as its legacy alias — no
+#               semantic change, paper reproducibility preserved. Legacy
+#               aliases (gpt-4.1-mini, gpt-4.1-nano, gpt-4o-mini,
+#               llm-filter-local, qwen3.5-nothink:latest) retained;
+#               services may migrate env vars to role names at their own
+#               pace. See "Role-based aliases" section at end of model_list.
+#   2026-05-19  Prompt caching ENABLED on this prod config (Redis backend at
+#               biochirp_redis_tool:6379, 1h TTL, namespaced `biochirp:`).
+#               ~15-20% cost reduction on repeat traffic. THIS FILE IS NO
+#               LONGER VALID FOR PAPER BENCHMARKS — use
+#               `litellm_config_bench.yaml` (cache: false) when regenerating
+#               result tables. The model-alias mapping above is shared
+#               between the two configs; only `litellm_settings.cache*`
+#               diverges. CI gate `check_litellm_pinning.py` validates both.
+#
+# GPU layout (if running local Ollama upstreams; not used in paper):
+#   GPU 1 → biochirp_ollama       → qwen2.5:32b      (heavy)
+#   GPU 2 → biochirp_ollama_light → qwen3.5 no-think (light)
+#
+# ── HOW TO SWITCH BACK TO OPENAI ──────────────────────────────────────────
+# 1. For each model below: comment out the ollama_chat/* block,
+#    uncomment the openai/* block.
+# 2. In .env: set OPENAI_API_KEY=sk-... and remove/clear OPENAI_BASE_URL.
+# 3. Restart: docker compose restart biochirp_litellm
+# ──────────────────────────────────────────────────────────────────────────
+
+# Shared credential / endpoint blocks. Not consumed by litellm directly; only
+# referenced via YAML merge keys in model_list. Keeping these here is the
+# single source of truth — rotate an api_base or env-var name once, every
+# model picks it up.
+_anchors:
+  openai:        &openai_creds      {api_key: os.environ/OPENAI_API_KEY,    api_base: https://api.openai.com/v1}
+  openrouter:    &openrouter_creds  {api_key: os.environ/OPENROUTER_API_KEY, api_base: https://openrouter.ai/api/v1}
+  gemini:        &gemini_creds      {api_key: os.environ/GEMINI_API_KEY}
+  ollama_heavy:  &ollama_heavy      {api_base: http://biochirp_ollama:11434,        num_ctx: 32768}
+  ollama_light:  &ollama_light      {api_base: http://biochirp_ollama_light:11434,  num_ctx: 32768}
+  # Deterministic-sampling overlay for Ollama models that must be reproducible.
+  # Merge AFTER ollama_heavy so seed/temperature apply on top of the base.
+  deterministic: &deterministic
+    temperature: 0
+    seed: 1
+    extra_body:
+      options:
+        seed: 1
+        temperature: 0
+
+model_list:
+
+  # ── Orchestrator (main multi-DB reasoning agent) ──
+  - model_name: gpt-5-mini
+    litellm_params:
+      model: openai/gpt-5-mini
+      <<: *openai_creds
+      # model: ollama_chat/qwen3-32b-nothink:latest
+      # api_base: http://biochirp_ollama:11434
+      # num_ctx: 32768
+
+  # ── GPT-5.4 generation (added 2026-05-11) ──
+  # Pricing reference (OpenAI list, per 1M tokens, standard tier):
+  #   gpt-5.4-mini : $0.75  in / $0.075 cached / $4.50 out
+  #   gpt-5.4-nano : $0.20  in / $0.02  cached / $1.25 out
+  - model_name: gpt-5.4-mini
+    litellm_params:
+      model: openai/gpt-5.4-mini
+      <<: *openai_creds
+
+  - model_name: gpt-5.4-nano
+    litellm_params:
+      model: openai/gpt-5.4-nano
+      <<: *openai_creds
+
+  # ── Router, memory, interpreter, query-planner ──
+  # Switched 2026-05-11 to gpt-5.4-nano (cheapest GPT-5.4 tier; the alias
+  # name `gpt-4.1-mini` is kept so we don't have to touch 30+ call sites,
+  # but the upstream is the same model as `gpt-4.1-nano` below — a single
+  # GPT-5.4 tier serves the entire pipeline).
+  - model_name: gpt-4.1-mini
+    litellm_params:
+      model: openai/gpt-5.4-nano
+      <<: *openai_creds
+      # model: openai/gpt-5.4-mini                 # one tier up
+      # model: openai/gpt-4.1-mini                 # legacy fallback
+      # model: ollama_chat/qwen3-32b-nothink:latest
+      # api_base: http://biochirp_ollama:11434
+      # num_ctx: 32768
+
+  # ── Cheap, non-reasoning tier (router, LLM member-filter, worker
+  # summarizer, semantic DB selector). These are simple classify-or-tag
+  # tasks where reasoning tokens are wasted budget. Routing literally to
+  # openai/gpt-4.1-nano so we get its native low-latency, no-reasoning
+  # behaviour — NOT aliased to the gpt-5.4 family.
+  - model_name: gpt-4.1-nano
+    litellm_params:
+      model: openai/gpt-4.1-nano
+      <<: *openai_creds
+      # model: openai/gpt-5.4-nano                 # previous alias target (reasoning)
+      # model: ollama_chat/qwen3.5:latest
+      # api_base: http://biochirp_ollama_light:11434
+      # num_ctx: 32768
+
+  # ── LLM member filter, biochirp agent, web tool ──
+  # Routed to real openai/gpt-4o-mini so the alias name matches the
+  # upstream model (no silent rewrite). Semantic filter / member filter
+  # reproducibility depends on this — see config.settings and
+  # app/tools/llm_member_filter for the call sites.
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      <<: *openai_creds
+
+  # ── Gemini baselines (for paper benchmark) ──
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      <<: *gemini_creds
+
+  - model_name: gemini-2.5-flash-lite
+    litellm_params:
+      model: gemini/gemini-2.5-flash-lite
+      <<: *gemini_creds
+
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      <<: *gemini_creds
+
+  # ── Local Qwen via biochirp_ollama (added 2026-05-12) ──────────────────────
+  # These are *new* aliases — they do not replace any existing GPT routes. Use
+  # them by setting per-role env vars in .env, e.g.
+  #   ORCHESTRATOR_MODEL_NAME=qwen3:32b
+  # Reproducibility note: paper benchmarks use the GPT routes above. Switching
+  # any role to qwen3:32b or qwen2.5:72b-instruct changes results and must be
+  # re-run before reporting numbers.
+  # qwen3:32b in *thinking* mode — emits CoT in `reasoning_content`, leaves
+  # `content` empty unless you parse reasoning_content. Use only for roles
+  # where you want explicit chain-of-thought.
+  - model_name: qwen3:32b
+    litellm_params:
+      model: ollama_chat/qwen3:32b
+      <<: *ollama_heavy
+
+  # qwen3-32b-nothink — non-thinking Qwen3 (2026-05-14)
+  # Pinned tag removed (same reason as gpt-oss above). Use original tag.
+  - model_name: qwen3-32b-nothink
+    litellm_params:
+      model: ollama_chat/qwen3-32b-nothink:latest
+      <<: [*ollama_heavy, *deterministic]
+      think: false
+
+  - model_name: qwen2.5:72b-instruct
+    litellm_params:
+      model: ollama_chat/qwen2.5:72b-instruct
+      <<: *ollama_heavy
+
+  # ── More local Ollama candidates for benchmarking (added 2026-05-12) ──────
+  - model_name: llama3.3:70b
+    litellm_params:
+      model: ollama_chat/llama3.3:70b
+      <<: *ollama_heavy
+
+  # gpt-oss:20b — production interpreter (2026-05-14)
+  # Pinned tag was removed: `ollama cp` of an actively-loaded model corrupted
+  # the manifest and caused inference hangs. Use the original tag for safety.
+  # seed = 1 + temperature=0 makes sampling deterministic across calls.
+  # To pin a snapshot, stop the model first (`ollama stop ...`) before `ollama cp`.
+  - model_name: gpt-oss:20b
+    litellm_params:
+      model: ollama_chat/gpt-oss:20b
+      <<: [*ollama_heavy, *deterministic]
+
+  - model_name: qwen2.5:32b
+    litellm_params:
+      model: ollama_chat/qwen2.5:32b
+      <<: *ollama_heavy
+
+  - model_name: qwen3.5:latest
+    litellm_params:
+      model: ollama_chat/qwen3.5:latest
+      <<: *ollama_heavy
+
+  # Routed to biochirp_ollama_light (GPU 2) instead of biochirp_ollama (GPU 1)
+  # so that the summarizer can run in parallel with the interpreter without
+  # the two roles fighting for a single GPU model slot (2026-05-14).
+  - model_name: qwen3.5-nothink:latest
+    litellm_params:
+      model: ollama_chat/qwen3.5-nothink:latest
+      <<: *ollama_light
+      temperature: 0
+      seed: 1
+
+  - model_name: qwen2.5-coder:7b
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:7b
+      <<: *ollama_heavy
+
+  # ── Local LLM member-filter (revised 2026-05-17) ─────────────────────
+  # Re-benchmarked 2026-05-17 on a 200-case BioChirp-scope filter set
+  # (50 drug + 50 gene + 50 disease + 50 pathway, adversarial with
+  # siblings/parents/unrelated). Results (F1 / P / R / JSON-valid / avg_t):
+  #   phi4:14b            : 0.917 / 0.984 / 0.882 / 100% / 0.55s   ← PRIMARY
+  #   qwen2.5-coder:7b    : 0.830 / 0.940 / 0.780 / 100% / 0.38s   ← FALLBACK
+  #   alibayram/medgemma:4b: 0.791 / 0.940 / 0.736 / 100% / 0.60s  (4B option)
+  #   meditron:7b         : 0.631 (rejects: over-recalls parents/siblings)
+  # phi4 was previously the fallback (2026-05-15 single-bench had them tied).
+  # At 200-case scale phi4 wins on both precision AND recall by ~9 F1 pts;
+  # latency penalty (0.55s vs 0.38s) is negligible since filter calls run
+  # concurrently. See _unified_router_test/bench200_summary.json for raw data.
+  # Final fallback chain (below): llm-filter-local → fallback → gpt-5.4-nano.
+  - model_name: llm-filter-local
+    litellm_params:
+      model: ollama_chat/phi4:14b
+      api_base: http://biochirp_ollama:11434
+      num_ctx: 8192
+      # Override global request_timeout=8s. Filter prompts with ~500 candidates
+      # take 20-40s on phi4:14b; 60s ceiling prevents premature fallback.
+      timeout: 60
+
+  - model_name: llm-filter-local-fallback
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:7b
+      api_base: http://biochirp_ollama:11434
+      num_ctx: 8192
+      timeout: 60
+
+  # ── DeepSeek V4 Flash via OpenRouter (added 2026-05-16, evaluation) ──
+  # Non-reasoning model — used as a candidate replacement for the paper-pinned
+  # OpenAI tier on the interpreter + schema_mapper hops. Reproducibility
+  # caveat: results gathered under this alias DO NOT match the frozen paper
+  # mapping above; re-run the full bench before reporting numbers.
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      <<: *openrouter_creds
+
+  # ── OpenRouter free-tier summarizer chain (added 2026-05-15) ─────────
+  # Quota tiers (OpenRouter policy):
+  #   < $10 lifetime credits  →  50 req/day  on :free
+  #   ≥ $10 lifetime credits  →  1000 req/day on :free
+  #   Per-minute cap (shared across all :free models): ~20 RPM
+  # Free models never consume the $10 balance — only paid upstreams do.
+  # Fallback chain is configured below in `litellm_settings.fallbacks`.
+  # When all free models return 429 (daily quota exhausted) or 5xx, LiteLLM
+  # automatically falls through to gpt-4.1-nano (paid OpenAI tier).
+  # Catalog verified 2026-05-15 against https://openrouter.ai/api/v1/models.
+  # OpenRouter no longer ships free Gemini endpoints (Google withdrew them in
+  # the May-2026 catalog rotation). Closest non-reasoning Google free model
+  # is `gemma-4-31b-it:free`. Llama-3.3-70B is the reliable size-bumped
+  # fallback. Both models stream content directly (no hidden reasoning
+  # tokens), so max_tokens translates 1:1 to visible summary.
+  - model_name: summarizer-free
+    litellm_params:
+      model: openrouter/google/gemma-4-31b-it:free
+      <<: *openrouter_creds
+
+  - model_name: summarizer-free-fallback-1
+    litellm_params:
+      model: openrouter/meta-llama/llama-3.3-70b-instruct:free
+      <<: *openrouter_creds
+
+  # ── Biomedical web-tool free chain (added 2026-05-15) ────────────────
+  # Prioritises synthesis quality + citation discipline over latency
+  # (web tool is a rare-trigger fallback path; 3–8 s per call is acceptable).
+  # OpenAI's gpt-oss-120b primary, NVIDIA Nemotron-3 Super 120B (12B-active
+  # MoE) as fast secondary. Both stream content directly (no hidden
+  # reasoning-token overhead). On 429 / 5xx the chain drops to direct
+  # Gemini Flash-Lite, then to the paper-pinned gpt-4o-mini paid fallback.
+  - model_name: web-free
+    litellm_params:
+      model: openrouter/openai/gpt-oss-120b:free
+      <<: *openrouter_creds
+
+  - model_name: web-free-fallback-1
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
+      <<: *openrouter_creds
+
+  # ══════════════════════════════════════════════════════════════════════
+  # ROLE-BASED ALIASES  (added 2026-05-18 — additive, non-breaking)
+  # ══════════════════════════════════════════════════════════════════════
+  # Each alias below describes the JOB its caller does, not the underlying
+  # model. Services can migrate from model-shaped envs (gpt-4.1-mini) to
+  # role-shaped envs (synthesizer) one at a time without breakage — both
+  # names resolve to the same upstream.
+  #
+  # When you change a role's model, edit the upstream HERE and restart
+  # biochirp_litellm. No service rebuild required.
+  #
+  # ROLE                       UPSTREAM (today)              MIRRORS LEGACY
+  # ─────────────────────      ────────────────────────      ──────────────
+  # synthesizer                openai/gpt-5.4-nano           gpt-4.1-mini
+  # router                     openai/gpt-4.1-nano           gpt-4.1-nano
+  # decomposer                 openai/gpt-4.1-nano           gpt-4.1-nano
+  # db_selector                openai/gpt-4.1-nano           gpt-4.1-nano
+  # db_summarizer              openai/gpt-4o-mini            gpt-4o-mini
+  # interpreter                openai/gpt-5.4-nano           gpt-4.1-mini
+  # planner                    openai/gpt-5.4-nano           gpt-4.1-mini
+  # judge                      openai/gpt-4.1-nano           gpt-4.1-nano
+  # member_filter              openai/gpt-4o-mini            gpt-4o-mini
+  # web_search                 openai/gpt-4o-mini            gpt-4o-mini
+  # expand_filter              ollama_chat/phi4:14b          llm-filter-local
+  # expand_filter_fallback     ollama_chat/qwen2.5-coder:7b  llm-filter-local-fallback
+  # opentargets_agent          ollama_chat/qwen3.5-nothink   qwen3.5-nothink:latest
+  # memory_agent               ollama_chat/qwen3.5-nothink   qwen3.5-nothink:latest
+
+  # ── Shared synthesizer / critic aliases ──────────────────────────────
+  - model_name: synthesizer
+    litellm_params:
+      model: openai/gpt-5.4-nano
+      <<: *openai_creds
+
+  - model_name: router
+    litellm_params:
+      model: openai/gpt-4.1-nano
+      <<: *openai_creds
+
+  - model_name: decomposer
+    litellm_params:
+      model: openai/gpt-4.1-nano
+      <<: *openai_creds
+
+  - model_name: db_selector
+    litellm_params:
+      model: openai/gpt-4.1-nano
+      <<: *openai_creds
+
+  # ── Per-DB tool summarizer (25 services) ─────────────────────────────
+  # 2026-05-19: switched to gpt-4.1-nano (was gpt-4o-mini). The summarizer
+  # task is bounded (≤ a few KB of structured table → ≤ 500 tokens of prose,
+  # see resources/prompts/summarizer_shared.md). Nano matches every other
+  # bounded role in this file (router/db_selector/interpreter/planner). Cost
+  # savings ≈ 5× per call.
+  # If a quality regression surfaces, flip the model line back to
+  # openai/gpt-4o-mini (the fallback below will already handle nano 5xx).
+  # The companion bench harness lives at scripts/bench_db_summarizer.py —
+  # run it before any future model swap to verify F1 is within 1-2 points
+  # of the previous incumbent.
+  - model_name: db_summarizer
+    litellm_params:
+      model: openai/gpt-4.1-nano
+      <<: *openai_creds
+
+  - model_name: db_summarizer_fallback
+    litellm_params:
+      model: openai/gpt-4o-mini
+      <<: *openai_creds
+
+  # ── Interpreter / planner / judge ────────────────────────────────────
+  - model_name: interpreter
+    litellm_params:
+      model: openai/gpt-5.4-nano
+      <<: *openai_creds
+
+  - model_name: planner
+    litellm_params:
+      model: openai/gpt-5.4-nano
+      <<: *openai_creds
+
+  - model_name: judge
+    litellm_params:
+      model: openai/gpt-4.1-nano
+      <<: *openai_creds
+
+  # ── Filter + web ─────────────────────────────────────────────────────
+  - model_name: member_filter
+    litellm_params:
+      model: openai/gpt-4o-mini
+      <<: *openai_creds
+
+  - model_name: web_search
+    litellm_params:
+      model: openai/gpt-4o-mini
+      <<: *openai_creds
+
+  # Local Ollama-backed roles. Settings (num_ctx, timeout) mirror the
+  # llm-filter-local block above. If you change one, change both.
+  - model_name: expand_filter
+    litellm_params:
+      model: ollama_chat/phi4:14b
+      api_base: http://biochirp_ollama:11434
+      num_ctx: 8192
+      timeout: 60
+
+  - model_name: expand_filter_fallback
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:7b
+      api_base: http://biochirp_ollama:11434
+      num_ctx: 8192
+      timeout: 60
+
+  # ── OpenTargets sub-pipeline + bio_chat memory tool ──────────────────
+  # Both run on the lighter GPU (biochirp_ollama_light) to avoid fighting
+  # with the heavy interpreter/synthesizer slot. Mirrors qwen3.5-nothink.
+  - model_name: opentargets_agent
+    litellm_params:
+      model: ollama_chat/qwen3.5-nothink:latest
+      <<: *ollama_light
+      temperature: 0
+      seed: 1
+
+  - model_name: memory_agent
+    litellm_params:
+      model: ollama_chat/qwen3.5-nothink:latest
+      <<: *ollama_light
+      temperature: 0
+      seed: 1
+
+general_settings:
+  forward_litellm_exceptions: true
+  enable_responses_api: false
+  # Cap concurrent in-flight requests across all models. 256 is well above
+  # observed concurrency on the BioChirp deployment; the cap exists so a
+  # runaway loop or DoS can't open thousands of upstream connections.
+  max_parallel_requests: 256
+  # 2026-05-17 security hardening — global request/spend ceilings. These
+  # bound abuse from the public WS/MCP endpoints (which still have no auth)
+  # without throttling normal usage. Override via env if traffic grows:
+  #   global_max_parallel_requests, max_budget, budget_duration.
+  global_max_parallel_requests: 256
+  max_budget: 50            # USD per budget_duration across all virtual keys
+  budget_duration: 1d
+  alerting_threshold: 0.8   # warn at 80 % of max_budget
+
+litellm_settings:
+  drop_params: true
+  # BENCH PROFILE — cache disabled. See the header comment for the rationale.
+  # The prod sibling `litellm_config.yaml` enables Redis-backed prompt
+  # caching; this file must stay cache-off so evaluation/ result tables
+  # reflect raw model behaviour. The CI gate
+  # `scripts/check_litellm_pinning.py` enforces this invariant.
+  cache: false
+  # Summarizer fallback chain (2026-05-15, revised):
+  # Primary is direct Google Gemini API (gemini-2.5-flash-lite) via
+  # GEMINI_API_KEY — free tier 1500 RPD / 15 RPM / 1M TPM, paid overage
+  # $0.10/1M input. Falls back to gpt-4.1-nano on 429 / 5xx.
+  # The OpenRouter free aliases below are kept for power-user routing but
+  # are NOT in the default summarizer chain (free Gemini was withdrawn from
+  # OpenRouter in May 2026 and remaining free tiers see frequent upstream
+  # 429s, which inflates fallback latency without saving cost).
+  fallbacks:
+    - gemini-2.5-flash-lite: [gpt-4.1-nano]
+    - summarizer-free: [summarizer-free-fallback-1, gemini-2.5-flash-lite, gpt-4.1-nano]
+    - summarizer-free-fallback-1: [gemini-2.5-flash-lite, gpt-4.1-nano]
+    # 2026-05-19: db_summarizer switched nano → mini fallback on 429 / 5xx
+    # so a transient nano outage doesn't degrade chat answers to raw counts.
+    - db_summarizer: [db_summarizer_fallback]
+    # Local LLM filter chain: qwen2.5-coder:7b → phi4:14b → gpt-5.4-nano (paid).
+    # Both first hops are local Ollama (no API cost). Paid only triggers if
+    # both local models 5xx / unreachable.
+    - llm-filter-local: [llm-filter-local-fallback, gpt-5.4-nano]
+    - llm-filter-local-fallback: [gpt-5.4-nano]
+    # Web-tool chain — see "Biomedical web-tool free chain" block above.
+    - web-free: [web-free-fallback-1, gemini-2.5-flash-lite, gpt-4o-mini]
+    - web-free-fallback-1: [gemini-2.5-flash-lite, gpt-4o-mini]
+  # 2026-05-15: request_timeout lowered from 30s → 8s. The earlier 30s
+  # combined with num_retries: 1 meant a single stalled upstream could
+  # block the call chain for 60+ s before falling through, which is the
+  # likeliest cause of single-DB chat slowing from ~few s to ~40 s.
+  # 8s is well above p99 for gpt-4o-mini / gemini-flash-lite on our
+  # traffic and matches typical chat-UI patience.
+  num_retries: 1
+  request_timeout: 8

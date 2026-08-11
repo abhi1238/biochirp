@@ -1,0 +1,168 @@
+# Decommissioned components — kept on disk for reference, never pushed to GitHub.
+# Use `git log --diff-filter=R --summary -- decommissioned/` to browse history.
+decommissioned/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+combined_logs.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.tox/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.claude/
+
+# Build / distribution artifacts (never committed)
+artifacts/
+dist_zenodo/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# BioChirp specific
+qdrant_storage/
+results/
+.checkpoints/
+Qdrant/
+SQL_database/
+*.pkl
+
+# Legacy / scratch
+gui
+rough.md
+rough.ipynb
+rough.py
+docker-compose1.yml
+qdrant.ipynb
+qdrant_ingest.ipynb
+evaluation/same_question_robustness/OpenTargets/Opentargets_same_question_response_final.json
+
+# PharmGKB raw TSV downloads (CC BY 4.0 — not redistributed; parquet snapshots are the committed artifact)
+database/pharmgkb/raw/
+# COSMIC raw CSV / parquet — see the licensing-removed block below for the full COSMIC ignore set.
+
+# Migration-era backups (preserve locally for rollback, don't commit)
+*.legacy.bak
+*.legacy_orchestrator.bak
+docker-compose.yml.before_*.bak
+*.predelete.bak
+database/*/_qdrant_ingest_values.json
+
+# Internal project plan and decision log. Kept locally for the team but
+# excluded from any public release/Zenodo bundle — these files reveal
+# in-flight tasks, license blockers, and decision deadlines that should
+# not ship alongside the paper artifact.
+biochirp_plan/
+biochirp_plan.zip
+
+# ──────────────────────────────────────────────────────────────────────────
+# Licensing-removed databases — DO NOT re-add to the repo.
+# DisGeNET (post-2023 custom license, MedBioinformatics Solutions SL) and
+# OncoKB (MSK custom Terms of Use) both prohibit public redistribution,
+# mirroring, and proxying of their data under their free/academic tiers.
+# See LICENSING_REMOVAL.md for the full rationale and removal log.
+# These patterns prevent accidental re-introduction of code, data, dumps,
+# cached results, frontends, or env snapshots tied to those databases.
+# ──────────────────────────────────────────────────────────────────────────
+disgenet_service/
+oncokb_service/
+app/tools/disgenet/
+app/tools/oncokb/
+database/disgenet/
+database/oncokb/
+frontend/disgenet_chat_api.html
+frontend/oncokb_chat_api.html
+frontend/disgenet_chat_api.html.legacy.bak
+frontend/oncokb_chat_api.html.legacy.bak
+orchestrator_service/app/disgenet_tool.py
+orchestrator_service/app/oncokb_tool.py
+bio_chat_service/app/disgenet_tool.py
+bio_chat_service/app/oncokb_tool.py
+docs/nginx_disgenet_snippet.conf
+docs/nginx_oncokb_snippet.conf
+results/disgenet_results_*.csv
+results/oncokb_results_*.csv
+.env.bench_*
+.env.full_card_bench_*
+.env.pre_qwen_*
+**/*disgenet*
+**/*DisGeNET*
+**/*DISGENET*
+**/*oncokb*
+**/*OncoKB*
+**/*ONCOKB*
+
+# COSMIC (Catalogue Of Somatic Mutations In Cancer) — Sanger custom license
+# + CC BY-NC-SA 4.0. Free academic registration permits local use only;
+# redistribution and public-retrieval hosting are prohibited. Code paths
+# removed; local data dir kept on disk for personal academic use but
+# excluded from git so it cannot be pushed. See LICENSING_REMOVAL.md.
+cosmic_service/
+app/tools/cosmic/
+database/cosmic/
+frontend/cosmic_chat_api.html
+frontend/cosmic_chat_api.html.legacy.bak
+orchestrator_service/app/cosmic_tool.py
+bio_chat_service/app/cosmic_tool.py
+docs/nginx_cosmic_snippet.conf
+results/cosmic_results_*.csv
+**/*cosmic*
+**/*Cosmic*
+**/*COSMIC*
+
+# Vendored upstream MCP reference repo, kept locally but not part of BioChirp.
+# Has its own .git; not wired into docker-compose or any service.
+opentargets-mcp-server/
+
+# ===== Large binary / data artifacts — kept on disk, excluded from git (2026-06-17) =====
+# These ballooned an accidental `git add -A` to ~8M lines; they are regenerated
+# artifacts, model weights, or backups, not source.
+# Model weights & training checkpoints
+*.safetensors
+*.pt
+models/
+resources/models/
+# Pickle backups (the live resources/values/concept_values_by_db_and_field.pkl stays tracked)
+resources/values/*.pkl.bak_*
+# Benchmark / evaluation outputs (regenerated; targeted filenames so tracked
+# result CSVs like evaluation/semantic_member_selection/result/*_complete.csv are kept)
+evaluation/Agentic_SQL/nl2sql_results_*.json
+scripts/finetune/*.jsonl
+**/result/benchmark_cache.json
+**/result/llm_items_detail.csv
+**/result/llm_raw_log.csv
+# Media
+*.mp4
+
+# ===== Migration scratch / backups (2026-06-17) — kept on disk, not in git =====
+*.pre_schema_kg
+*.onboard.bak
+*.candidate
+*.candidate_v2
+*.bench_backup
+*.xlsx#
+# Accidental duplicate dirs left by file-manager "Copy"
+**/* (Copy)/
+**/*(Copy).*

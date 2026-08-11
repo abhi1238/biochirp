@@ -1,0 +1,572 @@
+db: orphanet
+display_name: Orphanet
+description: Orphanet rare disease database — gene-disease associations, phenotypes, epidemiology, inheritance,
+  and cross-references for rare diseases
+parquet_dir: orphanet
+tables:
+  disease_master_table_orphanet:
+    parquet: disease_master_table_orphanet_v2.parquet
+    role: master
+    columns:
+    - {name: disease_id, role: pk, key_column: true, description: 'Orphanet disease identifier in ORPHA:XXXXXX format
+        — join key only; e.g. ORPHA:558 (Marfan syndrome)'}
+    - {name: disease_name, queryable: true, key_column: true, concept_type: disease_name, llm_note: 'Orphanet
+        canonical rare disease name; use full name, e.g. ''Marfan syndrome'', ''Duchenne muscular dystrophy''',
+      description: 'name of the rare disease as defined by Orphanet; e.g. Marfan syndrome, Cystic fibrosis,
+        Duchenne muscular dystrophy, Huntington disease'}
+  gene_master_table_orphanet:
+    parquet: gene_master_table_orphanet_v2.parquet
+    role: master
+    columns:
+    # gene_id is present in v2 parquet on disk; NON-QUERYABLE FK shared with the association table
+    # (de-isolates the disease→gene join). Filter/display via gene_symbol instead.
+    - {name: gene_id, role: pk, key_column: true, description: internal join key = the HGNC gene symbol
+        value (present in v2 parquet on disk); FK target for gene_disease_association_orphanet.gene_id
+        — join key only (filter/display via gene_symbol)}
+    - {name: gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: 'HGNC
+        official symbol in gene_disease_association_orphanet; e.g. FBN1, CFTR, DMD, HTT', description: 'HGNC
+        gene symbol — primary key of the Orphanet gene master table (4,552 rows, no nulls); e.g. KIF7,
+        CWC27, AGA, FBN1, CFTR. Users may ask for ''gene'', ''gene symbol'', or ''HGNC symbol''.'}
+    # exec name ensembl_accession (loader renames ensembl_id→ensembl_accession); schema_kg keeps ensembl_id;
+    # the RAW parquet column is ensembl_id (parquet_name).
+    - {name: ensembl_accession, queryable: true, key_column: true,
+      concept_type: gene_xref_id, description: Ensembl gene accession; e.g. ENSG00000166813; used when
+        asking for Ensembl ID}
+    # exec name entrez (loader renames entrez_id→entrez); schema_kg keeps entrez_id; RAW parquet col is entrez_id.
+    - {name: entrez, queryable: true, key_column: true, concept_type: gene_xref_id,
+      description: 'OMIM gene-locus identifier despite the column name (NOT an NCBI Entrez gene ID); e.g.
+        134797 for FBN1, 602421 for CFTR; values range ~100690..621202 (the OMIM gene-ID space). Users
+        asking for ''Entrez ID'' or ''NCBI gene ID'' should be told this column is OMIM-coded.'}
+  gene_disease_association_orphanet:
+    parquet: gene_disease_association_orphanet_v2.parquet
+    role: association
+    columns:
+    # gene_id present in v2 parquet on disk; join to gene_master is on a
+    # NON-QUERYABLE FK (gene_id), not on the queryable gene_symbol.
+    - {name: gene_id, key_column: true, description: FK to gene_master_table_orphanet.gene_id (= HGNC
+        gene symbol value; present in v2 parquet on disk) — join key only}
+    - {name: gene_symbol, exec_schema: false, kg_schema: false,
+      description: 'gene symbol — join via gene_master_table_orphanet.gene_symbol (canonical source)'}
+    - {name: ensembl_accession, exec_schema: false, kg_schema: false,
+      description: Ensembl gene accession — canonical source is gene_master_table_orphanet.ensembl_accession}
+    - {name: entrez, exec_schema: false, kg_schema: false,
+      description: 'OMIM gene-locus identifier — canonical source is gene_master_table_orphanet.entrez'}
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id}
+    # exec/kg name gene_disease_association_type; disk col is `gene_disease_association_type` (pre-canonicalized)
+    - {name: gene_disease_association_type, queryable: true, key_column: true,
+      concept_type: interaction_type, description: 'type of gene-disease association as classified by Orphanet;
+        e.g. ''Disease-causing germline mutation(s) (gain of function) in'', ''Modifying germline mutation
+        in'', ''Major susceptibility factor in'''}
+  disease_phenotype_association_orphanet:
+    parquet: disease_phenotype_association_orphanet_v2.parquet
+    role: association
+    columns:
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id}
+    # exec name phenotype_id (loader renames hpo_id→phenotype_id); schema_kg keeps hpo_id; RAW parquet col is hpo_id.
+    - {name: phenotype_id, key_column: true, description: 'HPO term
+        identifier in HP:XXXXXXX format — join key only'}
+    - {name: hpo_term, queryable: true, key_column: true, concept_type: phenotype_name, description: 'HPO
+        phenotype term name associated with the rare disease; e.g. Macrocephaly, Intellectual disability,
+        Seizure, Scoliosis'}
+    - {name: frequency, queryable: true, key_column: true, concept_type: xref_id, description: 'frequency
+        class of the phenotype in this disease; enum: Very frequent (99-80%), Frequent (79-30%), Occasional
+        (29-5%), Very rare (<4-1%), Obligate (100%), Excluded (0%)'}
+  disease_xref_orphanet:
+    parquet: disease_xref_orphanet_v2.parquet
+    role: association
+    columns:
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id}
+    - {name: xref_source, queryable: true, key_column: true, concept_type: xref_source, description: 'name
+        of the external database being cross-referenced; e.g. UMLS, OMIM, MONDO, ICD-10, ICD-11, GARD,
+        MeSH, MedDRA'}
+    - {name: xref_id, queryable: true, key_column: true, concept_type: disease_xref_id, description: 'identifier
+        in the external database; e.g. 154700 for OMIM, Q87.4 for ICD-10'}
+    - {name: mapping_relation, queryable: true, key_column: true, concept_type: interaction_type, enum: [
+        'E (Exact mapping: the two concepts are equivalent)', NTBT (ORPHAcode is narrower than the targeted
+          code used to represent it), BTNT (ORPHAcode is broader than the targeted code used to represent
+          it), 'ND (not yet decided/unable to decide: the alignment cannot be qualified by any of the
+          existing labels)'], description: 'mapping relation type; e.g. E (ORPHAcode equivalent/exact),
+        NTBT (ORPHAcode narrower than target), BTNT (ORPHAcode broader than target), ND (not yet decided)'}
+    # exec/kg name disease_xref_validation_status; disk col is `disease_xref_validation_status` (pre-canonicalized)
+    - {name: disease_xref_validation_status, queryable: true, key_column: true,
+      concept_type: xref_id, description: 'validation status of the cross-reference; e.g. Validated, Not
+        yet validated'}
+    # disease_name is injected at load time by the FK supplement block in database_loader.py for
+    # ORPHA:708014 and ORPHA:714413. It is NULL for all 50,128 raw parquet rows (those rows carry only
+    # disease_id, xref_source, xref_id, mapping_relation, and validation_status on disk).
+    - {name: disease_name, added_at_load: true, exec_schema: false, description: 'Disease name for
+        the 2 supplemented ORPHA codes (ORPHA:708014, ORPHA:714413) injected at load time; null for
+        all 50,128 raw parquet rows'}
+  disease_epidemiology_orphanet:
+    parquet: disease_epidemiology_orphanet_v2.parquet
+    role: association
+    columns:
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id}
+    - {name: source, queryable: true, key_column: true, concept_type: pubmed_id, description: source reference
+        (PubMed IDs or ORPHANET references) for the epidemiological data}
+    - {name: prevalence_type, queryable: true, key_column: true, concept_type: xref_id, description: 'type
+        of prevalence estimate; enum: Point prevalence, Cases/families, Annual incidence, Prevalence at
+        birth, Lifetime Prevalence (capital P)'}
+    - {name: prevalence_qualification, queryable: true, key_column: true, concept_type: xref_id, description: 'qualification
+        of the prevalence estimate; e.g. Value and class, Class only, Case(s), Family(ies)'}
+    - {name: prevalence_class, queryable: true, key_column: true, concept_type: xref_id, llm_note: free-text
+        prevalence range string; e.g. '<1 / 1 000 000'; NOT a numeric field, description: 'prevalence
+        class estimate; e.g. <1 / 1 000 000, 1-9 / 100 000, 1-9 / 1 000'}
+    - {name: val_moy, queryable: true, key_column: true, concept_type: xref_id, description: mean value
+        of the prevalence estimate (float as string); e.g. 4.0}
+    - {name: geographic, queryable: true, key_column: true, concept_type: xref_id, description: 'geographic
+        scope of the prevalence estimate; e.g. Worldwide, Europe, United States, Asia'}
+    # exec/kg name disease_epidemiology_validation_status; disk col is `disease_epidemiology_validation_status` (pre-canonicalized)
+    - {name: disease_epidemiology_validation_status, queryable: true, key_column: true,
+      concept_type: xref_id, description: 'validation status of the epidemiological record; e.g. Validated,
+        Not yet validated'}
+  disease_onset_inheritance_orphanet:
+    parquet: disease_onset_inheritance_orphanet_v2.parquet
+    role: association
+    columns:
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id}
+    - {name: attribute, queryable: true, key_column: true, concept_type: xref_id, enum: [age_of_onset,
+        inheritance], llm_note: 'enum: ''age_of_onset'' or ''inheritance'' — always filter on this column
+        before using ''value''', description: attribute type; either age_of_onset or inheritance; used
+        to distinguish onset records from inheritance records}
+    - {name: value, queryable: true, key_column: true, concept_type: xref_id, description: 'value of the
+        attribute; for age_of_onset: e.g. Infancy, Neonatal, Childhood, Adult, Elderly; for inheritance:
+        e.g. Autosomal recessive, Autosomal dominant, X-linked recessive'}
+  disease_natural_history_orphanet:
+    parquet: disease_natural_history_orphanet_v2.parquet
+    role: association
+    columns:
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id}
+    - {name: natural_history_disease_name, parquet_name: disease_name, exec_schema: false, kg_schema: false, description: disease name — canonical source is disease_master_table_orphanet.disease_name}
+    - {name: target_disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id
+        — the related disease in the natural history relationship}
+    - {name: target_disease_name, queryable: true, key_column: true, concept_type: disease_name, description: name
+        of the related disease in the natural history association}
+    # exec/kg name disease_history_association_type; disk col is `disease_history_association_type` (pre-canonicalized)
+    - {name: disease_history_association_type, queryable: true, key_column: true,
+      concept_type: interaction_type, description: type of natural history relationship between source
+        and target disease; constant value 'Preferential parent' across all rows (maps each disease to
+        one of 31 broad Orphanet parent categories)}
+  disease_classification_orphanet:
+    parquet: disease_classification_orphanet_v2.parquet
+    role: association
+    columns:
+    - {name: classification, queryable: true, key_column: true, concept_type: disease_name, description: 'Orphanet
+        classification taxonomy name; e.g. ''Orphanet classification of rare neurological diseases'',
+        ''Orphanet classification of rare bone diseases'', ''Orphanet classification of rare cardiac diseases'''}
+    - {name: disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id}
+    - {name: classification_disease_name, parquet_name: disease_name, exec_schema: false, kg_schema: false, description: disease name — canonical source is disease_master_table_orphanet.disease_name}
+    - {name: disorder_type, queryable: true, key_column: true, concept_type: xref_id, enum: [Disease,
+        Malformation syndrome, Morphological anomaly, Biological anomaly, Clinical group, Etiological
+          subtype, Histopathological subtype, Clinical subtype, Category, Clinical syndrome, Particular
+          clinical situation in a disease or syndrome], description: 'Orphanet disorder type; e.g. Disease,
+        Malformation syndrome, Morphological anomaly, Biological anomaly, Clinical group'}
+    - {name: parent_disease_id, key_column: true, description: FK to disease_master_table_orphanet.disease_id
+        — the parent category in the classification hierarchy}
+    - {name: parent_disease_name, queryable: true, key_column: true, concept_type: disease_name, description: name
+        of the parent disease or category in the Orphanet classification}
+loader:
+  generated: false      # bespoke hand-written orphanet loader (per-table renames + gene_id mirror; no _TABLES tuple)
+rules:
+  mandatory_entity_columns:
+    disease:
+    - disease_name
+    gene:
+    - gene_symbol
+  xref_id_columns:
+  - disease_id
+  - phenotype_id
+  - ensembl_accession
+  - entrez
+  - target_disease_id
+  - parent_disease_id
+  - xref_source
+  schema_grounding_notes:
+  - disease_name is the Orphanet-canonical rare disease name; use the full official name, e.g. 'Cystic
+    fibrosis' not 'CF'
+  - gene_symbol is the primary gene query key in gene_master_table_orphanet; the association table uses
+    gene_id (FK = HGNC symbol value mirrored at load) for the join. Route all gene_symbol queries to
+    gene_master; the planner joins gene_master.gene_id → gene_disease_association_orphanet.gene_id.
+  - disease_onset_inheritance_orphanet has attribute='age_of_onset' for onset rows and attribute='inheritance'
+    for inheritance rows; filter by attribute to get the right type
+  - prevalence_class values are free-text estimates like '<1 / 1 000 000' or '1-9 / 100 000'; do NOT treat
+    as numeric
+  - frequency in disease_phenotype_association_orphanet is a string like 'Very frequent (99-80%)' — NOT
+    a numeric; filter by string match
+  - 'xref_source valid values include: UMLS, OMIM, MONDO, ICD-10, ICD-11, GARD, MeSH, MedDRA — filter
+    by these when asking for specific cross-references'
+  - gene_disease_association_type in gene_disease_association_orphanet is a long string; e.g. 'Disease-causing germline
+    mutation(s) (gain of function) in'; use substring match
+  co_output_rules:
+  - trigger_columns:
+    - xref_id
+    require_column: xref_source
+    require_behavior: requested
+    reason: cross-reference IDs are ambiguous without knowing the source database
+  - trigger_columns:
+    - disease_id
+    require_column: disease_name
+    require_behavior: requested
+    reason: ORPHA:XXXXXX IDs need the human-readable disease name
+  - trigger_columns:
+    - hpo_term
+    require_column: disease_name
+    require_behavior: infer_from_question
+    reason: phenotype terms need disease context
+  - trigger_columns:
+    - prevalence_class
+    - prevalence_type
+    require_column: disease_name
+    require_behavior: requested
+    reason: prevalence data needs disease name for interpretation
+  - trigger_columns:
+    - value
+    require_column: attribute
+    require_behavior: requested
+    reason: onset/inheritance values need the attribute label for context
+  few_shot_examples:
+  - question: What genes are associated with Marfan syndrome?
+    parsed_value:
+      disease_name:
+      - Marfan syndrome
+      gene_symbol: requested
+    note: disease→gene query — disease_name is the FILTER (list), gene_symbol is the
+      output. Marfan syndrome (ORPHA:558) is caused by FBN1 germline mutations. Never
+      request disease_name when it is explicitly named in the question.
+  - question: What rare diseases are caused by CFTR mutations?
+    parsed_value:
+      gene_symbol:
+      - CFTR
+      disease_name: requested
+    note: gene→disease query — gene_symbol is the FILTER, disease_name is the output.
+      CFTR mutations cause Cystic fibrosis (ORPHA:586) via 'Disease-causing germline
+      mutation(s)' association type.
+  - question: What are the HPO phenotypes of cystic fibrosis?
+    parsed_value:
+      disease_name:
+      - Cystic fibrosis
+      hpo_term: requested
+    note: disease→phenotype query — disease_name is the FILTER, hpo_term is the output.
+      Uses disease_phenotype_association_orphanet. Confirmed phenotypes include Depression,
+      Anxiety, Osteopenia. Do NOT include frequency unless asked.
+  - question: What is the inheritance pattern of Huntington disease?
+    parsed_value:
+      disease_name:
+      - Huntington disease
+      attribute:
+      - inheritance
+      value: requested
+    note: inheritance query — disease_name + attribute=['inheritance'] are BOTH filters;
+      value is the output. Huntington disease (ORPHA:399) is Autosomal dominant. attribute
+      must always be a filter list (not 'requested') when asking for inheritance or age
+      of onset.
+  - question: What is the OMIM cross-reference ID for cystic fibrosis?
+    parsed_value:
+      disease_name:
+      - Cystic fibrosis
+      xref_source:
+      - OMIM
+      xref_id: requested
+    note: xref query — disease_name + xref_source are BOTH filters; xref_id is the
+      output. CF OMIM ID is 219700. co_output_rules automatically adds xref_source to
+      output when xref_id is requested.
+  orchestrator_examples:
+  - question: What genes are associated with Marfan syndrome?
+    mapper_1:
+      disease_name:
+      - Marfan syndrome
+      gene_symbol: requested
+    mapper_2:
+      disease_name: requested
+      gene_symbol: requested
+    correct:
+      disease_name:
+      - Marfan syndrome
+      gene_symbol: requested
+    reasoning: "'Marfan syndrome' is explicitly named in the question → disease_name
+      must be a FILTER list, never 'requested'. mapper_2 incorrectly treats the named
+      disease as open-ended output. The named entity is always a filter; only the open-ended
+      ask is 'requested'."
+  - question: What is the inheritance pattern of Huntington disease?
+    mapper_1:
+      disease_name:
+      - Huntington disease
+      attribute:
+      - inheritance
+      value: requested
+    mapper_2:
+      disease_name:
+      - Huntington disease
+      value: requested
+    correct:
+      disease_name:
+      - Huntington disease
+      attribute:
+      - inheritance
+      value: requested
+    reasoning: disease_onset_inheritance_orphanet contains BOTH age_of_onset and inheritance
+      rows. attribute=['inheritance'] is a mandatory filter to isolate inheritance records.
+      mapper_2 silently dropped the attribute filter, which would return both onset and
+      inheritance rows incorrectly.
+  - question: What is the OMIM cross-reference for cystic fibrosis?
+    mapper_1:
+      disease_name:
+      - Cystic fibrosis
+      xref_source:
+      - OMIM
+      xref_id: requested
+    mapper_2:
+      disease_name:
+      - Cystic fibrosis
+      xref_id: requested
+    correct:
+      disease_name:
+      - Cystic fibrosis
+      xref_source:
+      - OMIM
+      xref_id: requested
+    reasoning: xref_source must be a filter when the user specifies a specific database
+      (OMIM). mapper_2 dropped xref_source, which would return ICD-10, GARD, MeSH,
+      UMLS, and MedDRA IDs as well. Valid xref_source values include OMIM, ICD-10,
+      ICD-11, UMLS, MONDO, GARD, MeSH, MedDRA.
+  - question: What are the HPO phenotypes of cystic fibrosis with their frequency?
+    mapper_1:
+      disease_name:
+      - Cystic fibrosis
+      hpo_term: requested
+      frequency: requested
+    mapper_2:
+      disease_name:
+      - Cystic fibrosis
+      hpo_term: requested
+    correct:
+      disease_name:
+      - Cystic fibrosis
+      hpo_term: requested
+      frequency: requested
+    reasoning: The question explicitly asks for frequency alongside phenotypes — mapper_2
+      incorrectly omitted it. frequency is a string enum in disease_phenotype_association_orphanet
+      (e.g. 'Occasional (29-5%)', 'Very frequent (99-80%)'). Include it when the user
+      asks 'with their frequency'.
+questions:
+  literal:
+  - label: disease+gene
+    question: what genes are associated with Marfan syndrome?
+    required:
+    - disease_name
+    - gene_symbol
+  - label: gene+disease
+    question: what rare diseases are caused by FBN1 mutations?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: which rare conditions involve mutations in NF1?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: what rare diseases are associated with DMD?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: which rare diseases are caused by CFTR mutations?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: gene+disease
+    question: what rare conditions are linked to HTT gene mutations?
+    required:
+    - gene_symbol
+    - disease_name
+  - label: disease+phenotype
+    question: what are the phenotypes of cystic fibrosis?
+    required:
+    - disease_name
+    - hpo_term
+  - label: disease+phenotype
+    question: what clinical features are associated with Duchenne muscular dystrophy?
+    required:
+    - disease_name
+    - hpo_term
+  - label: phenotype+disease
+    question: which rare diseases present with short stature?
+    required:
+    - hpo_term
+    - disease_name
+  - label: phenotype+disease
+    question: which diseases present with muscle weakness?
+    required:
+    - hpo_term
+    - disease_name
+  - label: phenotype+disease
+    question: which diseases present with intellectual disability?
+    required:
+    - hpo_term
+    - disease_name
+  - label: phenotype+disease
+    question: which diseases present with seizures?
+    required:
+    - hpo_term
+    - disease_name
+  - label: phenotype+disease
+    question: diseases associated with the phenotype intellectual disability
+    required:
+    - hpo_term
+    - disease_name
+  - label: phenotype+disease
+    question: diseases associated with the phenotype muscle weakness
+    required:
+    - hpo_term
+    - disease_name
+  - label: phenotype+disease
+    question: diseases associated with the phenotype seizures
+    required:
+    - hpo_term
+    - disease_name
+  - label: phenotype+disease
+    question: diseases associated with the phenotype short stature
+    required:
+    - hpo_term
+    - disease_name
+  - label: phenotype+gene
+    question: what genes are associated with short stature?
+    required:
+    - hpo_term
+    - gene_symbol
+  - label: phenotype+gene
+    question: what genes are associated with muscle weakness?
+    required:
+    - hpo_term
+    - gene_symbol
+  - label: phenotype+gene
+    question: what genes are associated with seizures?
+    required:
+    - hpo_term
+    - gene_symbol
+  - label: phenotype+gene
+    question: which genes cause the phenotype short stature?
+    required:
+    - hpo_term
+    - gene_symbol
+  - label: phenotype+gene
+    question: which genes cause the phenotype muscle weakness?
+    required:
+    - hpo_term
+    - gene_symbol
+  - label: phenotype+gene
+    question: what genes are associated with intellectual disability?
+    required:
+    - hpo_term
+    - gene_symbol
+  - label: phenotype+gene
+    question: which genes cause the phenotype seizures?
+    required:
+    - hpo_term
+    - gene_symbol
+  - label: phenotype+gene
+    question: which genes cause the phenotype intellectual disability?
+    required:
+    - hpo_term
+    - gene_symbol
+  - label: disease+prevalence
+    question: what is the prevalence of Huntington disease?
+    required:
+    - disease_name
+    - prevalence_class
+  - label: disease+prevalence
+    question: what is the prevalence of cystic fibrosis in Europe?
+    required:
+    - disease_name
+    - prevalence_class
+  - label: disease+prevalence
+    question: what is the annual incidence of phenylketonuria?
+    required:
+    - disease_name
+    - prevalence_class
+  - label: disease+prevalence
+    question: how common is Duchenne muscular dystrophy?
+    required:
+    - disease_name
+    - prevalence_class
+  - label: disease+inheritance
+    question: what is the inheritance pattern of Duchenne muscular dystrophy?
+    required:
+    - disease_name
+    - value
+  - label: disease+inheritance
+    question: what is the inheritance pattern of cystic fibrosis?
+    required:
+    - disease_name
+    - value
+  - label: disease+inheritance
+    question: is Marfan syndrome autosomal dominant or recessive?
+    required:
+    - disease_name
+    - value
+  - label: disease+onset
+    question: what is the age of onset of Huntington disease?
+    required:
+    - disease_name
+    - value
+  - label: disease+onset
+    question: at what age does Duchenne muscular dystrophy typically present?
+    required:
+    - disease_name
+    - value
+  - label: disease+xref
+    question: what is the ICD-10 code for Marfan syndrome?
+    required:
+    - disease_name
+    - xref_id
+  - label: disease+xref
+    question: what is the OMIM ID for cystic fibrosis?
+    required:
+    - disease_name
+    - xref_id
+  - label: disease+xref
+    question: what cross-reference IDs are available for Huntington disease?
+    required:
+    - disease_name
+    - xref_id
+  - label: disease+xref
+    question: what is the MONDO identifier for Noonan syndrome?
+    required:
+    - disease_name
+    - xref_id
+  - label: disease+xref
+    question: OMIM identifier for Li-Fraumeni syndrome
+    required:
+    - disease_name
+    - xref_id
+  - label: gene+xref
+    question: what is the OMIM gene ID for FBN1?
+    required:
+    - gene_symbol
+    - entrez
+  - label: gene+xref
+    question: what is the OMIM gene ID for CFTR?
+    required:
+    - gene_symbol
+    - entrez
+  - label: gene+xref
+    question: what is the Ensembl accession for NF1?
+    required:
+    - gene_symbol
+    - ensembl_accession
+  - label: gene+xref
+    question: OMIM gene ID for DMD
+    required:
+    - gene_symbol
+    - entrez
+  - label: disease+classification
+    question: what broad Orphanet category does Marfan syndrome belong to?
+    required:
+    - disease_name
+    - target_disease_name
+  - label: disease+classification
+    question: which Orphanet classification does cystic fibrosis fall under?
+    required:
+    - disease_name
+    - classification

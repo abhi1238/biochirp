@@ -1,0 +1,401 @@
+# REVIEW before use: verify dtypes, factor `questions.literal` into params/templates,
+# and confirm exec_schema/kg_schema flags on denormalised columns.
+db: clinvar
+display_name: ClinVar
+description: ClinVar — NCBI archive of interpretations of human genomic variants with clinical significance
+  assertions submitted by expert laboratories
+parquet_dir: clinvar
+tables:
+  variant_master_table_clinvar:
+    parquet: variant_master_table_clinvar_v2.parquet
+    role: master
+    columns:
+    - {name: variant_id, role: pk, key_column: true, description: 'BioChirp-internal ClinVar variant identifier
+        in the form CLINVAR:<int> (e.g. CLINVAR:12345) — primary join key; raw NCBI VCV/RCV accessions are NOT
+        stored on disk'}
+    - {name: variant_name, queryable: true, key_column: true, concept_type: variant_id, llm_note: 'HGVS
+        notation only; e.g. NM_007294.4(BRCA1):c.5266dupC — do NOT route bare gene symbols here', description: 'HGVS
+        or descriptive name of the variant; e.g. NM_007294.4(BRCA1):c.5266dupC (p.Gln1756Profs), c.1799T>A'}
+    - {name: variant_gene_symbol, parquet_name: gene_symbol, exec_schema: false,
+      description: 'gene symbol denormalized in variant_master — route gene queries to gene_master_table_clinvar via variant_gene_association_clinvar.gene_id FK'}
+    - {name: variant_type, queryable: true, key_column: true, concept_type: xref_id, enum: [single nucleotide
+          variant, Indel, Deletion, Duplication, Insertion, Microsatellite, copy number gain, copy number
+          loss, Variation, Inversion, Translocation, Complex], description: 'class of variant; e.g. single nucleotide
+        variant, Indel, Duplication, Deletion, Microsatellite, Complex'}
+    - {name: aggregate_clinical_significance, parquet_name: clinical_significance, queryable: true, key_column: true, concept_type: clinical_significance,
+      enum: &id001 [benign, likely benign, uncertain significance, likely pathogenic, pathogenic, conflicting
+          classifications of pathogenicity, risk factor, drug response, benign/likely benign, pathogenic/likely
+          pathogenic, other, affects, no classification for the single variant], llm_note: 'enum — MUST be exact
+        ClinVar phrase; ''uncertain significance'' not ''VUS'', ''pathogenic'' not ''P''; see enum_columns
+        for full list', description: 'ClinVar aggregate clinical interpretation across all submitters; e.g. pathogenic, likely
+        pathogenic, uncertain significance, likely benign, benign'}
+    - {name: aggregate_review_status, parquet_name: review_status, queryable: true, key_column: true, concept_type: xref_id, enum: &id002 [reviewed
+          by expert panel, 'criteria provided, multiple submitters, no conflicts', 'criteria provided,
+          conflicting classifications', 'criteria provided, single submitter', no assertion criteria provided,
+        no classification provided, no classification for the single variant, no classifications from
+          unflagged records, practice guideline, flagged submission], llm_note: star-equivalent review tier; 'reviewed by
+        expert panel' = 4 stars (highest confidence), description: 'aggregate review status for the consensus ClinVar classification; e.g. reviewed by expert panel, criteria provided single submitter, no assertion criteria
+        provided'}
+    - {name: origin_simple, exec_schema: false, queryable: true, description: 'germline
+        or somatic origin of the variant; e.g. germline, somatic, unknown'}
+    - {name: chromosome, exec_schema: false, queryable: true, description: 'chromosome
+        where the variant is located; e.g. 1, 2, X, Y, MT'}
+    - {name: start, exec_schema: false, description: genomic start position (1-based)
+        on the chromosome}
+    - {name: stop, exec_schema: false, description: genomic stop position (1-based)
+        on the chromosome}
+  gene_master_table_clinvar:
+    parquet: gene_master_table_clinvar_v2.parquet
+    role: master
+    columns:
+    - {name: gene_id, role: pk, key_column: true, description: NCBI Gene ID — primary join key}
+    - {name: gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, llm_note: 'HGNC
+        official symbol — p53→TP53; bare gene symbols in queries should go here, NOT to variant_name',
+      description: 'HGNC gene symbol; e.g. BRCA1, CFTR, TP53, EGFR'}
+  variant_gene_association_clinvar:
+    parquet: variant_gene_association_clinvar_v2.parquet
+    role: association
+    columns:
+    - {name: variant_id, key_column: true}
+    - {name: gene_id, key_column: true}
+  variant_disease_association_clinvar:
+    parquet: variant_disease_association_clinvar_v2.parquet
+    role: association
+    columns:
+    - {name: variant_id, key_column: true}
+    - {name: disease_id, key_column: true, description: 'BioChirp-internal disease identifier (CLINVAR_DIS:<id>)
+        — join key to disease records; NOT a MedGen/OMIM/SNOMED ID. External xrefs (MedGen, OMIM, Orphanet)
+        are in variant_genomic_coords_clinvar.clndisdb'}
+    - {name: variant_disease_name, parquet_name: disease_name, queryable: true, key_column: true, concept_type: disease_name, description: 'name
+        of the disease or condition associated with the variant; e.g. Hereditary breast and ovarian cancer
+        syndrome, Cystic fibrosis, Parkinson disease'}
+    - {name: disease_clinical_significance, parquet_name: clinical_significance, queryable: true, key_column: true, concept_type: clinical_significance,
+      enum: *id001, llm_note: 'enum — MUST be exact ClinVar phrase; ''uncertain significance'' not ''VUS'',
+        ''pathogenic'' not ''P''; see enum_columns for full list', description: 'ClinVar clinical interpretation
+        of the variant for this specific disease; e.g. pathogenic, likely pathogenic, uncertain significance,
+        benign'}
+    - {name: variant_phenotype_ids, parquet_name: phenotype_ids, exec_schema: false, queryable: true, description: 'pipe-separated
+        external phenotype identifiers (MedGen, OMIM, Orphanet, MONDO, HP) for the associated disease'}
+  variant_submission_clinvar:
+    parquet: variant_submission_clinvar_v2.parquet
+    role: association
+    description: 'Phase 3 (2026-05-14): submitter-level interpretations — loaded by the loader but previously
+      unregistered.'
+    columns:
+    - {name: variant_id, key_column: true}
+    - {name: submission_clinical_significance, parquet_name: clinical_significance, queryable: true, key_column: true, concept_type: clinical_significance,
+      enum: [benign, likely benign, uncertain significance, likely pathogenic, pathogenic, conflicting data from submitters,
+        risk factor, drug response, other, affects], llm_note: 'enum — MUST be exact ClinVar phrase; ''uncertain significance'' not ''VUS'',
+        ''pathogenic'' not ''P''; use ''conflicting data from submitters'' (not ''conflicting classifications of pathogenicity'') for submission-level conflicts; see enum_columns
+        for full list', description: individual submitter's interpretation
+        of clinical significance for this submission}
+    - {name: date_last_evaluated, queryable: true, key_column: true, concept_type: xref_id, description: date
+        the submitter last evaluated the variant interpretation}
+    - {name: description, queryable: true, key_column: true, concept_type: xref_id, description: free-text
+        description or notes from the submitter about this interpretation}
+    - {name: submitted_phenotype, queryable: true, key_column: true, concept_type: disease_name, description: phenotype
+        or condition as reported by the submitter}
+    - {name: reported_phenotype, queryable: true, key_column: true, concept_type: disease_name, description: standardised
+        phenotype name after ClinVar curation}
+    - {name: submission_review_status, parquet_name: review_status, queryable: true, key_column: true, concept_type: xref_id, enum: *id002, llm_note: star-equivalent
+        review tier; 'reviewed by expert panel' = 4 stars (highest confidence), description: review status
+        of this specific submission from the submitting laboratory}
+    - {name: collection_method, queryable: true, key_column: true, concept_type: xref_id, enum: [clinical
+          testing, research, literature only, curation, provider interpretation, in vitro,
+        in vivo, phenotyping only, case-control, reference population], description: 'method used to collect
+        evidence; e.g. clinical testing, research, literature only. Missing values are stored as NULL on
+        disk (NOT as the string "not provided"). Note: 29 compound semicolon-joined values also exist on
+        disk (e.g. "clinical testing;curation", "research;clinical testing") that are not listed in the
+        enum — use str.contains() for partial matching on these compound forms.'}
+    - {name: origin_counts, queryable: true, key_column: true, concept_type: xref_id, description: counts
+        of germline/somatic/unknown allele origins}
+    - {name: submitter, queryable: true, key_column: true, concept_type: xref_source, description: name
+        of the submitting laboratory or organisation}
+    - {name: scv, key_column: true, description: SCV accession for this specific submitter interpretation}
+    - {name: submitted_gene_symbol, queryable: true, key_column: true, concept_type: gene_symbol, description: gene
+        symbol as submitted (may differ from canonical HGNC)}
+    - {name: explanation, queryable: true, key_column: true, concept_type: xref_id, description: explanation
+        of conflicts in the submission}
+    - {name: somatic_clinical_impact, queryable: true, key_column: true, concept_type: clinical_significance,
+      description: somatic clinical impact classification where applicable}
+    - {name: oncogenicity, queryable: true, key_column: true, concept_type: clinical_significance, description: oncogenicity
+        classification for somatic variants}
+    - {name: contributes_to_aggregate, queryable: true, key_column: true, concept_type: xref_id, description: flag
+        indicating whether this submission contributes to the aggregate classification}
+  variant_citation_clinvar:
+    parquet: variant_citation_clinvar_v2.parquet
+    role: association
+    columns:
+    - {name: variant_id, key_column: true}
+    - {name: citation_allele_id, parquet_name: allele_id, key_column: true, description: ClinVar allele ID — internal join key}
+    - {name: rsid, queryable: true, key_column: true, concept_type: variant_id, description: dbSNP rsID
+        stored as bare numeric string WITHOUT rs prefix (e.g. "397704705"); strip the 'rs' prefix from
+        user input before matching}
+    - {name: nsv, queryable: true, key_column: true, concept_type: variant_id, description: dbVar NSV
+        structural variant ID where applicable}
+    - {name: citation_source, queryable: true, key_column: true, concept_type: xref_source, description: 'source
+        database for the citation. Three values on disk: PubMed (3,935,444 rows),
+        PubMedCentral (625,551 rows), NCBIBookShelf (9,693 rows). OMIM does not appear
+        as a citation_source value.'}
+    - {name: citation_id, queryable: true, key_column: true, concept_type: pubmed_id, description: identifier
+        in the citation source; e.g. PubMed PMID}
+    - {name: organization_ids, exec_schema: false, kg_schema: false, description: IDs of organisations linked to the citation}
+  variant_genomic_coords_clinvar:
+    parquet: variant_genomic_coords_clinvar_v2.parquet
+    role: association
+    columns:
+    - {name: variant_id, key_column: true}
+    - {name: genomic_allele_id, parquet_name: allele_id, key_column: true, description: ClinVar allele ID — internal join key}
+    - {name: assembly, queryable: true, key_column: true, concept_type: xref_id, enum: [GRCh38, GRCh37],
+      description: 'genome assembly version; e.g. GRCh38, GRCh37'}
+    - {name: chrom, queryable: true, key_column: true, concept_type: xref_id, description: 'chromosome;
+        e.g. 1, X, MT'}
+    - {name: pos, queryable: true, key_column: true, concept_type: xref_id, description: genomic position
+        (1-based) on the chromosome}
+    - {name: ref, queryable: true, key_column: true, concept_type: xref_id, description: 'reference allele
+        nucleotide(s); e.g. A, GCTA'}
+    - {name: alt, queryable: true, key_column: true, concept_type: xref_id, description: 'alternate allele
+        nucleotide(s); e.g. T, -'}
+    - {name: clnsig, key_column: true, description: VCF-formatted clinical significance code}
+    - {name: clnrevstat, key_column: true, description: VCF-formatted review status code}
+    - {name: clndn, queryable: true, key_column: true, concept_type: disease_name, description: ClinVar
+        disease name(s) associated with this allele}
+    - {name: clndisdb, key_column: true, description: disease database cross-references in the VCF record}
+    - {name: gene_info, key_column: true, description: NCBI gene info for this locus}
+    - {name: molecular_consequence, queryable: true, key_column: true, concept_type: xref_id, description: 'molecular
+        effect of the variant; e.g. missense variant, synonymous variant, stop gained, frameshift variant'}
+    - {name: variant_class, queryable: true, key_column: true, concept_type: xref_id, description: 'variant
+        class code; e.g. single_nucleotide_variant, Deletion, Duplication, Microsatellite, Indel, Insertion,
+        Inversion, Variation'}
+  disease_master_table_clinvar:
+    parquet: disease_master_table_clinvar_v2.parquet
+    role: master
+    description: 'KG-only master (every column exec_schema:false): ClinVar does not ship a standalone disease
+      dictionary, so this table is intentionally omitted from the executor config — disease_id/disease_name
+      are denormalised onto variant_disease_association_clinvar and the planner queries that table directly. Adding
+      it to the exec schema would create planner ambiguity for disease_id concepts.'
+    columns:
+    - {name: disease_id, role: pk, exec_schema: false, exec_note: 'disease_master_table_clinvar omitted from exec config —
+        disease_id/disease_name are denormalised onto variant_disease_association_clinvar, which the planner queries
+        directly; an exec master here would create planner ambiguity for disease_id concepts',
+      description: 'BioChirp-internal disease identifier (CLINVAR_DIS:<md5>)
+        — primary key; NOT a MedGen/OMIM/SNOMED ID'}
+    - {name: disease_name, exec_schema: false, description: 'canonical disease name derived
+        from ClinVar PhenotypeList; e.g. Hereditary breast and ovarian cancer syndrome, Cystic fibrosis,
+        Parkinson disease. NOT queryable: this is the KG-only master; disease-name filtering routes to the
+        exec-visible variant_disease_association.variant_disease_name (concept_type disease_name) — making
+        this queryable created planner ambiguity → values routed here cannot execute (exec_schema:false)
+        → "No filter terms".'}
+    - {name: phenotype_ids, exec_schema: false, description: 'pipe-separated external
+        phenotype identifiers (MedGen, OMIM, Orphanet, MONDO, HP) associated with this disease. NOT
+        queryable (KG-only master, exec_schema:false).'}
+loader:
+  generated: false      # bespoke hand-written loader (reads each parquet directly; no _CLINVAR_TABLES tuple) + ETL-sentinel scrubbing
+rules:
+  mandatory_entity_columns:
+    gene:
+    - gene_symbol
+    disease:
+    - variant_disease_name
+  xref_id_columns:
+  - variant_id
+  - gene_id
+  - disease_id
+  - citation_allele_id
+  - genomic_allele_id
+  - rsid
+  - nsv
+  - scv
+  - citation_id
+  - clnsig
+  - clnrevstat
+  - clndisdb
+  - gene_info
+  - organization_ids
+  - origin_counts
+  schema_grounding_notes:
+  - 'aggregate_clinical_significance / disease_clinical_significance: core values are
+    ''benign'', ''likely benign'', ''uncertain significance'', ''likely pathogenic'', ''pathogenic'',
+    ''conflicting classifications of pathogenicity'', ''risk factor'', ''drug response'' — all lowercase
+    on disk; do NOT use abbreviations like VUS, LP, LB, P, B.
+    High-count compound/extra values also present on disk: ''benign/likely benign'' (64,981 rows),
+    ''pathogenic/likely pathogenic'' (39,700 rows), ''other'' (1,526 rows),
+    ''no classification for the single variant'' (691 rows).
+    submission_clinical_significance: same core set EXCEPT ''conflicting classifications of pathogenicity''
+    does NOT appear — use ''conflicting data from submitters'' instead; also includes
+    ''other'' (2,338 rows) and ''affects'' (321 rows).
+    Use aggregate_clinical_significance for variant-level queries, disease_clinical_significance
+    for variant-disease pair queries, submission_clinical_significance for submitter-level queries'
+  - disease_master_table_clinvar exists on disk (29,648 rows) but is KG-only (exec_schema:false on all columns) —
+    disease_name and disease_id are denormalised onto variant_disease_association_clinvar; route all exec disease
+    queries to variant_disease_association_clinvar.variant_disease_name instead
+  - variant_name stores HGVS notation; bare gene symbols (CFTR, BRCA1) should be routed to gene_symbol,
+    NOT variant_name
+  - rsid lives in variant_citation_clinvar; stored as bare numeric string WITHOUT 'rs' prefix (e.g. '28897696',
+    not 'rs28897696'); strip 'rs' prefix from user input before matching
+  - review_status values use full phrases with commas — do NOT abbreviate; 'reviewed by expert panel'
+    is the highest-confidence tier (equivalent to 4 stars)
+  co_output_rules:
+  - trigger_columns:
+    - variant_name
+    - variant_type
+    - molecular_consequence
+    require_column: gene_symbol
+    require_behavior: requested
+    reason: variant details are most useful when the gene context is shown
+  - trigger_columns:
+    - aggregate_clinical_significance
+    - disease_clinical_significance
+    - submission_clinical_significance
+    require_column: variant_disease_name
+    require_behavior: requested
+    reason: clinical significance is always paired with a disease/condition context
+  - trigger_columns:
+    - pos
+    - chrom
+    - ref
+    - alt
+    require_column: assembly
+    require_behavior: requested
+    reason: genomic coordinates require a genome assembly version for interpretation
+  - trigger_columns:
+    - rsid
+    require_column: variant_name
+    require_behavior: requested
+    reason: rsID needs the HGVS name for full variant identification
+  abbreviation_map:
+    AML: acute myeloid leukemia
+    GBM: glioblastoma multiforme
+questions:
+  literal:
+  - label: variant+clinical
+    question: Is rs397704705 pathogenic?
+    required:
+    - rsid
+    - aggregate_clinical_significance
+  - label: variant+clinical
+    question: What is the clinical significance of variant rs80357906?
+    required:
+    - rsid
+    - aggregate_clinical_significance
+  - label: variant+clinical
+    question: Is the variant NM_007294.4(BRCA1):c.5266dupC pathogenic?
+    required:
+    - variant_name
+    - aggregate_clinical_significance
+  - label: variant+clinical
+    question: What is the review status of rs28897696?
+    required:
+    - rsid
+    - aggregate_review_status
+  - label: gene+disease
+    question: What diseases are associated with pathogenic variants in BRCA1?
+    required:
+    - gene_symbol
+    - variant_disease_name
+    - disease_clinical_significance
+  - label: gene+disease
+    question: what diseases are associated with TP53?
+    required:
+    - gene_symbol
+    - variant_disease_name
+  - label: gene+disease
+    question: what diseases are associated with BRAF?
+    required:
+    - gene_symbol
+    - variant_disease_name
+  - label: gene+disease
+    question: which conditions involve mutations in MYC?
+    required:
+    - gene_symbol
+    - variant_disease_name
+  - label: gene+disease
+    question: what diseases are associated with EGFR?
+    required:
+    - gene_symbol
+    - variant_disease_name
+  - label: gene+disease
+    question: which conditions involve mutations in BRAF?
+    required:
+    - gene_symbol
+    - variant_disease_name
+  - label: gene+disease
+    question: which conditions involve mutations in EGFR?
+    required:
+    - gene_symbol
+    - variant_disease_name
+  - label: gene+disease
+    question: which conditions involve mutations in TP53?
+    required:
+    - gene_symbol
+    - variant_disease_name
+  - label: gene+disease
+    question: what diseases are associated with MYC?
+    required:
+    - gene_symbol
+    - variant_disease_name
+  - label: disease+gene
+    question: Which gene causes Netherton syndrome?
+    required:
+    - variant_disease_name
+    - gene_symbol
+  - label: disease+gene
+    question: What is the genetic basis of CADASIL?
+    required:
+    - variant_disease_name
+    - gene_symbol
+  - label: disease+gene
+    question: Mutations in which gene cause 16p13.11 microdeletion syndrome?
+    required:
+    - variant_disease_name
+    - gene_symbol
+  - label: gene+clinical
+    question: what is the clinical significance of variants in EGFR?
+    required:
+    - gene_symbol
+    - disease_clinical_significance
+  - label: gene+clinical
+    question: pathogenic variants in EGFR
+    required:
+    - gene_symbol
+    - aggregate_clinical_significance
+  - label: gene+clinical
+    question: pathogenic variants in BRAF
+    required:
+    - gene_symbol
+    - aggregate_clinical_significance
+  - label: gene+clinical
+    question: what is the clinical significance of variants in MYC?
+    required:
+    - gene_symbol
+    - disease_clinical_significance
+  - label: gene+clinical
+    question: what is the clinical significance of variants in TP53?
+    required:
+    - gene_symbol
+    - disease_clinical_significance
+  - label: gene+clinical
+    question: pathogenic variants in TP53
+    required:
+    - gene_symbol
+    - aggregate_clinical_significance
+  - label: gene+clinical
+    question: pathogenic variants in MYC
+    required:
+    - gene_symbol
+    - aggregate_clinical_significance
+  - label: gene+clinical
+    question: what is the clinical significance of variants in BRAF?
+    required:
+    - gene_symbol
+    - disease_clinical_significance
+  - label: somatic+clinical
+    question: what is the oncogenicity classification for somatic variants in KRAS?
+    required:
+    - gene_symbol
+    - oncogenicity
+  - label: somatic+clinical
+    question: what somatic variants in EGFR are classified as oncogenic?
+    required:
+    - gene_symbol
+    - oncogenicity

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- 2026-05-18: page-level CSP. Inline <script> is required for the
+       Tailwind runtime config + the page-init script, so 'unsafe-inline' is
+       kept on script-src. Everything else is locked down: no plugins, no
+       framing, no foreign script sources, same-origin form submits.
+       The stricter per-script-hash CSP lives in deploy/nginx-security-headers.conf
+       and applies via HTTP header when that snippet is included in nginx. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' wss: ws: https:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <title>BioChirp Biological Intelligence Hub</title>
+  <meta name="description" content="Answer drug, target, and disease questions with auditable AI. BioChirp queries 11 curated biomedical databases plus live web search, returning cited, reproducible answers with full tool provenance." />
+  <meta name="theme-color" content="#1FA4FF" />
+  <link rel="canonical" href="https://biochirp.iiitd.edu.in/" />
+  <link rel="icon" type="image/svg+xml" href="/assets/brand/logo.svg" />
+  <link rel="icon" type="image/png" href="/assets/brand/logo.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://biochirp.iiitd.edu.in/" />
+  <meta property="og:title" content="BioChirp — Biological Intelligence Hub" />
+  <meta property="og:description" content="Answer drug, target, and disease questions with auditable AI across 11 curated biomedical databases." />
+  <meta property="og:image" content="https://biochirp.iiitd.edu.in/assets/brand/logo.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="BioChirp — Biological Intelligence Hub" />
+  <meta name="twitter:description" content="Answer drug, target, and disease questions with auditable AI across 11 curated biomedical databases." />
+  <meta name="twitter:image" content="https://biochirp.iiitd.edu.in/assets/brand/logo.png" />
+
+  <!-- Tailwind (vendored locally — 3.4.17 from cdn.tailwindcss.com) -->
+  <script src="/assets/vendor/tailwind-3.4.17.min.js" integrity="sha384-igm5BeiBt36UU4gqwWS7imYmelpTsZlQ45FZf+XBn9MuJbn4nQr7yx1yFydocC/K"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ["Inter","ui-sans-serif","system-ui","Segoe UI","Roboto","Helvetica","Arial","sans-serif"],
+          },
+          colors: {
+            bio: {50:'#EDF8FF',100:'#D7F0FF',200:'#ADE2FF',300:'#7CD0FF',400:'#4EBBFF',500:'#1FA4FF',600:'#147DCC',700:'#0E5EA0',800:'#0A4476',900:'#082F53'},
+            leaf:'#22C55E', plum:'#A78BFA', amber:'#F59E0B'
+          },
+          boxShadow:{ glow:'0 0 0 2px rgba(31,164,255,.25), 0 12px 40px rgba(0,0,0,.35)'},
+          animation:{ gradient:'gradient 16s ease infinite' },
+          keyframes:{ gradient:{'0%,100%':{backgroundPosition:'0% 50%'},'50%':{backgroundPosition:'100% 50%'}}}
+        }
+      }
+    }
+  </script>
+  <style>
+    :root[data-theme="dark"]  { --bg:#070A15; --card:#0B1222; --muted:#8BA3B8; --text:#E6F2FF; --border:rgba(255,255,255,.08); --hover:rgba(255,255,255,.06) }
+    :root[data-theme="light"] { --bg:#F8FBFF; --card:#FFFFFF;  --muted:#486173; --text:#0B1624; --border:rgba(0,0,0,.08);  --hover:rgba(0,0,0,.04) }
+    html,body{height:100%}
+    .gradient-bg{
+      background:
+        radial-gradient(circle at 10% 20%, rgba(79,70,229,.18) 0%, transparent 50%),
+        radial-gradient(circle at 90% 0%,  rgba(34,197,94,.16) 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(167,139,250,.12) 0%, transparent 55%);
+      background-size:200% 200%; animation:gradient 18s ease infinite;
+    }
+    @media (prefers-reduced-motion: reduce){ .gradient-bg{ animation:none !important; } }
+    .dna-bg{ position:absolute; inset:0; opacity:.08; pointer-events:none; z-index:-1 }
+    .card{ background:var(--card); border:1px solid var(--border) }
+    .card-hover{ transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease }
+    .card-hover:hover{ transform: translateY(-3px); box-shadow:0 14px 28px rgba(0,0,0,.28); border-color:rgba(79,70,229,.45) }
+    .chip{ background:linear-gradient(135deg, rgba(31,164,255,.15), rgba(167,139,250,.15)); border:1px solid var(--border) }
+    .btn{ transition: transform .15s ease } .btn:active{ transform: translateY(1px) scale(.99) }
+    .status-dot{ width:10px; height:10px; border-radius:9999px }
+    .link-ghost{ border:1px solid var(--border); padding:.5rem .75rem; border-radius:.5rem }
+    .link-ghost:hover{ background:var(--hover) }
+    .cv{ content-visibility:auto; contain-intrinsic-size:800px 1200px }
+    @media (max-width:768px){ .cv{ contain-intrinsic-size:1200px 1600px } }
+    /* Skeleton placeholders shown until /configs/db_chats.json resolves.
+       Same height/layout as the rendered cards so the section doesn't reflow. */
+    .skel{ background:linear-gradient(90deg, var(--hover) 0%, var(--card) 50%, var(--hover) 100%);
+           background-size:200% 100%; animation: skel-shimmer 1.6s ease-in-out infinite; border-radius:.5rem }
+    @keyframes skel-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    @media (prefers-reduced-motion: reduce){ .skel{ animation:none !important; } }
+  </style>
+</head>
+<body class="min-h-full font-display text-[--text] bg-[--bg] gradient-bg">
+
+  <!-- Subtle DNA overlay -->
+  <svg class="dna-bg" viewBox="0 0 1200 600" preserveAspectRatio="none">
+    <defs><linearGradient id="helix" x1="0" x2="1"><stop offset="0%" stop-color="#1FA4FF"/><stop offset="100%" stop-color="#A78BFA"/></linearGradient></defs>
+    <g fill="none" stroke="url(#helix)" stroke-width="2">
+      <path d="M100,100 C300,20 500,20 700,100 S1100,180 1200,100"/>
+      <path d="M100,500 C300,580 500,580 700,500 S1100,420 1200,500"/>
+      <path d="M400,60 V 540" opacity=".4"/><path d="M800,60 V 540" opacity=".4"/>
+    </g>
+  </svg>
+
+  <!-- NAVBAR (fixed & above content) -->
+  <header class="fixed top-0 inset-x-0 z-40 backdrop-blur bg-[--bg]/70 border-b border-[--border]">
+    <div class="w-full px-4 sm:px-6 lg:px-10 py-3 flex items-center justify-between">
+      <a class="flex items-center gap-3" href="#">
+        <div class="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-glow">
+          <img src="/assets/brand/logo.svg" alt="BioChirp logo" class="h-7 w-7 object-contain"/>
+        </div>
+        <div>
+          <div class="text-xl font-semibold tracking-tight">BioChirp</div>
+          <div class="text-xs text-[--muted] -mt-0.5">Biological Intelligence Hub</div>
+        </div>
+      </a>
+      <div class="flex items-center gap-2">
+        <a id="githubBtn" class="link-ghost hidden sm:inline-flex items-center gap-2" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" class="w-5 h-5" fill="currentColor"><path d="M12 .5a12 12 0 00-3.79 23.4c.6.11.82-.26.82-.57v-2c-3.34.73-4.04-1.6-4.04-1.6-.55-1.38-1.34-1.75-1.34-1.75-1.1-.76.08-.75.08-.75 1.22.09 1.86 1.25 1.86 1.25 1.08 1.85 2.83 1.32 3.52 1 .11-.79.42-1.32.76-1.62-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.4 1.24-3.25-.12-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.24a11.5 11.5 0 016 0c2.3-1.56 3.3-1.24 3.3-1.24.66 1.66.24 2.88.12 3.18.77.85 1.24 1.93 1.24 3.25 0 4.63-2.8 5.66-5.48 5.96.43.37.81 1.1.81 2.22v3.29c0 .31.21.68.82.56A12 12 0 0012 .5z"/></svg>
+          <span>GitHub</span>
+        </a>
+        <a class="link-ghost inline-flex items-center" href="/help">Help</a>
+        <button id="themeToggle" class="p-2 rounded-lg border border-[--border] hover:bg-[--hover]" title="Toggle theme" aria-label="Toggle dark/light theme">
+          <svg id="iconDark" class="w-5 h-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          <svg id="iconLight" class="w-5 h-5 hidden" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="relative overflow-hidden cv">
+    <div class="w-full px-4 sm:px-6 lg:px-10 pt-4 md:pt-6 pb-10 md:pb-16">
+      <!-- Fluid font-size (vw-scaled clamp, not a fixed text-3xl/5xl step) so
+           the full sentence always fits on one line at any viewport width
+           instead of wrapping once it outgrows a fixed breakpoint size. -->
+      <h1 class="font-extrabold leading-tight whitespace-nowrap text-[clamp(1.35rem,2.6vw,3rem)]">
+        Answer <span class="bg-gradient-to-r from-bio-400 via-plum to-pink-400 bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient">drug, target, disease</span> questions with auditable AI
+      </h1>
+
+      <!-- Hero media — leads the hero now (video first, buttons below), full
+           width. Two self-hosted demo clips, each in its own bordered/
+           rounded/captioned tile, side by side on sm+ screens and stacked
+           on mobile. Each <video> sits in a 16:9 padding-box so it scales
+           with its tile's width.
+           Self-hosted MP4s (switched from YouTube embeds 2026-08-11): the
+           YouTube embeds turned out to be non-embeddable on this domain
+           (playabilityStatus ERROR via YouTube's own player response,
+           independent of any origin/CSP setting on our side), and separately
+           the source recordings themselves are low-bitrate (~200-290kbps at
+           1920x982) — self-hosting can't fix that ceiling, but at least
+           removes YouTube's own extra compression/quality-selection
+           variability on top of it. Files live in /video/, generated via
+           `ffmpeg -c:v copy -an -movflags +faststart` (audio stripped, not
+           needed for a muted background loop; faststart so playback can
+           begin before the whole file downloads on a plain static server). -->
+      <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <div class="rounded-xl overflow-hidden border border-[--border] bg-black shadow-glow" style="position: relative; width: 100%; padding-top: 56.25%;">
+            <video
+              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain;"
+              src="/video/demo1-opentargets.mp4"
+              poster="/video/demo1-opentargets.jpg"
+              autoplay muted loop playsinline preload="auto"
+              title="BioChirp demo 1"
+            ></video>
+          </div>
+          <p class="mt-2 text-xs text-center text-[--muted]">Demo 1</p>
+        </div>
+        <div>
+          <div class="rounded-xl overflow-hidden border border-[--border] bg-black shadow-glow" style="position: relative; width: 100%; padding-top: 56.25%;">
+            <video
+              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain;"
+              src="/video/demo2-ttd.mp4"
+              poster="/video/demo2-ttd.jpg"
+              autoplay muted loop playsinline preload="auto"
+              title="BioChirp demo 2"
+            ></video>
+          </div>
+          <p class="mt-2 text-xs text-center text-[--muted]">Demo 2</p>
+        </div>
+      </div>
+
+      <!-- DB buttons — full-width grid tuned to land in ~2 rows (11 buttons
+           / 6 columns) instead of a tall single narrow column. -->
+      <div class="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <a id="openOpenTargetBtn" class="w-full text-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-white shadow-glow cursor-pointer">Open Targets Platform</a>
+        <!-- 2026-06-18: "⚡ Multi-DB Query" CTA removed — it routed through the
+             decommissioned /bio_chat/ backend (8030). Open Targets (11th DB)
+             kept; its backend (opentarget_service:8026) is alive. -->
+        <!-- The other 10 DB buttons are generated by renderHeroButtons() from
+             /configs/db_chats.json, the same source of truth chat-bootstrap.js
+             uses — so this list can never drift out of sync with the DBs
+             BioChirp actually serves. This hero row is the sole entry point
+             into each DB chat now that the "What BioChirp answers" and
+             "Database Chat Interfaces" sections were removed (2026-08-01).
+             `contents` keeps the injected <a> tags direct children of this
+             grid instead of a nested flex item. Ships with 10 skeleton
+             placeholders so the grid holds its ~2-row height immediately —
+             renderHeroButtons() replaces them via innerHTML once
+             db_chats.json resolves, instead of the row silently growing
+             underneath the video block a beat after paint. -->
+        <span id="heroDbButtons" class="contents">
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+          <div class="skel h-16" aria-hidden="true"></div>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="py-10 border-t border-[--border] cv">
+    <div class="w-full px-4 sm:px-6 lg:px-10 text-center text-sm text-[--muted]">
+      <!-- repoLink/docsLink/issuesLink/helpLink/emailLink ids match existing
+           init() wiring (previously dead — no element used these ids). -->
+      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-3">
+        <a id="repoLink" class="hover:text-[--text] transition-colors" target="_blank" rel="noopener">GitHub</a>
+        <a id="issuesLink" class="hover:text-[--text] transition-colors" target="_blank" rel="noopener">Issues</a>
+        <a id="docsLink" class="hover:text-[--text] transition-colors" target="_blank" rel="noopener">Documentation</a>
+        <a id="helpLink" class="hover:text-[--text] transition-colors">Help</a>
+        <a id="emailLink" href="#" class="hover:text-[--text] transition-colors cursor-pointer">Email Us</a>
+      </div>
+      © <span id="year"></span> BioChirp. Built for biological researchers who demand clarity.
+    </div>
+  </footer>
+
+  <!-- HELP MODAL -->
+  <div id="helpModal" class="fixed inset-0 hidden items-center justify-center z-50">
+    <div class="absolute inset-0 bg-black/50" id="helpBackdrop"></div>
+    <div role="dialog" aria-modal="true" class="relative card w-[92%] max-w-xl rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg font-semibold">Help & Support</h3>
+        <button id="helpClose" class="link-ghost">Close</button>
+      </div>
+      <p class="text-sm text-[--muted]">Find quick answers, open an issue, or contact us directly.</p>
+      <div class="mt-4 grid sm:grid-cols-2 gap-3 text-sm">
+        <a id="helpPrimary" class="card-hover border border-[--border] rounded-xl p-3 text-center" target="_blank" rel="noopener">Open Help Center</a>
+        <a id="helpIssues"  class="card-hover border border-[--border] rounded-xl p-3 text-center" target="_blank" rel="noopener">GitHub Issues</a>
+        <a id="helpDocs"    class="card-hover border border-[--border] rounded-xl p-3 text-center" target="_blank" rel="noopener">Documentation</a>
+        <a id="helpEmail"   class="card-hover border border-[--border] rounded-xl p-3 text-center cursor-pointer" href="#">Email Us</a>
+      </div>
+      <p class="text-xs text-[--muted] mt-3">Tip: press <kbd>?</kbd> anywhere to open this panel.</p>
+    </div>
+  </div>
+
+  <!-- CONFIG + SCRIPT -->
+  <script>
+    // --- Same-origin base so dev/staging/production all work without edits. ---
+    const ORIGIN = location.origin;
+
+    const CONFIG = {
+      chatUrl: `${ORIGIN}/chat`,
+      openTargetUrl: `${ORIGIN}/opentarget`,
+      links: {
+        help:   `${ORIGIN}/help`,
+        docs:   `${ORIGIN}/docs`,
+        repo:   "https://github.com/abhi1238/biochirp",
+        issues: "https://github.com/abhi1238/biochirp/issues",
+        email:  "abhishekh@iiitd.ac.in"
+      }
+    };
+
+    // helper: open pre-filled support email in Gmail compose
+    function openSupportEmail() {
+      const subject = encodeURIComponent('BioChirp support request');
+      const body = encodeURIComponent(
+        'Hi BioChirp team,\n\n' +
+        'I ran into an issue / have feedback:\n' +
+        '(Please describe here)\n\n' +
+        'Browser / OS:\n' +
+        'Approx time of issue:\n'
+      );
+      const url =
+        'https://mail.google.com/mail/?view=cm&fs=1' +
+        `&to=${encodeURIComponent(CONFIG.links.email)}` +
+        `&su=${subject}` +
+        `&body=${body}`;
+      window.open(url, '_blank', 'noopener');
+    }
+
+    // Keep content below fixed header (dynamic padding)
+    function padForHeader() {
+      const header = document.querySelector('header');
+      if (!header) return;
+      document.body.style.paddingTop = header.offsetHeight + 'px';
+    }
+    window.addEventListener('load', padForHeader);
+    window.addEventListener('resize', padForHeader);
+
+    // Theme toggle
+    document.getElementById('themeToggle')?.addEventListener('click', () => {
+      const root = document.documentElement;
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      document.getElementById('iconDark')?.classList.toggle('hidden', !isDark);
+      document.getElementById('iconLight')?.classList.toggle('hidden', isDark);
+    });
+
+    // Chat buttons
+    document.getElementById('openOpenTargetBtn')?.addEventListener('click', () => {
+      window.location.href = CONFIG.openTargetUrl;
+    });
+    // Tailwind gradient strings come from a trusted same-origin JSON file,
+    // but we still whitelist the shape (from-… to-…) before injecting into
+    // a className to keep this resilient if the config is ever edited by
+    // hand and to keep the CSP threat surface minimal.
+    const SAFE_COLOR = /^from-[a-z0-9-]+(?:\s+via-[a-z0-9-]+)?\s+to-[a-z0-9-]+$/;
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, ch => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]
+      ));
+    }
+
+    // Single fetch of /configs/db_chats.json (same source of truth used by
+    // chat-bootstrap.js) drives the hero CTA row — the sole entry point into
+    // each DB chat since the "Database Chat Interfaces" grid was removed
+    // (2026-08-01) — so it can't drift out of sync with the DBs BioChirp
+    // actually serves. Inclusion rule: an entry renders iff it has both
+    // `desc` and `color`. The front-door banner slug `multi` (and the
+    // retired `multi_v2`) intentionally lack these fields.
+    async function loadDbCards() {
+      try {
+        const res = await fetch('/configs/db_chats.json', { cache: 'default' });
+        if (!res.ok) return null;
+        const cfg = await res.json();
+        return Object.entries(cfg)
+          .filter(([, v]) => v && typeof v.desc === 'string' && typeof v.color === 'string')
+          .map(([slug, v]) => ({
+            slug,
+            name: v.name || slug,
+            desc: v.desc,
+            color: SAFE_COLOR.test(v.color) ? v.color : 'from-bio-500 to-plum',
+            url: '/db_chat.html?db=' + encodeURIComponent(slug),
+          }));
+      } catch (err) {
+        console.error('[index] db_chats.json fetch failed', err);
+        return null;
+      }
+    }
+
+    // Hero CTA row: one button per DB (skips `opentarget` — it already has
+    // its own dedicated hero button pointing at /opentarget, the branded
+    // landing page, rather than the generic db_chat.html template).
+    function renderHeroButtons(cards) {
+      const wrap = document.getElementById('heroDbButtons');
+      if (!wrap) return;
+      if (!cards) { wrap.innerHTML = ''; return; } // clear skeletons rather than shimmer forever
+      wrap.innerHTML = cards
+        .filter(db => db.slug !== 'opentarget')
+        .map(db => `<a href="${db.url}" class="w-full text-center px-4 py-2.5 rounded-xl bg-gradient-to-r ${db.color} text-white shadow-glow cursor-pointer hover:opacity-90 transition-opacity">${escapeHtml(db.name)} Chat</a>`)
+        .join('');
+    }
+
+    // Help modal
+    const modal = document.getElementById('helpModal');
+    const openers = [document.getElementById('helpOpen'), document.getElementById('footerHelp')];
+    const closer  = document.getElementById('helpClose');
+    const backdrop= document.getElementById('helpBackdrop');
+    function openHelp(){ modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    function closeHelp(){ modal.classList.add('hidden');    modal.classList.remove('flex'); }
+    openers.forEach(el => el && el.addEventListener('click', (e)=>{ e.preventDefault(); openHelp(); }));
+    closer?.addEventListener('click', closeHelp); backdrop?.addEventListener('click', closeHelp);
+    document.addEventListener('keydown',(e)=>{ if(e.key==='?'){ openHelp(); } if(e.key==='Escape'){ closeHelp(); } });
+
+    function trackVisit(page) {
+      fetch(`${ORIGIN}/track-visit`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({page}),
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+    // Init
+    function init(){
+      loadDbCards().then(renderHeroButtons);
+      padForHeader();
+      trackVisit('index');
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      // top & footer links
+      const ghBtn = document.getElementById('githubBtn'); if (ghBtn) ghBtn.href = CONFIG.links.repo;
+      const rLink = document.getElementById('repoLink'); if (rLink) rLink.href = CONFIG.links.repo;
+      const dLink = document.getElementById('docsLink'); if (dLink) dLink.href = CONFIG.links.docs;
+      const iLink = document.getElementById('issuesLink'); if (iLink) iLink.href = CONFIG.links.issues;
+      const hLink = document.getElementById('helpLink'); if (hLink) hLink.href = CONFIG.links.help;
+
+      // help modal links (previously unwired — clicking them did nothing)
+      const hpLink = document.getElementById('helpPrimary'); if (hpLink) hpLink.href = CONFIG.links.help;
+      const hiLink = document.getElementById('helpIssues');  if (hiLink) hiLink.href = CONFIG.links.issues;
+      const hdLink = document.getElementById('helpDocs');    if (hdLink) hdLink.href = CONFIG.links.docs;
+
+      // wire email buttons to Gmail compose
+      const emailLink = document.getElementById('emailLink');
+      const helpEmail = document.getElementById('helpEmail');
+      if (emailLink) {
+        emailLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          openSupportEmail();
+        });
+      }
+      if (helpEmail) {
+        helpEmail.addEventListener('click', (e) => {
+          e.preventDefault();
+          openSupportEmail();
+        });
+      }
+    }
+    init();
+  </script>
+</body>
+</html>

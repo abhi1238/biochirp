@@ -1,0 +1,33 @@
+# Single source-of-truth for user-facing disclaimers.
+# Loaded by app/utils/disclaimers.py and spliced into:
+#   - resources/prompts/synthesizer.md         ({{MEDICAL_ADVICE_DISCLAIMER}}, {{PROVENANCE_DISCLAIMER}})
+#   - resources/prompts/web_tool_prompt.md     ({{MEDICAL_ADVICE_DISCLAIMER}}, {{PROVENANCE_DISCLAIMER}})
+#   - resources/prompts/out_of_domain_web.md   ({{PROVENANCE_DISCLAIMER}})
+# (Previously also consumed by app/per_db_chat/_pipeline.py as a hardcoded
+# _DISCLAIMER constant; that file has been deleted.)
+#
+# Editing rules:
+#   - These strings are byte-equality contracts. The frontend WS chip and
+#     downstream tooling string-match on them. Do not paraphrase.
+#   - Keep them on a single line each (no intra-string newlines / indents).
+#     If you need to display them wrapped, do it at render time, not in
+#     the source.
+#   - Run scripts/check_prompt_invariants.sh after every edit to confirm
+#     no prompt file holds a stale copy of the literal text.
+#
+# Scope of the SSOT contract (the splice in app/utils/disclaimers.py only
+# replaces these two literal placeholders):
+#   - {{MEDICAL_ADVICE_DISCLAIMER}}  → the medical_advice sentence
+#   - {{PROVENANCE_DISCLAIMER}}      → the provenance sentence
+# The splice does NOT own the surrounding Markdown wrapping. The
+# consumer prompts (synthesizer.md, web_tool_prompt.md, out_of_domain_web.md)
+# are responsible for wrapping the placeholder consistently — current
+# canonical form is `*{{PLACEHOLDER}}*` (italic-asterisk on its own line)
+# at every consumer site. CI enforces both the sentence byte-equality and
+# the canonical wrapper form; see scripts/check_prompt_invariants.sh.
+
+medical_advice: |-
+  Note: I'm not a medical professional. This information is for educational purposes only and is not medical advice.
+
+provenance: |-
+  ⚠️ Answer below is from a web search and AI synthesis — not from BioChirp's curated biomedical databases. Verify every claim against the cited primary sources.

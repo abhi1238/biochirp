@@ -1,0 +1,2 @@
+# All deps in biochirp/base — see requirements-base.txt
+# (duckdb for the text-to-SQL analytical step now lives in the base image.)

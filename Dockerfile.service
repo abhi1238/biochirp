@@ -1,0 +1,40 @@
+# BioChirp per-DB service template.
+#
+# Used by every per-DB tool stanza in docker-compose.yml via:
+#
+#   build:
+#     context: ./app/tools/<db>
+#     dockerfile: ../../../Dockerfile.service
+#     args:
+#       SERVICE_PORT: "8071"
+#       SERVICE_WORKERS: "6"
+#
+# Each service's own directory still supplies app/ and requirements.txt
+# (so per-service code and extras Python deps are picked up), but the
+# Dockerfile itself is shared. Support services with bespoke patterns
+# (interpreter_agent uses gunicorn --preload, expand_* / fuzzy / planner
+# / tavily / readme / web / semantic / llm_member_filter / opentargets
+# have non-standard configs) keep their own Dockerfile.
+#
+# Manual build (bypassing compose):
+#   docker build -f Dockerfile.service ./app/tools/biogrid \
+#     --build-arg SERVICE_PORT=8071 --build-arg SERVICE_WORKERS=6
+FROM biochirp/base:latest
+
+ARG SERVICE_PORT
+ARG SERVICE_WORKERS=4
+
+WORKDIR /app
+COPY requirements.txt requirements.txt
+# pyarrow: biogrid and ctd pin ==18.1.0 (pyarrow>=19 breaks duckdb 1.4.x C++ API).
+# expand_synonyms uses pandas 2.3.x which requires pyarrow>=19 but does NOT use duckdb.
+# The base image intentionally does NOT pre-install pyarrow — each service pins its own version.
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app ./app
+RUN mkdir -p /app/logs && chown myuser:myuser /app/logs && chown -R myuser:myuser /app
+USER myuser
+
+ENV SERVICE_PORT=${SERVICE_PORT} SERVICE_WORKERS=${SERVICE_WORKERS}
+EXPOSE ${SERVICE_PORT}
+
+CMD ["sh", "-c", "exec uvicorn ${UVICORN_APP:-app.main:app} --host 0.0.0.0 --port ${SERVICE_PORT} --workers ${SERVICE_WORKERS}"]

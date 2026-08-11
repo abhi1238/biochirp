@@ -1,0 +1,25 @@
+# Per-DB term vocabularies for routing LLM-misclassified concepts to the right
+# filter columns. Used by app/utils/term_routing.py.
+#
+# Each top-level key is a database name (lowercase). Each entry maps a target
+# filter column to the set of terms that should be routed there if the
+# interpreter places them in variant_name / disease_name / drug_name fields.
+#
+# When adding a new DB, also confirm the column exists in config/schema.py for
+# that DB's tables — otherwise the planner will not select the table that
+# carries the column.
+
+clinvar:
+  clinical_significance:
+    - pathogenic
+    - likely pathogenic
+    - benign
+    - likely benign
+    - uncertain significance
+    - vus
+    - conflicting interpretations of pathogenicity
+    - drug response
+    - risk factor
+    - association
+    - protective
+    - affects

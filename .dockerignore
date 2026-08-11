@@ -1,0 +1,62 @@
+# 2026-05-18: written so `docker build -f Dockerfile.base .` from
+# scripts/build_base_image.sh doesn't upload the ~10 GB repo root
+# (results/ 6.4 GB + .git 1.3 GB + evaluation/ 568 MB + …) to the daemon
+# every rebuild. Per-tool builds use small contexts (./app/tools/X) so
+# they were never the bottleneck — the base image was.
+
+# Version control & dev metadata
+.git/
+.gitignore
+.gitmodules
+.github/
+.claude/
+.pytest_cache/
+.vscode/
+.idea/
+
+# Runtime data symlinks / caches (mounted at runtime, never bake into images)
+results/
+database/
+qdrant_storage/
+share_store/
+logs/
+
+# Heavy artifact / scratch dirs
+evaluation/
+benchmarks/
+bench/
+artifacts/
+checkpoints/
+audit_reports/
+_v2_eval/
+_unified_router_test/
+_audit_2026_05_16/
+case_study/
+dist_zenodo/
+
+# Notebooks & local exploration (large, no role at runtime)
+*.ipynb
+*.bak
+*.swp
+*~
+
+# Python bytecode (avoids stale .pyc shadowing across image rebuilds)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Frontend dev / vendor sources (assets are served from /assets/, not bundled)
+node_modules/
+
+# Misc OS/editor
+.DS_Store
+Thumbs.db
+
+# Per-tool *_chat_api.html stubs and per-DB markdown belong to the frontend
+# service, not to per-tool builds. Per-tool Dockerfiles only COPY app/, so
+# these never enter their context anyway — listed for the base build.
+docs/archive/
+patches/

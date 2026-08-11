@@ -1,0 +1,6 @@
+# Accepted FK-isolated tables in schema_kg/inputs (scripts/check_schema_kg_fk_isolation.py).
+# Format: <db>.<table>   (descriptive tail after :: is ignored on match)
+# Add an entry ONLY after confirming the table is a genuine standalone/redundant
+# table, with the reason. Any NEW isolation (not listed here) fails CI — that is
+# how the orphanet/msigdb gene_master class is now caught automatically.
+

@@ -1,0 +1,68 @@
+  opentargets:
+    <<: *defaults
+    build:
+      context: ./opentarget_service
+      dockerfile: ../Dockerfile.service
+      args:
+        SERVICE_PORT: "8026"
+        SERVICE_WORKERS: "2"
+    image: opentargets_service:latest
+    container_name: biochirp_opentargets
+    # user: root
+    depends_on:
+      biochirp_redis_tool:
+        condition: service_healthy
+    environment:
+      # - RESULTS_ROOT=/app/results 
+      - REDIS_HOST=biochirp_redis_tool
+      - REDIS_PORT=6379
+    ports:
+      - "8026:8026"
+    env_file:
+      - .env
+    volumes:
+      - ./resources/prompts/opentarget_orchestrator.md:/app/resources/prompts/opentarget_orchestrator.md:ro
+      - ./resources/prompts/opentarget_resolver_summarizer.md:/app/resources/prompts/opentarget_resolver_summarizer.md:ro
+      - *v-results
+      - ./resources/prompts/opentarget_entity_extractor.md:/app/resources/prompts/opentarget_entity_extractor.md:ro
+      - ./app/tools/fuzzy/app/fuzzy.py:/app/fuzzy.py
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings  # main.py: `from config import settings` (per-DB key resolution)
+      - *v-prompts
+      - *v-field-aliases
+      # 2026-05-17: opentarget_service now imports shared CSV helpers
+      # from app/utils/table_formatters.py (extracted from the local
+      # _infer_columns_from_rows / _rows_to_csv / _build_legacy_table_payload
+      # copies). The bind-mount makes them available inside the container.
+      - *v-utils
+      - *v-utils-app  # second target — opentarget mixes `from utils.X` and `from app.utils.X`
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8026/health', timeout=5)\" || exit 1"]
+      # 3 sentence-transformer models load sequentially at startup (~7 min total
+      # on cold cache). Short start_period caused unhealthy state during init.
+      start_period: 600s
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          memory: 1536m
+          devices:
+            - driver: nvidia
+              count: 1      # Number of GPUs to reserve
+              capabilities: [gpu]
+
+networks:
+  semantic_net:
+    external: true
+    name: semantic_net
+    ipam:
+      config:
+        - subnet: 172.35.0.0/16
+

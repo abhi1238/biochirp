@@ -1,0 +1,127 @@
+{
+  "ttd": {
+    "name": "Therapeutic Target Database (TTD)",
+    "subtitle": "Drug-target-disease relationships: 3,000+ drugs, 2,600+ curated protein targets.",
+    "accent": "#1FA4FF",
+    "accent2": "#A78BFA",
+    "btnPrimaryText": "#00162a",
+    "quickAsks": [
+      { "label": "🎯 Targets for imatinib", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":["imatinib"],"target_name":"requested","gene_name":null,"disease_name":null,"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "🧬 Drugs targeting EGFR", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":"requested","target_name":["EGFR"],"gene_name":null,"disease_name":null,"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "🧪 Targets linked to CML", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":"requested","target_name":null,"gene_name":null,"disease_name":["chronic myeloid leukemia"],"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "💊 Diseases linked to aspirin", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":["aspirin"],"target_name":null,"gene_name":null,"disease_name":"requested","pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} }
+    ],
+    "parsedValueNotes": "drug/target/gene/disease",
+    "extraParsedValueKeys": null,
+    "exampleRequest": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":"requested","target_name":null,"gene_name":null,"disease_name":["tuberculosis"],"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null},
+    "exampleResponse": {"database":"ttd","table":[{"drug_name":"Isoniazid","disease_name":"Tuberculosis"}],"csv_path":"/tmp/ttd_table.csv","row_count":1,"tool":"ttd","message":"OK"},
+    "responseMessageNote": "Status note",
+    "purposeHtml": "Returns a <code>DatabaseTable</code> with rows and CSV path for the <strong>Therapeutic Target Database (TTD)</strong> database.",
+    "postTimeoutMs": 45000
+  },
+  "ctd": {
+    "name": "Comparative Toxicogenomics Database (CTD)",
+    "subtitle": "Chemical–gene–disease interactions including environmental exposures and toxicology.",
+    "accent": "#1FA4FF",
+    "accent2": "#A78BFA",
+    "btnPrimaryText": "#00162a",
+    "quickAsks": [
+      { "label": "🧪 Drugs linked to tuberculosis", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":"requested","target_name":null,"gene_name":null,"disease_name":["tuberculosis"],"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "💊 Diseases linked to aspirin", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":["aspirin"],"target_name":null,"gene_name":null,"disease_name":"requested","pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "🧬 Genes linked to melanoma", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":null,"target_name":null,"gene_name":"requested","disease_name":["melanoma"],"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "🧠 Diseases linked to TP53", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":null,"target_name":null,"gene_name":["TP53"],"disease_name":"requested","pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} }
+    ],
+    "parsedValueNotes": "drug/target/gene/disease",
+    "extraParsedValueKeys": null,
+    "exampleRequest": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":"requested","target_name":null,"gene_name":null,"disease_name":["tuberculosis"],"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null},
+    "exampleResponse": {"database":"ctd","table":[{"chemical_name":"Isoniazid","disease_name":"Tuberculosis"}],"csv_path":"/tmp/ctd_table.csv","row_count":1,"tool":"ctd","message":"OK"},
+    "responseMessageNote": "Status note",
+    "purposeHtml": "Filters and returns Comparative Toxicogenomics Database (CTD) rows as a <code>DatabaseTable</code> with optional CSV path.",
+    "postTimeoutMs": 45000
+  },
+  "hcdt": {
+    "name": "High-Confidence Drug-Target (HCDT)",
+    "subtitle": "Validated high-confidence drug-target interactions in human cancer.",
+    "accent": "#1FA4FF",
+    "accent2": "#A78BFA",
+    "btnPrimaryText": "#00162a",
+    "quickAsks": [
+      { "label": "🎯 Targets for imatinib", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":["imatinib"],"target_name":"requested","gene_name":null,"disease_name":null,"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "🧬 Drugs targeting EGFR", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":"requested","target_name":["EGFR"],"gene_name":null,"disease_name":null,"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "💊 Targets for isoniazid", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":["isoniazid"],"target_name":"requested","gene_name":null,"disease_name":null,"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} },
+      { "label": "🧠 Drugs targeting VEGFA", "preset": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":"requested","target_name":["VEGFA"],"gene_name":null,"disease_name":null,"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null} }
+    ],
+    "parsedValueNotes": "drug/target/gene/disease",
+    "extraParsedValueKeys": null,
+    "exampleRequest": {"cleaned_query":null,"status":null,"route":null,"message":null,"parsed_value":{"drug_name":"requested","target_name":null,"gene_name":null,"disease_name":["tuberculosis"],"pathway_name":null,"biomarker_name":null,"drug_mechanism_of_action_on_target":null,"approval_status":null},"tool":null},
+    "exampleResponse": {"database":"hcdt","table":[{"drug_name":"Isoniazid","target_name":"InhA"}],"csv_path":"/tmp/hcdt_table.csv","row_count":1,"tool":"hcdt","message":"OK"},
+    "responseMessageNote": "Status note",
+    "purposeHtml": "Returns <code>DatabaseTable</code> rows for the <strong>High-Confidence Drug-Target (HCDT)</strong> database, with optional CSV path.",
+    "postTimeoutMs": 45000
+  },
+  "string": {
+    "name": "STRING",
+    "subtitle": "Protein-protein interaction network with functional and physical associations.",
+    "accent": "#a855f7",
+    "accent2": "#7c3aed",
+    "btnPrimaryText": "#ffffff",
+    "quickAsks": [
+      { "label": "🔗 Interactors of EGFR", "preset": {"cleaned_query":"What proteins interact with EGFR in STRING?","status":null,"route":null,"message":null,"parsed_value":{"gene_symbol":["EGFR"],"partner_gene_symbol":"requested","combined_score":null},"tool":null} },
+      { "label": "🧬 Physical partners of KRAS", "preset": {"cleaned_query":"Which proteins physically bind to KRAS?","status":null,"route":null,"message":null,"parsed_value":{"gene_symbol":["KRAS"],"partner_gene_symbol":"requested","combined_score":null},"tool":null} },
+      { "label": "🧪 TP53 experimental scores", "preset": {"cleaned_query":"Show experimental interaction scores for TP53","status":null,"route":null,"message":null,"parsed_value":{"gene_symbol":["TP53"],"experimental":"requested","combined_score":"requested"},"tool":null} },
+      { "label": "📏 BRCA2 size & annotation", "preset": {"cleaned_query":"What is the protein size and annotation of BRCA2?","status":null,"route":null,"message":null,"parsed_value":{"gene_symbol":["BRCA2"],"protein_size":"requested","annotation":"requested"},"tool":null} }
+    ],
+    "parsedValueNotes": "gene_symbol / combined_score / channel scores",
+    "extraParsedValueKeys": [
+      {"key": "gene_symbol", "notes": "HGNC symbol, list or \"requested\""},
+      {"key": "partner_gene_symbol", "notes": "\"requested\" to return all partners"},
+      {"key": "combined_score", "notes": "Integer 700–999; \"requested\" or threshold"},
+      {"key": "experimental", "notes": "Per-channel score; \"requested\" or threshold"},
+      {"key": "database", "notes": "Curated-database channel score"},
+      {"key": "textmining", "notes": "Text-mining channel score"},
+      {"key": "coexpression", "notes": "Co-expression channel score"},
+      {"key": "neighborhood", "notes": "Genomic neighbourhood channel score"},
+      {"key": "fusion", "notes": "Gene-fusion channel score"},
+      {"key": "cooccurence", "notes": "Phylogenetic co-occurrence (single 'r')"},
+      {"key": "protein_size", "notes": "Amino-acid length from master table"},
+      {"key": "annotation", "notes": "Free-text functional description"},
+      {"key": "alias", "notes": "Alternate ID from protein_alias table"},
+      {"key": "source", "notes": "Source DB for alias (Ensembl, UniProt…)"}
+    ],
+    "exampleRequest": {"cleaned_query":"What proteins interact with EGFR in STRING?","status":null,"route":null,"message":null,"parsed_value":{"gene_symbol":["EGFR"],"partner_gene_symbol":"requested","combined_score":null},"tool":null},
+    "exampleResponse": {"database":"string","table":[{"gene_symbol":"EGFR","partner_gene_symbol":"ERBB2","combined_score":"998"}],"csv_path":"/tmp/string_results.csv","row_count":96,"tool":"string","message":"EGFR has 96 high-confidence interaction partners…"},
+    "responseMessageNote": "LLM summary or error note",
+    "purposeHtml": "Returns <code>DatabaseTable</code> rows for the <strong>STRING</strong> protein-protein interaction database. Routes through the shared orchestrator pipeline (schema_mapper → planner → expand_and_match → execute).",
+    "postTimeoutMs": 45000
+  },
+  "msigdb": {
+    "name": "MSigDB",
+    "subtitle": "Curated gene sets for enrichment analysis (GSEA): human Hallmark/C1–C9 and mouse collections, with gene↔gene-set membership and provenance.",
+    "accent": "#22c55e",
+    "accent2": "#16a34a",
+    "btnPrimaryText": "#ffffff",
+    "quickAsks": [
+      { "label": "Gene sets containing MYC", "preset": {"cleaned_query":"What gene sets contain MYC in MSigDB?","status":null,"route":null,"message":null,"parsed_value":{"gene_symbol":["MYC"],"geneset_name":"requested","collection":null},"tool":null} },
+      { "label": "Genes in HALLMARK_APOPTOSIS", "preset": {"cleaned_query":"Which genes are in HALLMARK_APOPTOSIS?","status":null,"route":null,"message":null,"parsed_value":{"geneset_name":["HALLMARK_APOPTOSIS"],"gene_symbol":"requested","collection":"Hallmark"},"tool":null} },
+      { "label": "TP53 Hallmark memberships", "preset": {"cleaned_query":"What Hallmark gene sets is TP53 a member of?","status":null,"route":null,"message":null,"parsed_value":{"gene_symbol":["TP53"],"geneset_name":"requested","collection":"Hallmark"},"tool":null} },
+      { "label": "Hallmark gene set catalogue", "preset": {"cleaned_query":"List all Hallmark gene sets and their gene counts","status":null,"route":null,"message":null,"parsed_value":{"collection":"Hallmark","geneset_name":"requested","gene_count":"requested"},"tool":null} }
+    ],
+    "parsedValueNotes": "gene_symbol / geneset_name / collection / organism",
+    "extraParsedValueKeys": [
+      {"key": "gene_symbol", "notes": "HGNC symbol, list or \"requested\""},
+      {"key": "geneset_name", "notes": "MSigDB gene set name (e.g. HALLMARK_APOPTOSIS); \"requested\" to return all"},
+      {"key": "geneset_id", "notes": "Internal MSigDB identifier (join key across tables)"},
+      {"key": "collection", "notes": "Hallmark, Positional, Curated, Regulatory, Computational, Ontology, Oncogenic, Immunologic, CellType, CellLineage (human) or MH, M1–M8 (mouse)"},
+      {"key": "organism", "notes": "\"Homo sapiens\", \"Mus musculus\", or \"Rattus norvegicus\""},
+      {"key": "gene_count", "notes": "Number of member genes in the gene set; \"requested\" to retrieve"},
+      {"key": "sub_collection", "notes": "Sub-collection label (e.g. KEGG, Reactome, WikiPathways within Curated)"},
+      {"key": "contributor", "notes": "Gene set contributor name from geneset_metadata"},
+      {"key": "pmid", "notes": "PubMed ID linked to the gene set"}
+    ],
+    "exampleRequest": {"cleaned_query":"What gene sets contain MYC in MSigDB?","status":null,"route":null,"message":null,"parsed_value":{"gene_symbol":["MYC"],"geneset_name":"requested","collection":null},"tool":null},
+    "exampleResponse": {"database":"msigdb","table":[{"geneset_name":"HALLMARK_MYC_TARGETS_V1","collection":"Hallmark","gene_symbol":"MYC","gene_count":200}],"csv_path":"/tmp/msigdb_results.csv","row_count":25,"tool":"msigdb","message":"MYC is a member of 25 gene sets across all MSigDB collections…"},
+    "responseMessageNote": "LLM summary or error note",
+    "purposeHtml": "Returns <code>DatabaseTable</code> rows for the <strong>MSigDB</strong> Molecular Signatures Database. Covers gene set membership, collection metadata, and per-geneset annotations across Hallmark, Curated, Oncogenic, Immunologic, and other collections. Routes through the shared orchestrator pipeline (schema_mapper → planner → expand_and_match → execute).",
+    "postTimeoutMs": 90000
+  }
+}

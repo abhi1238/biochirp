@@ -1,0 +1,220 @@
+name: hpo
+display_name: HPO
+description: 'Human Phenotype Ontology (HPO). Standardised controlled vocabulary of clinical and phenotypic
+  abnormalities observed in human genetic diseases. Maps HPO phenotype terms to causative genes and diseases,
+  enabling genotype-phenotype correlation and rare disease differential diagnosis.
+
+  '
+schema:
+  inputs:
+  - field: gene_symbol
+  - field: disease_name
+  - field: phenotype_name
+  outputs:
+  - field: gene_symbol
+  - field: phenotype_name
+  - field: disease_name
+  tables:
+    gene_master_table_hpo:
+      description: 'Master gene index (5510 rows, 5504 with valid HGNC gene_symbol) with gene_id (NCBIGene: prefixed)
+        and gene_symbol. Subset of genes with HPO phenotype annotations. 6 rows have null gene_symbol
+        (uncharacterized loci, e.g. NCBIGene:7467, NCBIGene:10108); all others have valid HGNC symbols.'
+      key_columns:
+      - name: gene_id
+        description: NCBI Entrez gene ID.
+      - name: gene_symbol
+        description: HGNC short gene symbol (e.g. "FBN1", "DMD"). Users may ask for "gene" or "gene symbol".
+          Column is named gene_symbol on disk (the on-disk gene_name column was renamed to gene_symbol
+          in the 2026-06-16 parquet rewrite).
+    disease_master_table_hpo:
+      description: 'Master disease index (14868 rows: 8826 OMIM, 5995 ORPHA, 47 DECIPHER) used as the
+        FK target for phenotype annotation tables. 215 of 14,868 rows (1.4%) have NULL disease_name (OMIM
+        IDs with no name available).'
+      key_columns:
+      - name: disease_id
+        description: Disease identifier prefixed by source ontology — OMIM (8826 rows), ORPHA (5995 rows),
+          or DECIPHER (47 rows). Examples "OMIM:154700" (Marfan syndrome), "ORPHA:773", "DECIPHER:14".
+          Users may ask for "OMIM ID", "Orphanet ID", "DECIPHER ID", or "disease ID".
+      - name: disease_name
+        description: Disease label (OMIM or Orphanet derived). Users may ask for "disease" or "condition".
+    gene_phenotype_association_hpo:
+      description: Flat gene-phenotype association table (329339 rows). Each row links one gene to one
+        HPO phenotype via a disease attribution; the same gene-phenotype pair may appear under multiple
+        diseases.
+      key_columns:
+      - name: gene_id
+        description: Gene identifier prefixed with "NCBIGene:" (e.g. "NCBIGene:10"). FK to gene_master_table_hpo.gene_id;
+          join there for gene_symbol.
+      - name: phenotype_id
+        description: HPO identifier ("HP:" + 7 digits) of the linked phenotype. FK to phenotype_master_table_hpo.phenotype_id;
+          join there for phenotype_name.
+      - name: disease_id
+        description: 'Disease identifier (OMIM:/ORPHA:/DECIPHER: prefixed) through which the gene-phenotype
+          association is attributed.'
+      - name: gene_phenotype_frequency
+        description: Frequency of the phenotype as an HPO frequency code (modal HP:0040283 = Occasional
+          5-29%; also HP:0040282 = Frequent 30-79%, HP:0040281 = Very frequent 80-99%, HP:0040284 = Very
+          rare 1-4%, HP:0040280 = Obligate 100%), a fraction (e.g. "1/1", "12/15"), or null when unspecified
+          (~17% of rows, originally "-" in source data, converted to null by the loader). Users may ask
+          for "frequency" or "how common".
+    phenotype_synonym_hpo:
+      description: Alternate names and synonyms for HPO phenotype terms (24209 rows, 11028 unique phenotype_ids).
+        Use for synonym-based lookups. FK target is phenotype_master_table_hpo (all 19,389 terms).
+      key_columns:
+      - name: phenotype_id
+        description: HPO identifier ("HP:" + 7 digits) linking this synonym to its canonical phenotype
+          term. FK into phenotype_master_table_hpo.
+      - name: synonym
+        description: Alternate term / synonym for the phenotype. Users may ask for "synonym", "alternate
+          term", or "AKA".
+    phenotype_master_table_hpo:
+      description: Canonical phenotype master — the full HPO ontology snapshot (19389 terms) with canonical
+        name, definition, is_a parents, alternate IDs, and external xrefs. Sole phenotype master and FK
+        target for every phenotype_id in HPO; use it for name lookups AND ontology metadata (definitions,
+        parents, xrefs). (Merged 2026-06-24 from the former lightweight phenotype_master_table_hpo subset +
+        phenotype_ontology_master_hpo.)
+      key_columns:
+      - name: phenotype_id
+        description: HPO identifier ("HP:" + 7 digits) — PK; primary join key into the other HPO tables.
+      - name: phenotype_name
+        description: Canonical HPO term name. Users may ask for "phenotype", "symptom", "HPO term",
+          "clinical feature", or "sign".
+      - name: definition
+        description: Free-text definition of the HPO term. Users may ask for "definition" or "description".
+          2,484 of 19,389 rows (12.8%) have NULL definition.
+    gene_disease_association_hpo:
+      description: 'Gene-disease association table (15914 rows) sourced from OMIM/MedGen and Orphanet;
+        use for gene-to-disease lookups independent of phenotype. Every disease_id is present in disease_master_table_hpo
+        (no FK gap), so inner joins on disease_id are lossless. Gene gap (updated 2026-06-27): 9 rows across
+        6 gene_ids have null gene_symbol (uncharacterized loci, e.g. NCBIGene:7467, NCBIGene:10108); all 6
+        gene_ids are present in gene_master_table_hpo. Inner joins on gene_id are lossless.'
+      key_columns:
+      - name: gene_id
+        description: NCBI Entrez gene ID prefixed with "NCBIGene:" (e.g. "NCBIGene:5837"). FK to
+          gene_master_table_hpo.gene_id; join there for gene_symbol.
+      - name: ncbi_gene_id
+        description: Bare integer NCBI Entrez gene id as a string (e.g. "64170"), i.e. the prefix-stripped
+          form of gene_id. Same underlying identifier as gene_id but without the "NCBIGene:" prefix, so
+          the two columns are NOT identical strings.
+      - name: association_type
+        description: 'Type of gene-disease association. Enum (observed counts): "UNKNOWN" (8290, modal
+          — Orphanet-sourced rows), "MENDELIAN" (7043), "POLYGENIC" (581). Users may ask for "association
+          type".'
+      - name: disease_id
+        description: 'Disease identifier (OMIM:/ORPHA:/DECIPHER: prefixed) for the associated disease.'
+      - name: source
+        description: 'Curating source URL on disk (not a short label). Observed values: "http://www.orphadata.org/data/xml/en_product6.xml"
+          (Orphanet, 8290 rows) and "ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/mim2gene_medgen" (OMIM/MedGen,
+          7624 rows). Users may ask for "source" or "data source".'
+    disease_phenotype_annotation_hpo:
+      description: 'Full HPO phenotype annotation table (281,957 rows) with evidence codes, onset, frequency,
+        sex specificity, and biocuration provenance. Richer than disease_phenotype_association_hpo. 3 ghost
+        rows (OMIM:111620, OMIM:612271, OMIM:111400) with null phenotype_id were removed from the parquet
+        on 2026-06-27.'
+      key_columns:
+      - name: disease_id
+        description: 'Disease identifier (OMIM:/ORPHA:/DECIPHER: prefixed) for the annotated disease. FK
+          to disease_master_table_hpo.disease_id; join there for disease_name.'
+      - name: qualifier
+        description: Annotation qualifier, reserved for "NOT" (negation) but null in 100% of served rows
+          in this snapshot. Users may ask for "qualifier" or "negation".
+      - name: phenotype_id
+        description: HPO phenotype identifier ("HP:" + 7 digits) being annotated.
+      - name: reference
+        description: Bibliographic reference supporting the annotation (e.g. PMID or OMIM identifier).
+          Users may ask for "reference" or "citation".
+      - name: evidence
+        description: Evidence code supporting the annotation (e.g. "PCS", "IEA", "TAS"). Users may ask
+          for "evidence code" or "evidence".
+      - name: onset
+        description: Age-of-onset HPO term (e.g. "HP:0003577" = Congenital onset, "HP:0003581" = Adult
+          onset). Users may ask for "onset", "age of onset", or "when does it appear".
+      - name: disease_phenotype_frequency
+        description: Frequency term or fraction (e.g. "HP:0040281" = Very frequent). Users may ask for
+          "frequency".
+      - name: sex
+        description: Sex specificity of the annotation, mostly uppercase "MALE" (448 rows) / "FEMALE"
+          (190 rows). Users may ask for "sex" or "gender-specific". NOTE 2 lowercase curation-noise rows
+          remain on disk ("male", "female", 1 each), so a case-insensitive match is safest.
+      - name: modifier
+        description: Clinical modifier HPO term (e.g. severity, laterality). Users may ask for "modifier"
+          or "clinical modifier".
+      - name: aspect
+        description: 'Aspect of annotation. Enum (observed counts): "P"=phenotypic abnormality (264207),
+          "I"=inheritance (9104), "C"=clinical course (8444), "H"=past medical history (124), "M"=clinical
+          modifier (78); no null aspect rows in this snapshot. Users may ask for "aspect" or "annotation type".'
+      - name: biocuration
+        description: Biocuration provenance string (curator + date).
+    disease_phenotype_association_hpo:
+      description: Flat disease-to-phenotype mapping (281392 rows). Each row links one OMIM/ORPHA/DECIPHER
+        disease_id to one HP:NNNNNNN phenotype_id; no qualifiers or evidence (use disease_phenotype_annotation_hpo
+        for those).
+      key_columns:
+      - name: disease_id
+        description: 'Disease identifier (OMIM:/ORPHA:/DECIPHER: prefixed).'
+      - name: phenotype_id
+        description: HPO phenotype identifier ("HP:" + 7 digits).
+    phenotype_gene_association_hpo:
+      description: Phenotype-gene association table (1,080,682 rows — regenerated 2026-06-27 against full 19,389-term phenotype master; 280 rows for 6 null-symbol genes added 2026-06-27) distilled from gene-phenotype-disease
+        triples; a distinct materialization from gene_phenotype_association_hpo (329,339 rows). Use this
+        for phenotype-to-gene lookups. Every disease_id is present in disease_master_table_hpo (no FK gap),
+        so inner joins on disease_id are lossless. 6 gene_ids have null gene_symbol (uncharacterized loci,
+        e.g. NCBIGene:7467, NCBIGene:10108); all 6 are present in gene_master_table_hpo.
+      key_columns:
+      - name: phenotype_id
+        description: HPO phenotype identifier ("HP:" + 7 digits, e.g. "HP:6000526"). FK to
+          phenotype_master_table_hpo.phenotype_id; join there for phenotype_name.
+      - name: gene_id
+        description: NCBI Entrez gene ID prefixed with "NCBIGene:" (e.g. "NCBIGene:5837"). FK to
+          gene_master_table_hpo.gene_id; join there for gene_symbol.
+      - name: disease_id
+        description: 'Disease identifier (OMIM:/ORPHA:/DECIPHER: prefixed) through which the phenotype-gene
+          link was derived.'
+    phenotype_hierarchy_hpo:
+      description: HPO is_a hierarchy as parent edges (23677 rows). Each row is one (child phenotype_id,
+        parent_id) pair; use this to walk ancestors or descendants of an HPO term. Both phenotype_id and
+        parent_id are FKs to phenotype_master_table_hpo.phenotype_id (all 19,389 terms — lossless join).
+      key_columns:
+      - name: phenotype_id
+        description: Child HPO identifier.
+      - name: parent_id
+        description: Parent HPO identifier in the is_a hierarchy.
+valid_queries:
+- What genes cause the phenotype 'tall stature and arachnodactyly'?
+- What HPO phenotype terms are associated with Marfan syndrome?
+- What genes cause retinitis pigmentosa?
+- Which diseases present with both intellectual disability and seizures?
+- What is the HPO term and definition for 'hypertelorism'?
+- What phenotypes are associated with mutations in the FBN1 gene?
+invalid_queries:
+- What drugs treat Marfan syndrome? (use TTD/DrugCentral — HPO maps phenotypes, not drug treatments)
+- What variants in FBN1 are pathogenic? (use ClinVar — HPO has no variant pathogenicity data)
+- What pathways does FBN1 participate in? (use Reactome — HPO has no pathway data)
+- What is the variant pathogenicity for FBN1 in Marfan syndrome? (use ClinVar for variant-level interpretation)
+explicit_id_patterns:
+- regex: \bHP:\d{7}\b
+  description: ''
+force_relations:
+  gene_disease: 0.7
+  disease_gene: 0.85
+  phenotype: 1.0
+derived:
+  capability_card: HPO maps standardised phenotype terms to causative genes and diseases, enabling genotype-phenotype
+    correlation and rare disease differential diagnosis.
+  relation_weights:
+    phenotype: 1.0
+    disease_gene: 0.85
+    gene_disease: 0.7
+  auto_triggers:
+  - phenotype
+  - disease_gene
+  - gene_disease
+service:
+  tool:
+    port: 8054
+    memory_limit: 8g
+    memory_reservation: 4g
+    extra_depends_on:
+    - biochirp_synonyms_expander
+    - biochirp_fuzzy_tool
+    - biochirp_semantic_tool

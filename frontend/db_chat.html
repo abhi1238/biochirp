@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<script src="/assets/tracker.min.js" data-page="db_chat"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BioChirp Chat</title>
+
+<link rel="stylesheet" href="assets/vendor/highlight-11.9.0-atom-one-dark.min.css" integrity="sha384-oaMLBGEzBOJx3UHwac0cVndtX5fxGQIfnAeFZ35RTgqPcYlbprH9o9PUV/F8Le07">
+<!-- WS auth shim — must precede chat-bootstrap.js and chat-main.js -->
+<script src="assets/ws-auth-shim.js?v=4311e5a344"></script>
+<!-- Markdown rendering -->
+<script src="assets/vendor/marked-12.0.2.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi"></script>
+<script src="assets/vendor/dompurify-3.1.7.min.js" integrity="sha384-XQqX/4yiUGu+oyr87jvWzRuqBUK/adrY0DunhL+tID9m/9dwSpV8h9Fk/Sg6ifVQ"></script>
+<script src="assets/vendor/highlight-11.9.0.min.js" integrity="sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp"></script>
+
+<!-- Deferred utilities (can load after DOM is ready) -->
+<script src="assets/event-delegation.js" defer></script>
+<script src="assets/share.js" defer></script>
+<link rel="stylesheet" href="assets/share.css">
+
+<!-- Per-slug bootstrap: sets window.__BC_WS_URL SYNCHRONOUSLY before chat-main.js loads -->
+<script src="assets/chat-bootstrap.js"></script>
+
+<!-- Shared chat CSS -->
+<link rel="stylesheet" href="assets/chat-shared.css?v=20260617">
+<!-- Agent trace rail: left-side live tool-execution panel -->
+<link rel="stylesheet" href="assets/agent_trace_rail.css?v=20260525c">
+
+<style>
+  .app{ display:flex; min-height:100vh; overflow:hidden; }
+
+  /* Provenance bar (populated by the backend via tool output metadata) */
+  .prov-bar{
+    display:flex; flex-wrap:wrap; gap:6px;
+    padding:6px 14px;
+    border-bottom:1px solid var(--brd);
+    background:color-mix(in oklab,var(--bg3,var(--bg1)) 60%,transparent);
+    min-height:0; max-height:0; overflow:hidden;
+    transition:max-height .3s, padding .3s;
+  }
+  .prov-bar.has-data{ max-height:80px; padding:8px 14px; }
+  .prov-chip{
+    font-size:10px; padding:2px 8px; border-radius:999px;
+    border:1px solid var(--brd); background:var(--bg2,var(--bg1)); color:var(--mut);
+    display:flex; align-items:center; gap:5px;
+  }
+  .prov-chip .dot{ width:7px;height:7px;border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Main chat ─────────────────────────────────── -->
+  <main class="chat" id="chatPane">
+    <header class="chat-header">
+      <div class="leftHdr">
+        <a href="/" class="home-logo" title="BioChirp Home">
+          <img src="assets/brand/logo.svg" alt="BioChirp">
+        </a>
+        <!-- Populated by chat-bootstrap.js after /configs/db_chats.json resolves -->
+        <div class="chat-title" id="bcChatTitle">BioChirp</div>
+      </div>
+      <div class="status-wrap">
+        <button class="doc-btn" id="docBtn">📖 Scope</button>
+        <button class="reconnect" id="reconnectBtn" data-action="manual-reconnect">⟳ Reconnect</button>
+        <div class="connection-status">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="connectionStatus">Connecting…</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Read-only banner: shown only for shared snapshots -->
+    <div id="readonlyBanner" class="readonly-banner" hidden>
+      📖 You are viewing a read-only shared snapshot of a BioChirp conversation. Chat input is disabled.
+    </div>
+
+    <!-- Provenance bar (filled in by the backend; chat-main.js doesn't update it) -->
+    <div class="prov-bar" id="provBar"></div>
+
+    <!-- Messages -->
+    <section class="messages" id="messagesContainer"
+             role="log"
+             aria-live="polite"
+             aria-relevant="additions text"
+             aria-label="Chat transcript"></section>
+
+    <!-- Composer -->
+    <div class="composer-stack">
+      <footer class="input-area">
+        <div class="input-container">
+          <div class="input-wrapper">
+            <label class="visually-hidden" for="messageInput">Ask a biomedical question</label>
+            <textarea id="messageInput"
+              placeholder="Ask any biomedical question — drug targets, gene-disease links, pathways, variants…"
+              rows="1"></textarea>
+          </div>
+          <button id="sendButton" title="Send" data-action="send-message">➤</button>
+        </div>
+      </footer>
+
+      <!-- Quick-ask cards — populated by chat-bootstrap.js from db_chats.json -->
+      <div id="quickAsks" class="quick-asks"></div>
+    </div>
+  </main>
+
+</div><!-- /.app -->
+
+<!-- Documentation overlay — populated by chat-bootstrap.js -->
+<div class="doc-overlay" id="docOverlay" aria-modal="true" role="dialog" aria-hidden="true">
+  <div class="doc-modal">
+    <div class="doc-header">
+      <div class="doc-title" id="docTitle">Scope &amp; Sample Questions</div>
+      <button class="doc-close" id="docCloseBtn" aria-label="Close documentation">Close</button>
+    </div>
+    <div class="doc-body" id="bcDocBody">Loading…</div>
+  </div>
+</div>
+
+<!-- Agent trace rail: live tool-execution panel (left side).
+     Fixed to left edge on wide screens, inline on narrow.
+     ws-auth-shim.js compatible (uses onmessage setter chain). -->
+<script src="assets/agent_trace_rail.js?v=20260525c"></script>
+
+<!-- Main WebSocket + UI logic (reads window.__BC_WS_URL set by chat-bootstrap.js) -->
+<script src="assets/chat-main.js"></script>
+</body>
+</html>

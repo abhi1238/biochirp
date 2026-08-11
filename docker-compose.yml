@@ -1,0 +1,1412 @@
+# ┌────────────────────────────────────────────────────────────────────┐
+# │  GENERATED FILE — DO NOT EDIT BY HAND                              │
+# │  Source: dbs/*/manifest.yaml (service blocks) + scripts/compose_*.yaml │
+# │  Regenerate with: python3 scripts/gen_compose.py                   │
+# │  Hand-editing this file is safe to debug, but changes will be      │
+# │  overwritten on the next generator run. To make a real change,     │
+# │  edit the DB's manifest service block (or compose_head/tail) and   │
+# │  re-run the generator.                                             │
+# └────────────────────────────────────────────────────────────────────┘
+
+# Shared environment for every per-DB tool service: PLANNER, EXPAND_AND_MATCH_DB,
+# and REDIS host/port. Each per-DB block merges this via `<<: *db-tool-env` and
+# layers its own SERVICE_NAME (plus any service-specific extras) on top. The
+# merge is mapping-only — per-service `volumes:` stays a list because YAML
+# does not concatenate sequences across anchors.
+x-db-tool-env: &db-tool-env
+  PLANNER_HOST: biochirp_planner_tool
+  PLANNER_PORT: "8011"
+  EXPAND_AND_MATCH_DB_HOST: biochirp_expand_and_match_db_tool
+  EXPAND_AND_MATCH_DB_PORT: "8009"
+  SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+  SCHEMA_MAPPER_PORT: "8019"
+  SCHEMA_PLANNER_HOST: biochirp_schema_planner_tool
+  SCHEMA_PLANNER_PORT: "8020"
+  ORCHESTRATOR_HOST: biochirp_orchestrator_tool
+  ORCHESTRATOR_PORT: "8021"
+  REDIS_HOST: biochirp_redis_tool
+  REDIS_PORT: "6379"
+  # Orphan-CSV sweep: every per-DB tool runs a fire-and-forget cleanup at
+  # startup (app/per_db_tool/_main.py:_sweep_old_results), deleting files
+  # in $RESULTS_ROOT older than this many days. Set to "0" to disable.
+  RESULTS_TTL_DAYS: "14"
+
+
+# Shared HTTP healthcheck — every service built from Dockerfile.service has
+# SERVICE_PORT in its container env (set from the SERVICE_PORT build arg).
+# `$$SERVICE_PORT` escapes compose's variable interpolation so the literal
+# `$SERVICE_PORT` reaches the container shell.
+x-healthcheck-http: &healthcheck-http
+  test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:$$SERVICE_PORT/health', timeout=5)\" || exit 1"]
+
+
+
+x-defaults: &defaults
+  # Supply-chain hardening (2026-05-17): every `biochirp_*:latest` image is
+  # built locally (see each service's `build:` context). pull_policy=never
+  # guarantees `docker compose up` cannot accidentally satisfy one of those
+  # tags from a public registry — even if an attacker manages to publish a
+  # ghost image under the same name. Remote/3rd-party images (redis, qdrant,
+  # ollama) bypass this default because their service blocks don't merge
+  # the anchor.
+  pull_policy: never
+  environment:
+    - PYTHONUNBUFFERED=1
+    - TZ=Asia/Kolkata
+    # Reproducibility: freeze Python hash randomisation so set/dict iteration
+    # order (used in planner FK-pair selection, entity-resolver tie-breaks)
+    # is deterministic across container restarts. Without this, two runs
+    # against the same query can pick different ambiguous FK pairs or order
+    # concept-resolution candidates differently.
+    - PYTHONHASHSEED=0
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "500m"
+      max-file: "5"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  networks:
+    - semantic_net
+  restart: unless-stopped
+  env_file:
+    - .env
+  healthcheck:
+    interval: 60s
+    timeout: 5s
+    retries: 3
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+
+
+
+# Common bind-mount fragments — defined once here, referenced via `*v-…`
+# in every service's `volumes:` list. To rename a path, edit ONE line in
+# this block and every container picks it up on next `compose up`.
+x-vols:
+  v-guardrail: &v-guardrail "./config/guardrail.py:/app/config/guardrail.py:ro"
+  v-attributions: &v-attributions "./config/attributions.py:/app/config/attributions.py:ro"
+  v-provenance: &v-provenance "./config/provenance.py:/app/config/provenance.py:ro"
+  v-schema: &v-schema "./config/schema.py:/app/config/schema.py:ro"
+  v-prompts: &v-prompts "./resources/prompts/:/app/resources/prompts/:ro"
+  v-field-aliases: &v-field-aliases "./resources/db_field_aliases.md:/app/resources/db_field_aliases.md:ro"
+  v-results: &v-results "./results:/app/results:rw"
+  v-utils: &v-utils "./app/utils/:/app/utils/:ro"
+  v-utils-app: &v-utils-app "./app/utils/:/app/app/utils/:ro"
+  v-per-db-tool: &v-per-db-tool "./app/per_db_tool/:/app/app/per_db_tool/:ro"
+  v-settings: &v-settings "./config/settings.py:/app/config/settings.py:ro"
+
+services:
+
+  biochirp_redis_tool:
+    # Pinned 2026-05-12 for reproducibility (was redis:7, a moving tag).
+    # Digest pin added 2026-05-17 — tag + digest together make this immutable
+    # even if the upstream re-tags 7.4.1-alpine to a new build.
+    image: redis:7.4.1-alpine@sha256:c1e88455c85225310bbea54816e9c3f4b5295815e6dbf80c34d40afc6df28275
+    # container_name: biochirp_redis_tool
+    networks:
+      - semantic_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  bioc_qdrant:
+    # Pinned 2026-05-12 for paper reproducibility (was qdrant/qdrant:latest).
+    # Digest pin added 2026-05-17 — tag + digest together survive registry
+    # re-tags of v1.17.1.
+    image: qdrant/qdrant:v1.17.1@sha256:94728574965d17c6485dd361aa3c0818b325b9016dac5ea6afec7b4b2700865f
+    container_name: bioc_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    networks:
+      - semantic_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/6333' 2>/dev/null || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+
+  biochirp_synonyms_expander:
+    <<: *defaults
+    build:
+      context: ./app/tools/expand_synonyms
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8014"
+        SERVICE_WORKERS: "3"
+    # NOTE: gunicorn --preload was tried here but provided zero benefit —
+    # ontologies + mygene caches load inside `@app.on_event("startup")`
+    # (post-fork), so each worker still pays the full ~3.2 GB cost.
+    # If RAM ever becomes the limiting factor, the right fix is to move
+    # the loaders to module level in synonym_expander.py *and then* add
+    # gunicorn back. Until then, plain uvicorn is correct.
+    image: biochirp_synonyms_expander:latest
+    container_name: biochirp_synonyms_expander
+    ports:
+      - "8014:8014"
+    environment:
+      - DB_VALUE_PATH=/app/resources/values/concept_values_by_db_and_field.pkl
+      - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 30s
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      - ./app/services/synonyms/:/app/synonyms/:ro
+      - ./resources/values:/app/resources/values:ro
+      # Live-edited expander to pick up the `raw` param used by the unified
+      # LLM-filter path in expand_and_match_db (2026-05-15).
+      - ./app/tools/expand_synonyms/app/synonym_expander.py:/app/app/synonym_expander.py:ro
+      - ./app/tools/expand_synonyms/app/main.py:/app/app/main.py:ro
+    deploy:
+      resources:
+        # 2026-05-15: 8g → 16g after OOM-kills (each Uvicorn worker held the
+        # 639 MB concept pickle + disease ontology + drug aggregator caches; 3
+        # workers × ~3 GB ≈ tight 8g cap).
+        # 2026-05-18: switched to gunicorn --preload so the pickle + ontology
+        # load ONCE in the master and are shared via COW. RSS dropped from
+        # 9.7 GB peak to ~525 MB idle. Tightened to 4g/1g — still 8× headroom
+        # over current RSS, but no more 16 GB cosmetic ceiling.
+        limits:
+          memory: 4g
+        reservations:
+          memory: 1g
+
+
+  biochirp_synonyms_expander_unrestricted:
+    <<: *defaults
+    build:
+      context: ./app/tools/expand_synonyms_unrestricted
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8032"
+        SERVICE_WORKERS: "3"
+    image: biochirp_synonyms_expander_unrestricted:latest
+    container_name: biochirp_synonyms_expander_unrestricted
+    ports:
+      - "8032:8032"
+    environment:
+      - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 30s
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      - ./app/services/synonyms/:/app/synonyms/:ro
+      - *v-schema
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          memory: 1536m
+    networks:
+      - semantic_net
+
+
+
+
+
+  biochirp_fuzzy_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/fuzzy
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8013"
+        SERVICE_WORKERS: "5"
+    # NOTE: gunicorn --preload was tried here but provided zero benefit —
+    # load_db_values() runs inside `@app.on_event("startup")` (post-fork),
+    # so each worker still loads its own copy. Plain uvicorn (the
+    # Dockerfile.service default CMD) is correct.
+    image: biochirp_fuzzy_tool:latest
+    container_name: biochirp_fuzzy_tool
+    ports:
+      - "8013:8013"
+    environment:
+      - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      - ./resources/values:/app/resources/values:ro
+      - *v-schema
+      # Live-edited fuzzy code (STRUCTURED_FIELDS_BYPASS_LLM set, string→list
+      # coercion). Bind-mounted to survive compose-up recreates.
+      - ./app/tools/fuzzy/app/fuzzy_search_db_wise.py:/app/app/fuzzy_search_db_wise.py:ro
+      # main.py also bind-mounted to plumb the `raw` query param added
+      # 2026-05-15 for the unified LLM-filter path.
+      - ./app/tools/fuzzy/app/main.py:/app/app/main.py:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8013/health', timeout=10)\" || exit 1"]
+      start_period: 60s
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 10g
+        reservations:
+          memory: 5g
+
+
+
+
+  biochirp_tavily_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/tavily
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8008"
+        SERVICE_WORKERS: "2"
+    image: biochirp_tavily_tool:latest
+    container_name: biochirp_tavily_tool
+    ports:
+      - "8008:8008"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 15s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+
+
+  biochirp_readme_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/readme
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8007"
+        SERVICE_WORKERS: "1"
+    image: biochirp_readme_tool:latest
+    container_name: biochirp_readme_tool
+    ports:
+      - "8007:8007"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      # - ./resources/prompts/:/app/resources/prompts/
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 15s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+
+  # ── share: stores/serves read-only chat snapshots for the ★ Share button,
+  # per-turn share icon, and "copy BibTeX" citation action (frontend/assets/
+  # share.js + chat-main.js). Extracted from the decommissioned bio_chat
+  # orchestrator (old port 8030) as its own lean service — see
+  # app/tools/share/app/main.py. Routed by deploy/nginx-share.conf.
+  biochirp_share_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/share
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8030"
+        SERVICE_WORKERS: "2"
+    image: biochirp_share_tool:latest
+    container_name: biochirp_share_tool
+    ports:
+      - "8030:8030"
+    environment:
+      REDIS_HOST: biochirp_redis_tool
+      REDIS_PORT: "6379"
+    volumes:
+      - *v-utils
+      - *v-utils-app
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 15s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
+
+  biochirp_semantic_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/semantic_filter
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8015"
+        SERVICE_WORKERS: "5"
+    # 2026-05-18: gunicorn --preload was tried here but pytorch forbids
+    # CUDA re-init in forked workers (similarity_filtered.py loads
+    # sentence-transformers on cuda:0). Stays on the shared uvicorn CMD.
+    #
+    # 2026-05-19: SERVICE_WORKERS 4 → 2. Each worker holds a private copy of
+    # 3 SentenceTransformer models + torch + the concept pickle (~4.6 GiB
+    # RSS per worker, ~2 GiB VRAM per worker) because --preload is unsafe
+    # with CUDA-resident models. Measured 17.1 GiB / 24 GiB RAM at idle.
+    # The encode+search phase is <0.15s on warm GPU; the downstream LLM
+    # filter is ~18s — so parallelising the fast step across 4 workers
+    # gains almost nothing, the throughput cap sits at the LLM filter.
+    # Dropping to 2 frees ~9 GiB RAM and ~3.6 GiB VRAM with no measurable
+    # latency change. If you see request-queueing on this service (check
+    # docker logs for "Started" backlog), bump to 3 — don't go back to 4
+    # without a fresh bottleneck measurement.
+    # Other options if RAM becomes critical:
+    #   (a) drop SERVICE_WORKERS to 1 (only safe if rps < 1 sustained)
+    #   (b) switch torch to CPU-only AND add --preload back (loses GPU
+    #       speed — encode jumps from <0.15s to ~1-2s per query)
+    container_name: biochirp_semantic_tool
+    image: biochirp_semantic_tool:latest
+    ports:
+      - "8015:8015"
+    environment:
+      - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
+      # A/B flag: pipeline embedding-encode with Qdrant search. Benchmarked
+      # 2026-05-15 — no measurable improvement (encode+search phase is already
+      # <0.15s on warm GPU; bottleneck is the LLM filter step at ~18s). Kept
+      # at 0; flip to "1" if hardware changes (CPU-only or larger models).
+      - SEMANTIC_PIPELINE_ENCODE=0
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      - *v-schema
+      - ./resources/prompts/:/app/resources/prompts/
+      - ./resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl
+      # - ../../services/semantic_matching.py:/app/services/semantic_matching.py:ro
+      # Live-edited semantic filter code (STRUCTURED_FIELDS LLM bypass,
+      # synonym/uniprot_xref support). Bind-mounted to survive recreates.
+      - ./app/tools/semantic_filter/app/similarity_filtered.py:/app/app/similarity_filtered.py:ro
+      - ./app/tools/semantic_filter/app/filter.py:/app/app/filter.py:ro
+      - ./app/tools/semantic_filter/app/main.py:/app/app/main.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8015/health', timeout=10)\" || exit 1"]
+      start_period: 60s
+      interval: 30s
+      timeout: 15s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 24g
+        reservations:
+          memory: 16g
+          devices:
+            - driver: nvidia
+              count: 1      # Number of GPUs to reserve
+              capabilities: [gpu]
+    depends_on:
+      bioc_qdrant:
+        condition: service_healthy
+
+
+  biochirp_expand_and_match_db_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/expand_and_match_db
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8009"
+        SERVICE_WORKERS: "8"
+    image: biochirp_expand_and_match_db_tool:latest
+    container_name: biochirp_expand_and_match_db_tool
+    ports:
+      - "8009:8009"
+    environment:
+      - EXPAND_HOST=biochirp_synonyms_expander
+      - EXPAND_PORT=8014
+      - FUZZY_PORT=8013
+      - FUZZY_HOST=biochirp_fuzzy_tool
+      - SEMANTIC_HOST=biochirp_semantic_tool
+      - SEMANTIC_PORT=8015
+      - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
+      - EXPAND_SYNONYMS_TIMEOUT_SEC=30
+      # Unified-LLM tuning: bypass the ensemble service, call LiteLLM directly,
+      # pre-screen to top-30 candidates per (field, term) to keep qwen2.5-coder:7b
+      # in its fast regime (<5s).
+      - UNIFIED_LLM_PRESCREEN_TOPK=30
+      # Final config locked 2026-05-15 after recall A/B/C:
+      #   A (Ollama-direct):  p50 3.57s, 154 cands
+      #   B (LiteLLM proxy):  p50 2.58s, 157 cands  ← winner
+      #   C (Ensemble legacy): p50 7.76s, 128 cands (over-restrictive)
+      # B keeps the same recall as A but is faster (LiteLLM has better
+      # connection pooling than naive httpx) AND retains LiteLLM's automatic
+      # paid-tier fallback chain (qwen → phi4 → gpt-5.4-nano). Set
+      - UNIFIED_LLM_DIRECT=1
+      # UNIFIED_LLM_MODEL delivered via env_file: .env (single source of truth).
+      - LLM_FILTER_MAX_CONCURRENCY=2
+    volumes:
+      - ./app/tools/expand_and_match_db/app/main.py:/app/app/main.py:ro
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-utils
+      - *v-utils-app  # second target — module uses both `from utils.X` and `from app.utils.X`
+      - *v-settings
+      - ./resources/values/concept_values_by_db_and_field.pkl:/app/resources/values/concept_values_by_db_and_field.pkl:ro
+      - ./resources/values/synonym_reverse_map.pkl:/app/resources/values/synonym_reverse_map.pkl:ro
+      # Filter prompt — used by the unified-LLM path that calls LiteLLM directly.
+      - ./resources/prompts/semantic_match_agent.md:/app/resources/prompts/semantic_match_agent.md:ro
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 16g
+        reservations:
+          memory: 8g
+    depends_on:
+      biochirp_synonyms_expander:
+        condition: service_healthy
+      biochirp_fuzzy_tool:
+        condition: service_healthy
+
+      biochirp_semantic_tool:
+        condition: service_healthy
+
+  biochirp_planner_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/planner
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8011"
+        SERVICE_WORKERS: "6"
+    image: biochirp_planner_tool:latest
+    container_name: biochirp_planner_tool
+    ports:
+      - "8011:8011"
+    volumes:
+      - *v-schema
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      # 2026-05-17: per-column schema-description embeddings + planner
+      # semantic-fallback. graph.py mounted so changes ship without an
+      # image rebuild; markdown corpus mounted so column_embeddings.py
+      # can load and embed it at startup.
+      - ./app/tools/planner/app/graph.py:/app/app/graph.py:ro
+      - ./app/tools/planner/app/planner.py:/app/app/planner.py:ro
+      - ./resources/db_column_descriptions.md:/app/resources/db_column_descriptions.md:ro
+      # Precomputed corpus embeddings (~700 KB). Planner loads this at
+      # startup with numpy only — no fastembed needed in the planner image.
+      - ./resources/db_column_embeddings.npz:/app/resources/db_column_embeddings.npz:ro
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 512m
+
+  # ── Shared schema_kg mapper/planner (the ONE heavy schema_kg image) ──────────
+  # Extracted from the per-DB containers (HYBRID design): bge model + torch +
+  # Qdrant live here ONCE, with 2 workers, serving all schema_kg DBs over HTTP.
+  # The ~10 per-DB tools stay lean (Dockerfile.service) and POST to this service.
+  biochirp_schema_mapper_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/schema_mapper
+      dockerfile: ../../../Dockerfile.service-schemakg
+      args:
+        SERVICE_PORT: "8019"
+        SERVICE_WORKERS: "5"
+    image: biochirp_schema_mapper_tool:latest
+    container_name: biochirp_schema_mapper_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: schema_mapper
+      # SCHEMA_KG_EMBED_MODEL delivered via env_file: .env (single source of truth).
+    ports:
+      - "8019:8019"
+    volumes:
+      - *v-schema
+      - ./config/schema_kg_dbs.py:/app/config/schema_kg_dbs.py:ro
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      - *v-per-db-tool
+      - ./evaluation/schema_kg/:/app/schema_kg/:ro
+      - ./app/tools/schema_mapper/app/main.py:/app/app/main.py:ro
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          memory: 4g
+
+  # ── schema_planner: the LEAN, deterministic prune+Steiner planner ─────────
+  # The non-LLM half of plan_query_pruned, extracted as its own tool. Holds only
+  # the schema FK graph (built from schema_kg/inputs/<db>/*.json) — NO bge model,
+  # NO torch, NO Qdrant — so it uses the lean Dockerfile.service and a small
+  # memory budget. Given (kept, parsed_value) it returns the join plan.
+  # DB-agnostic: the database is passed as ?database=<db>.
+  biochirp_schema_planner_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/schema_planner
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8020"
+        SERVICE_WORKERS: "4"
+    image: biochirp_schema_planner_tool:latest
+    container_name: biochirp_schema_planner_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: schema_planner
+    ports:
+      - "8020:8020"
+    volumes:
+      - *v-schema
+      - ./config/schema_kg_dbs.py:/app/config/schema_kg_dbs.py:ro
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      - *v-per-db-tool
+      - ./evaluation/schema_kg/:/app/schema_kg/:ro
+      - ./app/tools/schema_planner/app/main.py:/app/app/main.py:ro
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+
+  # ── orchestrator: the SINGLE coordinator over the tool fleet (github style) ──
+  # Holds no heavy logic — only thin *_tool.py HTTP clients (generic_tool base +
+  # router_tool + per-backend wrappers) and composes them, emitting a
+  # tool_called/tool_result event stream. STRANGLER stage: calls the existing
+  # schema_mapper for retrieval+map and the new schema_planner for planning;
+  # finer tools (expander/retrieval/filter/value_mapper) slot in later with no
+  # flow change. Lean image (Dockerfile.service) — no torch/polars/qdrant.
+  biochirp_orchestrator_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/orchestrator
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8021"
+        SERVICE_WORKERS: "4"
+    image: biochirp_orchestrator_tool:latest
+    container_name: biochirp_orchestrator_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: orchestrator
+      # execute_tool calls back to the per-DB tool server for join+finalize
+      EXECUTE_HOST: biochirp_hcdt_tool
+      EXECUTE_PORT: "8018"
+      EXECUTE_HOST_TTD: biochirp_ttd_tool
+      EXECUTE_PORT_TTD: "8012"
+      EXECUTE_HOST_CTD: biochirp_ctd_tool
+      EXECUTE_PORT_CTD: "8016"
+      EXECUTE_HOST_HCDT: biochirp_hcdt_tool
+      EXECUTE_PORT_HCDT: "8018"
+      EXECUTE_HOST_HPO: biochirp_hpo_tool
+      EXECUTE_PORT_HPO: "8054"
+      EXECUTE_HOST_CLINVAR: biochirp_clinvar_tool
+      EXECUTE_PORT_CLINVAR: "8062"
+      EXECUTE_HOST_REACTOME: biochirp_reactome_tool
+      EXECUTE_PORT_REACTOME: "8064"
+      EXECUTE_HOST_MSIGDB: biochirp_msigdb_tool
+      EXECUTE_PORT_MSIGDB: "8079"
+      EXECUTE_HOST_ORPHANET: biochirp_orphanet_tool
+      EXECUTE_PORT_ORPHANET: "8083"
+      EXECUTE_HOST_STRING: biochirp_string_tool
+      EXECUTE_PORT_STRING: "8087"
+      EXECUTE_HOST_UNIPROT: biochirp_uniprot_tool
+      EXECUTE_PORT_UNIPROT: "8089"
+    ports:
+      - "8021:8021"
+    volumes:
+      - *v-guardrail
+      - *v-utils
+      - *v-utils-app
+      - *v-settings
+      - *v-prompts
+      - ./app/tools/orchestrator/app/router_tool.py:/app/app/router_tool.py:ro
+      - ./app/tools/orchestrator/app/web_tool.py:/app/app/web_tool.py:ro
+      - ./app/tools/orchestrator/app/main.py:/app/app/main.py:ro
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 128m
+    depends_on:
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+      biochirp_schema_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_hcdt_tool:
+        condition: service_healthy
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  biochirp_litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: biochirp_litellm
+    networks:
+      - semantic_net
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    # 2026-05-19: switch to litellm_config_bench.yaml when regenerating any
+    # paper/eval table (the bench profile disables prompt caching so per-call
+    # variance is preserved). Easiest via a compose override:
+    #   docker compose -f docker-compose.yml -f docker-compose.bench.yaml up biochirp_litellm
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    env_file:
+      - .env
+    environment:
+      - LITELLM_LOG=WARNING
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "4"]
+    # 2026-05-19: prod config enables Redis-backed prompt caching against
+    # biochirp_redis_tool. Without this depends_on the proxy can boot before
+    # Redis is healthy and fail its first ~5s of cache writes (LiteLLM falls
+    # back to the live upstream call, so requests still succeed, but the
+    # logs fill with redis-unreachable warnings).
+    depends_on:
+      biochirp_redis_tool:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"]
+      interval: 60s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+
+
+  # ── Ollama services removed 2026-06-17 ──────────────────────────────
+  # All local Ollama upstreams (biochirp_ollama / biochirp_ollama_light)
+  # were removed; every LLM stage routes to cloud (OpenAI / Gemini /
+  # OpenRouter) via litellm. No local-model fallback remains.
+
+
+  # ─── Generated per-DB data-tool services (10) ──────────────────────
+
+  biochirp_ttd_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/ttd
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8012"
+        SERVICE_WORKERS: "2"
+    image: biochirp_ttd_tool:latest
+    container_name: biochirp_ttd_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: ttd
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/ttd/:/app/database/ttd/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/ttd/app/ttd.py:/app/app/ttd.py:ro
+      - ./app/tools/ttd/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/ttd/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8012:8012"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 16g
+        reservations:
+          memory: 12g
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_synonyms_expander:
+        condition: service_healthy
+      biochirp_fuzzy_tool:
+        condition: service_healthy
+      biochirp_semantic_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_ctd_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/ctd
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8016"
+        SERVICE_WORKERS: "6"
+    image: biochirp_ctd_tool:latest
+    container_name: biochirp_ctd_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: ctd
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/ctd/:/app/database/ctd/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/ctd/app/ctd.py:/app/app/ctd.py:ro
+      - ./app/tools/ctd/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/ctd/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8016:8016"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          memory: 4g
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_synonyms_expander:
+        condition: service_healthy
+      biochirp_fuzzy_tool:
+        condition: service_healthy
+      biochirp_semantic_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_hcdt_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/hcdt
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8018"
+        SERVICE_WORKERS: "6"
+    image: biochirp_hcdt_tool:latest
+    container_name: biochirp_hcdt_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: hcdt
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/hcdt/:/app/database/hcdt/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/hcdt/app/hcdt.py:/app/app/hcdt.py:ro
+      - ./app/tools/hcdt/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/hcdt/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8018:8018"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 24g
+        reservations:
+          memory: 16g
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_synonyms_expander:
+        condition: service_healthy
+      biochirp_fuzzy_tool:
+        condition: service_healthy
+      biochirp_semantic_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_hpo_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/hpo
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8054"
+        SERVICE_WORKERS: "2"
+    image: biochirp_hpo_tool:latest
+    container_name: biochirp_hpo_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: hpo
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/hpo/:/app/database/hpo/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/hpo/app/hpo.py:/app/app/hpo.py:ro
+      - ./app/tools/hpo/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/hpo/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8054:8054"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          memory: 4g
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_synonyms_expander:
+        condition: service_healthy
+      biochirp_fuzzy_tool:
+        condition: service_healthy
+      biochirp_semantic_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_clinvar_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/clinvar
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8062"
+        SERVICE_WORKERS: "2"
+    image: biochirp_clinvar_tool:latest
+    container_name: biochirp_clinvar_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: clinvar
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/clinvar/:/app/database/clinvar/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/clinvar/app/clinvar.py:/app/app/clinvar.py:ro
+      - ./app/tools/clinvar/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/clinvar/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8062:8062"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 32g
+        reservations:
+          memory: 16g
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_reactome_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/reactome
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8064"
+        SERVICE_WORKERS: "2"
+    image: biochirp_reactome_tool:latest
+    container_name: biochirp_reactome_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: reactome
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/reactome/:/app/database/reactome/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/reactome/app/reactome.py:/app/app/reactome.py:ro
+      - ./app/tools/reactome/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/reactome/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8064:8064"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 256m
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_msigdb_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/msigdb
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8079"
+        SERVICE_WORKERS: "2"
+    image: biochirp_msigdb_tool:latest
+    container_name: biochirp_msigdb_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: msigdb
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/msigdb/:/app/database/msigdb/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/msigdb/app/msigdb.py:/app/app/msigdb.py:ro
+      - ./app/tools/msigdb/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/msigdb/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8079:8079"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          memory: 512m
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_synonyms_expander:
+        condition: service_healthy
+      biochirp_fuzzy_tool:
+        condition: service_healthy
+      biochirp_semantic_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_orphanet_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/orphanet
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8083"
+        SERVICE_WORKERS: "2"
+    image: biochirp_orphanet_tool:latest
+    container_name: biochirp_orphanet_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: orphanet
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/orphanet/:/app/database/orphanet/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/orphanet/app/orphanet.py:/app/app/orphanet.py:ro
+      - ./app/tools/orphanet/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/orphanet/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8083:8083"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          memory: 2g
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_string_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/string
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8087"
+        SERVICE_WORKERS: "2"
+    image: biochirp_string_tool:latest
+    container_name: biochirp_string_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: string
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/string/:/app/database/string/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/string/app/string_db.py:/app/app/string_db.py:ro
+      - ./app/tools/string/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/string/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8087:8087"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+  biochirp_uniprot_tool:
+    <<: *defaults
+    build:
+      context: ./app/tools/uniprot
+      dockerfile: ../../../Dockerfile.service
+      args:
+        SERVICE_PORT: "8089"
+        SERVICE_WORKERS: "2"
+    image: biochirp_uniprot_tool:latest
+    container_name: biochirp_uniprot_tool
+    environment:
+      <<: *db-tool-env
+      SERVICE_NAME: uniprot
+      SCHEMA_MAPPER_HOST: biochirp_schema_mapper_tool
+      SCHEMA_MAPPER_PORT: "8019"
+    volumes:
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings
+      - ./database/uniprot/:/app/database/uniprot/:ro
+      - *v-utils
+      - *v-utils-app
+      - *v-per-db-tool
+      - *v-results
+      - *v-prompts
+      - *v-field-aliases
+      - ./app/tools/uniprot/app/uniprot.py:/app/app/uniprot.py:ro
+      - ./app/tools/uniprot/app/database_loader.py:/app/app/database_loader.py:ro
+      - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
+      - ./app/tools/uniprot/app/main.py:/app/app/main.py:ro
+    ports:
+      - "8089:8089"
+    healthcheck:
+      <<: *healthcheck-http
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          memory: 2g
+    depends_on:
+      biochirp_planner_tool:
+        condition: service_healthy
+      biochirp_expand_and_match_db_tool:
+        condition: service_healthy
+      biochirp_schema_mapper_tool:
+        condition: service_healthy
+
+
+  opentargets:
+    <<: *defaults
+    build:
+      context: ./opentarget_service
+      dockerfile: ../Dockerfile.service
+      args:
+        SERVICE_PORT: "8026"
+        SERVICE_WORKERS: "2"
+    image: opentargets_service:latest
+    container_name: biochirp_opentargets
+    # user: root
+    depends_on:
+      biochirp_redis_tool:
+        condition: service_healthy
+    environment:
+      # - RESULTS_ROOT=/app/results 
+      - REDIS_HOST=biochirp_redis_tool
+      - REDIS_PORT=6379
+    ports:
+      - "8026:8026"
+    env_file:
+      - .env
+    volumes:
+      - ./resources/prompts/opentarget_orchestrator.md:/app/resources/prompts/opentarget_orchestrator.md:ro
+      - ./resources/prompts/opentarget_resolver_summarizer.md:/app/resources/prompts/opentarget_resolver_summarizer.md:ro
+      - *v-results
+      - ./resources/prompts/opentarget_entity_extractor.md:/app/resources/prompts/opentarget_entity_extractor.md:ro
+      - ./app/tools/fuzzy/app/fuzzy.py:/app/fuzzy.py
+      - *v-guardrail
+      - *v-attributions
+      - *v-provenance
+      - *v-schema
+      - *v-settings  # main.py: `from config import settings` (per-DB key resolution)
+      - *v-prompts
+      - *v-field-aliases
+      # 2026-05-17: opentarget_service now imports shared CSV helpers
+      # from app/utils/table_formatters.py (extracted from the local
+      # _infer_columns_from_rows / _rows_to_csv / _build_legacy_table_payload
+      # copies). The bind-mount makes them available inside the container.
+      - *v-utils
+      - *v-utils-app  # second target — opentarget mixes `from utils.X` and `from app.utils.X`
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8026/health', timeout=5)\" || exit 1"]
+      # 3 sentence-transformer models load sequentially at startup (~7 min total
+      # on cold cache). Short start_period caused unhealthy state during init.
+      start_period: 600s
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          memory: 1536m
+          devices:
+            - driver: nvidia
+              count: 1      # Number of GPUs to reserve
+              capabilities: [gpu]
+
+networks:
+  semantic_net:
+    external: true
+    name: semantic_net
+    ipam:
+      config:
+        - subnet: 172.35.0.0/16
+

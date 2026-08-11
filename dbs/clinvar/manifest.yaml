@@ -1,0 +1,502 @@
+name: clinvar
+display_name: ClinVar
+description: 'ClinVar. NCBI''s public archive of human genetic variants with clinical interpretations
+  submitted by laboratories and expert panels. Contains pathogenicity classifications (pathogenic,
+  likely pathogenic, VUS, benign) for germline and somatic variants, linked to diseases and
+  conditions with supporting evidence.
+
+  '
+schema:
+  inputs:
+  - field: gene_symbol
+  - field: variant_name
+  - field: variant_disease_name
+  outputs:
+  - field: gene_symbol
+  - field: variant_name
+  - field: variant_disease_name
+  tables:
+    variant_master_table_clinvar:
+      description: >-
+        Primary variant table derived from ClinVar variant_summary (GRCh38 rows
+        only). NOTE: variant_submission, variant_citation, and
+        variant_genomic_coords reference retired/merged ClinVar accessions not
+        present here (~70,954 variant_ids in submission, ~44,249 in citation,
+        ~685 in genomic_coords). These are valid ClinVar records that were
+        retired or superseded after the ETL snapshot. When querying by
+        variant_id sourced from submission or citation tables, prefer querying
+        those tables directly WITHOUT joining to variant_master; the join will
+        silently drop ~1–2% of records including 28,081
+        pathogenic/likely pathogenic submissions.
+      key_columns:
+      - name: variant_id
+        description: BioChirp-internal ClinVar variant identifier in the form
+          "CLINVAR:<int>" (e.g. "CLINVAR:12345"). Raw NCBI VCV/RCV accessions are
+          NOT stored on disk; user-supplied "VCV", "RCV", or "ClinVar ID" terms
+          must be canonicalized to the CLINVAR:<int> form before equality match.
+      - name: variant_name
+        description: >-
+          HGVS short form for the variant (e.g. "NM_007294.4:c.5266dupC"). Uses
+          3-letter HGVS protein notation (p.Arg248Trp), NOT 1-letter shorthand
+          (p.R248W). Translate user-supplied 1-letter codes (e.g. R248W) to
+          3-letter form (Arg248Trp) before querying. Users may ask for "variant",
+          "HGVS", or "mutation".
+      # NOTE: gene_symbol is denormalized onto variant_master (exec_schema:false)
+      # but is NOT planner-joinable here — gene queries route to
+      # gene_master_table_clinvar via variant_gene_association.gene_id. On disk it
+      # holds a single canonical HGNC symbol for most rows; NULL where no gene is
+      # assigned (1,534 rows, '-' sentinel cleaned at ETL time; loader cast is a no-op),
+      # 'covers X genes, none of which ...' (4,427 rows), 'subset of X genes:
+      # GENE1:GENE2:...' (4,408 rows), plus ~17K non-HGNC locus IDs
+      # (LOC.../SNORD.../LINC...) absent from gene_master_table_clinvar.
+      - name: variant_type
+        description: Variant type, case-sensitive. 12 enum values on disk
+          (counts taken from variant_master_table) — "single nucleotide variant"
+          (lowercase), "Deletion", "Duplication", "Microsatellite", "Indel",
+          "Insertion", "copy number gain", "copy number loss", "Inversion",
+          "Variation", "Complex", "Translocation". Users may ask for
+          "variant type" or "mutation type" — match must respect the
+          Title-Case spelling above.
+      - name: aggregate_clinical_significance
+        description: Aggregated clinical significance across all submitters. Canonical enum values
+          observed on disk include "uncertain significance", "likely benign",
+          "benign", "pathogenic", "conflicting classifications of pathogenicity"
+          (current ClinVar terminology since 2024 — NOT "Conflicting interpretations
+          of pathogenicity"), "likely pathogenic", "benign/likely benign",
+          "pathogenic/likely pathogenic", "drug response",
+          "other", "risk factor", "association", "no classification
+          for the single variant", "uncertain significance/uncertain risk allele",
+          "no classifications from unflagged records",
+          "conflicting data from submitters", "affects",
+          "pathogenic, low penetrance". Additional observed values include
+          "likely risk allele" (94 rows), "established risk allele" (2),
+          "protective" (38, pharmacogenomic), "confers sensitivity" (10,
+          pharmacogenomic), "uncertain risk allele" (36), "VUS-high" (20),
+          "VUS-mid" (7), "VUS-low" (2; institution-specific triage terms).
+          Compound semicolon-joined values are present for variants with
+          multi-category classifications (e.g. "pathogenic; drug response"
+          (42 rows), "pathogenic; other" (73 rows)) — use str.contains()
+          rather than equality for partial matches on these compound forms.
+          Already stored as NULL on disk (251,385 null rows); the loader cast is
+          currently a no-op — cleaned at ETL time. Users may ask for
+          "clinical significance", "pathogenicity", "pathogenic vs benign",
+          or "ACMG classification".
+      - name: aggregate_review_status
+        description: ClinVar review status — 9 non-null canonical values present on
+          disk (plus 243,610 NULL rows where the raw "-" sentinel was cleaned at ETL time; loader cast is a no-op). "criteria provided, single submitter" is dominant (3.25M
+          rows), followed by "criteria provided, multiple submitters, no
+          conflicts" (662K), "criteria provided, conflicting classifications"
+          (164K), "no assertion criteria provided" (129K),
+          "reviewed by expert panel" (22K), "no classification provided" (8K),
+          "no classification for the single variant" (691),
+          "no classifications from unflagged records" (132), and
+          "practice guideline" (54). Users may ask for "review status" or
+          "evidence stars".
+      # NOTE: origin_simple, chromosome, start, stop are denormalized onto
+      # variant_master (all exec_schema:false) and are NOT planner-joinable, so
+      # they are intentionally absent from key_columns. On disk: origin_simple ∈
+      # {"germline","somatic","germline/somatic","unknown", null}; chromosome is a
+      # string "1"–"22"/"X"/"Y"/"MT"/"Un"; start/stop are 1-based GRCh38
+      # coordinates stored as numeric strings. Genomic coordinates with assembly
+      # context live in variant_genomic_coords_clinvar.
+    gene_master_table_clinvar:
+      description: >-
+        NCBI gene reference table (20,222 rows). Maps NCBIGene:<int> gene_id to
+        HGNC gene_symbol. Join key to variant_gene_association_clinvar. The
+        NCBIGene:-1 multi-gene/unknown sentinel row from earlier ETL snapshots is
+        NOT present in the served v2 table (0 rows); multi-gene variants instead
+        carry a 'covers ...'/'subset of ...' string in
+        variant_master_table_clinvar.gene_symbol.
+      key_columns:
+      - name: gene_id
+        description: >-
+          NCBI Entrez gene ID, stored prefixed as "NCBIGene:<int>"
+          (e.g. "NCBIGene:84872"). The "NCBIGene:-1" multi-gene/unknown sentinel
+          is NOT present in the served v2 tables (0 rows in both
+          gene_master_table_clinvar and variant_gene_association_clinvar). Multi-gene
+          variants instead carry a 'covers ...'/'subset of ...' string directly in
+          variant_master_table_clinvar.gene_symbol — parse component symbols from
+          there.
+      - name: gene_symbol
+        description: HGNC short gene symbol (e.g. "AP5Z1"). Stored as
+          "gene_symbol" on disk (v2-compliant). Every served row carries a real
+          symbol; the former NCBIGene:-1/"-" sentinel row is absent in v2. Users
+          may ask for "gene" or "gene symbol".
+    variant_disease_association_clinvar:
+      description: >-
+        Variant-disease pairs (3,160,778 rows). Each row links a variant_id
+        (CLINVAR:<int>) to a disease_id (CLINVAR_DIS:<hex>) with a disease_name
+        and clinical_significance. The "not provided"/"not specified" placeholder
+        rows present in the raw ClinVar variant_summary are dropped at ETL time
+        (cleaned in parquet; loader filter is currently a no-op), so every served row carries a real disease_name (e.g.
+        "Inborn genetic diseases", "Hereditary cancer-predisposing syndrome").
+      key_columns:
+      - name: variant_id
+        description: BioChirp-internal ClinVar variant identifier in the form
+          "CLINVAR:<int>" (join key to variant_master_table_clinvar).
+      - name: disease_id
+        description: BioChirp-internal disease identifier in the form
+          "CLINVAR_DIS:<hex>" (a hex hash, e.g. "CLINVAR_DIS:2816377af7fa"). This
+          is NOT a MedGen CUI. MedGen / OMIM / Orphanet cross-references live inside
+          variant_genomic_coords_clinvar.clndisdb as a comma-/pipe-joined string
+          (e.g. "MedGen:C0035334,OMIM:268000,Orphanet:791" — commas join xrefs
+          within one disease; pipes (|) separate distinct disease records).
+      - name: variant_disease_name
+        description: >-
+          Disease name linked to the variant (e.g. "Hereditary breast and ovarian
+          cancer syndrome", "Inborn genetic diseases"). The "not provided"/"not
+          specified" placeholder rows from raw ClinVar are dropped at ETL time
+          (cleaned in parquet; loader filter is currently a no-op),
+          so every served row carries a real disease_name (no NULLs, no sentinels).
+          Most frequent names are broad panel labels: "Inborn genetic diseases"
+          (354,891 rows), "Hereditary cancer-predisposing syndrome" (192,315),
+          "Cardiovascular phenotype" (90,469). Users may ask for "disease"
+          or "condition".
+      - name: disease_clinical_significance
+        description: Clinical significance specific to this variant-disease pair.
+      # NOTE: phenotype_ids exists on disk and is documented in schema.yaml
+      # (exec_schema:false) but is NOT a planner-joinable column, so it is
+      # intentionally absent from key_columns here. It carries pipe/comma-joined
+      # external xrefs (MONDO/MedGen/OMIM/Orphanet) for ontology mapping only.
+    variant_submission_clinvar:
+      description: >-
+        Per-submitter classification records from submission_summary.txt.gz
+        (6.34M rows). Contains variant_ids for retired/merged ClinVar
+        accessions (~70,954 unique IDs, ~1.16% of submission rows) that do
+        NOT exist in variant_master_table. Query this table directly by
+        variant_id or submitted_gene_symbol without joining to
+        variant_master_table to avoid silently dropping these records.
+        Note: OMIM submissions may carry one SCV linked to multiple disease
+        conditions, yielding multiple rows with the same SCV but distinct
+        submitted_phenotype and submission_clinical_significance — do NOT deduplicate
+        blindly on SCV (observed: SCV000783104.96, SCV000783105.96,
+        SCV000024996.108, SCV000058352.112 each appear 2-3 times).
+        Note: description='0' is an ETL sentinel already absent in the parquet
+        (cleaned at ETL time, 0 rows on disk); the loader cleanup code is a
+        safety net but is currently a no-op.
+      key_columns:
+      - name: variant_id
+        description: BioChirp-internal ClinVar variant identifier in the form
+          "CLINVAR:<int>". ~70,954 variant_ids here reference retired/merged
+          accessions absent from variant_master_table_clinvar — query this table
+          directly without joining to variant_master to avoid silent drops.
+      - name: submission_clinical_significance
+        description: Submitter-level clinical significance call (may differ from aggregate).
+          Users may ask for "submitter classification".
+      - name: date_last_evaluated
+        description: Date the submission was last evaluated, stored as an
+          English-month string in the format "%b %d, %Y" (e.g. "Jun 29, 2010",
+          "Dec 17, 2024", "Aug 17, 2025"). NOT ISO YYYY-MM-DD; the planner
+          must avoid emitting ISO-format filters. Users may ask for
+          "date last evaluated" or "evaluation date".
+      - name: submitted_phenotype
+        description: Phenotype as submitted by the submitter. Users may ask for "submitted
+          phenotype".
+      - name: reported_phenotype
+        description: Phenotype as reported in the source publication.
+      - name: submission_review_status
+        description: Submission-level review status. 7 distinct values on disk
+          — "criteria provided, single submitter" (5.86M rows),
+          "no assertion criteria provided" (422K),
+          "no classification provided" (28K),
+          "reviewed by expert panel" (22K),
+          "flagged submission" (3,177 — note this value only appears at
+          submission level, not in aggregate_review_status),
+          "practice guideline" (2,503), and a single null/None row.
+          Users may ask for "submission review status" or "flagged".
+      - name: collection_method
+        description: How the case was collected (e.g. "clinical testing", "research", "literature
+          only", "curation"). Users may ask for "collection method" or "evidence source".
+      - name: origin_counts
+        description: Single origin label with optional case count for this
+          submission, formatted as "<origin>:<count|na>" (one row per
+          submission). Observed origins include "germline", "somatic",
+          "de novo", "maternal", "paternal", "inherited", "unknown",
+          "not provided". Example tokens — "germline:na" (5.59M rows),
+          "germline:1" (239K), "somatic:na" (9K). This is NOT a
+          germline/somatic split. Users may ask for "germline vs somatic"
+          or "origin counts".
+      - name: submitter
+        description: Submitting organization / laboratory name (e.g. "Invitae", "GeneDx").
+          Users may ask for "submitter" or "lab".
+      - name: scv
+        description: SCV submission accession with trailing version suffix
+          (e.g. "SCV000020155.3", "SCV005622007.1"). All 6.34M non-null
+          values match the pattern \bSCV\d{6,}\.\d+\b. Bare "SCV000123456"
+          input will NOT equality-match — strip the ".<version>" suffix or
+          use a prefix/startswith match. Users may ask for "SCV" or
+          "submission accession".
+      - name: submitted_gene_symbol
+        description: Gene symbol as supplied by the submitter (may differ
+          from the canonical HGNC symbol in variant_master_table.gene_symbol).
+      - name: description
+        description: Primary free-text submitter rationale supporting the
+          classification (3.99M of 6.34M rows populated; ~62.9%). This is
+          the field to use when surfacing submitter narrative. Users may
+          ask for "submitter comment", "submission rationale", or
+          "interpretation summary".
+      - name: explanation
+        description: >-
+          Rare submitter-level free-text tag (only 5,074 / 6.34M
+          rows populated, ~0.08%). Verbatim on-disk tokens include
+          "Drug-variant association: Toxicity" (343 rows, note colon not
+          em-dash), "Indeterminate" (1,180), "Intermediate Metabolizer" (323).
+          The primary free-text rationale lives in "description", not here.
+      - name: contributes_to_aggregate
+        description: Yes/no flag indicating whether this submission feeds
+          the aggregate_clinical_significance roll-up on the variant.
+          Values on disk are "yes" (5.96M rows) and "no" (387K).
+      - name: somatic_clinical_impact
+        description: >-
+          Somatic-tier clinical impact classification (values on disk:
+          "Tier I - Strong", "Tier II - Potential", "Tier III - Unknown",
+          "Tier IV - Benign/Likely benign"). Bare "Tier I" / "Tier II" do NOT
+          match on disk — use the full suffixed form or a startswith match.
+          Users may ask for "somatic impact" or "somatic tier".
+      - name: oncogenicity
+        description: >-
+          Oncogenicity classification. Full enum on disk (Title Case):
+          "Oncogenic", "Likely oncogenic", "Uncertain significance", "Likely benign",
+          "Benign". Note: values are Title Case on disk - use "Uncertain significance"
+          not "uncertain significance", "Likely benign" not "likely benign", "Benign"
+          not "benign". Users may ask for "oncogenicity" or "oncogenic".
+    variant_citation_clinvar:
+      description: >-
+        PubMed/PMC citations per variant from var_citations.txt. Contains
+        ~44,249 unique variant_ids (~1.8% of 2.43M citation variant_ids) that
+        do NOT exist in variant_master_table — the same retired/merged
+        accessions as in variant_submission. Query by variant_id, allele_id,
+        or rsid directly without requiring a join to variant_master_table.
+      key_columns:
+      - name: variant_id
+        description: BioChirp-internal ClinVar variant identifier in the form
+          "CLINVAR:<int>". ~44,249 variant_ids here reference retired/merged
+          accessions absent from variant_master_table_clinvar — query this table
+          directly without requiring a join to variant_master.
+      - name: citation_allele_id
+        description: NCBI allele identifier for the variant (internal join key
+          shared with variant_genomic_coords_clinvar). Users may ask for
+          "allele ID" or "allele accession".
+      - name: rsid
+        description: dbSNP rsID for the variant, stored as a bare numeric
+          string with NO "rs" prefix (e.g. "113993960", "397704705",
+          "150829393"). User-supplied "rsNNN" tokens must have the "rs"
+          prefix stripped before equality match. The string "0" does not
+          appear on disk (already absent in the parquet — cleaned at ETL
+          time; the loader sentinel-cleanup code is a safety net but is
+          currently a no-op, 0 rows affected). Users may ask for "rsID",
+          "rs number", "dbSNP", or "SNP ID".
+      - name: nsv
+        description: Structural-variant NSV accession. Users may ask for "NSV".
+      - name: citation_source
+        description: >-
+          Source of the citation (values on disk: "PubMed",
+          "PubMedCentral", "NCBIBookShelf"). No DOI or OMIM citation_source
+          values exist on disk. Users may ask for "citation source".
+      - name: citation_id
+        description: Identifier within the citation source.
+      # NOTE: organization_ids exists on disk and is documented in schema.yaml
+      # (exec_schema:false, kg_schema:false) but is NOT a planner-joinable
+      # column, so it is intentionally absent from key_columns here.
+    variant_genomic_coords_clinvar:
+      description: >-
+        Genomic coordinates from GRCh38 and GRCh37 VCFs (both assemblies
+        combined, ~8.8M rows). Contains 685 unique variant_ids (1,097 rows
+        across assemblies) not present in variant_master_table — a small set
+        of retired accessions. The 'pos' column is stored as String (Utf8) on
+        disk; no cast is performed at load time. Callers needing integer range
+        queries should cast explicitly: pl.col('pos').cast(pl.Int64). Query by
+        variant_id or allele_id without joining to variant_master_table to avoid
+        losing these 685 records.
+      key_columns:
+      - name: variant_id
+        description: BioChirp-internal ClinVar variant identifier in the form
+          "CLINVAR:<int>". 685 variant_ids here reference retired accessions
+          absent from variant_master_table_clinvar — query this table directly
+          without joining to variant_master to avoid losing those records.
+      - name: assembly
+        description: Genome assembly / build (e.g. "GRCh38", "GRCh37"). Users may ask for
+          "assembly", "genome build", "hg19", or "hg38".
+      - name: chrom
+        description: Chromosome name (e.g. "1", "X", "MT"). Users may ask for "chromosome"
+          or "chr".
+      - name: pos
+        description: >-
+          Genomic position (1-based integer), stored as String (Utf8) on disk.
+          Cast to Int64 for range queries if needed:
+          pl.col('pos').cast(pl.Int64). Users may ask for "position" or
+          "coordinate".
+      - name: genomic_allele_id
+        description: NCBI allele identifier (internal join key shared with
+          variant_citation_clinvar). Users may ask for "allele ID".
+      - name: ref
+        description: Reference allele nucleotide sequence. Users may ask for "reference allele"
+          or "ref".
+      - name: alt
+        description: Alternate allele nucleotide sequence. Users may ask for "alternate allele"
+          or "alt".
+      - name: clnsig
+        description: Raw VCF CLNSIG clinical significance field.
+      - name: clnrevstat
+        description: >-
+          Raw VCF CLNREVSTAT review status field. 9 non-null distinct values plus
+          487,172 null rows on disk: "criteria_provided,_single_submitter" (6.46M),
+          "criteria_provided,_multiple_submitters,_no_conflicts",
+          "criteria_provided,_conflicting_classifications",
+          "reviewed_by_expert_panel", "practice_guideline",
+          "no_assertion_criteria_provided", "no_classification_provided",
+          "no_classification_for_the_single_variant",
+          "no_classifications_from_unflagged_records".
+          Note underscore encoding differs from variant_master_table_clinvar review_status.
+          Users may ask for "VCF review status" or "CLNREVSTAT".
+      - name: clndn
+        description: Raw VCF CLNDN disease name field.
+      - name: clndisdb
+        description: Cross-reference database identifiers for diseases linked to
+          the variant. Stored as a comma-/pipe-joined string where commas join
+          xrefs within one disease and pipes (|) separate distinct disease
+          records (e.g. "MedGen:C0035334,OMIM:268000,Orphanet:791").
+          Users may ask for "MedGen", "OMIM xref", or "disease cross-reference".
+      - name: gene_info
+        description: Gene information field from the VCF (internal metadata
+          joining gene symbol and Entrez gene ID). Users may ask for
+          "gene info" or "variant gene".
+      - name: molecular_consequence
+        description: Molecular consequence token(s) in the form
+          "SO:<id>|<label>" (e.g. "SO:0001583|missense_variant",
+          "SO:0001587|nonsense", "SO:0001589|frameshift_variant",
+          "SO:0001819|synonymous_variant"). Rows with multiple consequences
+          are stored as comma-joined tokens (e.g.
+          "SO:0001583|missense_variant,SO:0001619|non-coding_transcript_variant").
+          Equality match on bare SO labels returns 0 rows; use a substring
+          / contains match. Note "stop_gained" is encoded as
+          "SO:0001587|nonsense" — there is no "stop_gained" label on disk.
+          Users may ask for "consequence", "effect", or "molecular
+          consequence".
+      - name: variant_class
+        description: Variant class label (e.g. "single_nucleotide_variant",
+          "Deletion", "Duplication", "Microsatellite", "Indel", "Insertion",
+          "Inversion", "Variation"). All 8 enum values are stored in
+          underscore_/Title-Case mix; equality match on "SNV" or "deletion"
+          returns 0 rows.
+    variant_gene_association_clinvar:
+      description: >-
+        Linking table between variants and genes. Contains 4,434,153 rows mapping
+        each variant to its associated gene(s) by Entrez gene ID. The
+        'NCBIGene:-1' multi-gene/unknown sentinel from earlier ETL snapshots is NOT
+        present in the served v2 table (0 rows); multi-gene variants (whose
+        gene_symbol is 'covers X genes'/'subset of X genes' or null) simply have no
+        row here. For those variants, parse component symbols directly from
+        variant_master_table_clinvar.gene_symbol instead.
+      key_columns:
+      - name: variant_id
+        description: BioChirp-internal ClinVar variant identifier in the form
+          "CLINVAR:<int>" (join key to variant_master_table_clinvar).
+      - name: gene_id
+        description: >-
+          NCBI Entrez gene ID in the form "NCBIGene:<int>" (join key to
+          gene_master_table_clinvar). The "NCBIGene:-1" multi-gene/unknown sentinel
+          is NOT present in the served v2 table (0 rows); multi-gene variants have
+          no row here and must be resolved via
+          variant_master_table_clinvar.gene_symbol.
+    # disease_master_table_clinvar is intentionally absent from schema.tables:
+    # ALL its columns are exec_schema:false (KG-only). disease_id/disease_name
+    # are denormalised onto variant_disease_association_clinvar; the planner
+    # queries that table directly. Full table definition lives in schema.yaml.
+valid_queries:
+- Is the BRCA1 c.5266dupC variant pathogenic for hereditary breast cancer?
+- What variants in CFTR are classified as pathogenic for cystic fibrosis?
+- What is the clinical significance of TP53 p.Arg248Trp?
+- How many pathogenic variants are reported for the LDLR gene?
+- What conditions are associated with pathogenic variants in SCN1A?
+- Is rs28934578 (HEXA Tay-Sachs variant) pathogenic?
+invalid_queries:
+- What drugs target BRCA1? (use TTD/DGIdb — ClinVar has no drug data)
+- What cancer variants predict response to olaparib? (use CIViC — ClinVar is not cancer-specific
+  clinical)
+- What pathways does CFTR belong to? (use Reactome — ClinVar has no pathway data)
+- What pharmacogenomics variants affect warfarin dosing? (use PharmGKB — ClinVar is not PGx-focused)
+- Which proteins interact with BRCA1? (use BioGRID — ClinVar has no PPI data)
+explicit_id_patterns:
+- regex: \bCLINVAR:\d+\b
+  description: BioChirp-internal ClinVar variant ID stored in variant_master_table,
+    variant_disease_association, variant_gene_association, variant_citation,
+    and variant_genomic_coords (e.g. "CLINVAR:12345"). PRIMARY on-disk pattern.
+- regex: \bSCV\d{6,}(?:\.\d+)?\b
+  description: ClinVar submission accession (variant_submission.scv), stored
+    with trailing ".<version>" suffix (e.g. "SCV000020155.3"). Regex captures
+    both versioned and bare forms.
+- regex: \b(?:VCV|RCV)\d{6,}\b
+  description: Raw NCBI VCV/RCV accessions — NOT stored as primary keys on
+    disk; only appear as substrings inside variant_submission.description
+    free text. User-supplied VCV/RCV tokens must be canonicalized to
+    CLINVAR:<int> before equality match.
+- regex: \bp\.[A-Z][a-z]{0,2}\d+[A-Z][a-z]{0,2}\b
+  description: HGVS protein-change shorthand (e.g. "p.R248W").
+- regex: \bc\.\d+[ACGT_>+-]
+  description: HGVS coding-DNA shorthand prefix (e.g. "c.5266dupC").
+force_relations:
+  variant_clinical: 1.0
+explicit_capability_triggers:
+- phrases:
+  - rsid
+  - rsID
+  - rs number
+  - VCV
+  - RCV
+  - ClinVar
+  - pathogenicity
+  - variant classification
+  - germline variant
+  - likely pathogenic
+  - likely benign
+  - VUS
+  - variant of uncertain significance
+  - benign
+  - pathogenic
+  - clinical significance
+  - ACMG classification
+  - SCV
+  - submission accession
+skip_relations:
+- drug_treatment
+- drug_target
+- protein_function
+- pathway_membership
+- protein_interaction
+- gene_expression
+derived:
+  capability_card:
+    valid_queries:
+    - Is the BRCA1 c.5266dupC variant pathogenic for hereditary breast cancer?
+    - What variants in CFTR are classified as pathogenic for cystic fibrosis?
+    - What is the clinical significance of TP53 p.Arg248Trp?
+    - How many pathogenic variants are reported for the LDLR gene?
+    - What conditions are associated with pathogenic variants in SCN1A?
+    - Is rs28934578 (the HEXA Tay-Sachs variant) classified as pathogenic?
+    - What is the aggregate review status of the BRCA2 c.5946delT variant?
+    - Which submissions from GeneDx classify BRCA1 variants as pathogenic?
+    - What variants in TP53 have conflicting classifications of pathogenicity?
+    - What is the genomic coordinate (GRCh38) of variant CLINVAR:12345?
+    - Which PubMed citations support the pathogenicity of rs80357065?
+    - What somatic variants in KRAS are classified as oncogenic?
+    - List all likely pathogenic single nucleotide variants in the MLH1 gene.
+    - What is the oncogenicity classification of the EGFR p.Leu858Arg variant?
+    invalid_queries:
+    - What drugs target BRCA1? (use TTD/DGIdb — ClinVar has no drug data)
+    - What cancer variants predict response to olaparib? (use CIViC — ClinVar is not
+      a cancer-specific clinical actionability database)
+    - What pathways does CFTR belong to? (use Reactome — ClinVar has no pathway data)
+    - What pharmacogenomics variants affect warfarin dosing? (use PharmGKB — ClinVar
+      is not a PGx-focused resource)
+    - Which proteins interact with BRCA1? (use BioGRID/STRING — ClinVar has no PPI data)
+    - What is the allele frequency of rs1799945 in Europeans? (use gnomAD — ClinVar
+      has no population frequency data)
+    - What is the protein structure of CFTR? (use PDB — ClinVar has no structural data)
+    - What is the expression level of BRCA2 in breast tissue? (use GTEx/HPA — ClinVar
+      has no expression data)
+service:
+  tool:
+    port: 8062
+    memory_limit: 32g
+    memory_reservation: 16g

@@ -1,0 +1,2 @@
+# share service — thin FastAPI + Redis snapshot store.
+# fastapi / uvicorn / pydantic / redis all come from biochirp/base. No extra deps.

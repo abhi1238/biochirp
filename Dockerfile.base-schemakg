@@ -1,0 +1,26 @@
+# BioChirp schema_kg base image
+#
+# FROM biochirp/base + the heavy in-process schema_kg planner deps (torch via
+# sentence-transformers, qdrant-client). Used ONLY by the schema_kg DB tool
+# services (SCHEMA_KG_DBS in scripts/gen_compose.py) via
+# Dockerfile.service-schemakg, so torch lives in ONE shared layer instead of
+# being re-installed into every per-DB image. Non-schema_kg services keep the
+# lean biochirp/base.
+#
+# Build once with:
+#   docker build -f Dockerfile.base-schemakg -t biochirp/base-schemakg:latest .
+# Rebuild after bumping the pinned versions below, then rebuild the schema_kg
+# DB services with `docker compose build`.
+FROM biochirp/base:latest
+
+# In-process schema_kg planner: embeddings (bge via sentence-transformers) +
+# in-memory Qdrant ANN. networkx is already in biochirp/base.
+RUN pip install --no-cache-dir \
+        qdrant-client==1.15.1 \
+        sentence-transformers==5.5.0
+
+# Pre-bake BAAI/bge-small-en-v1.5 (384-dim) so the in-process schema_kg planner
+# loads it offline at boot with no runtime HF download. Replaces the
+# decommissioned local fine-tuned biochirp-bge-v1 (2026-06-20); mirrors the
+# fastembed pre-bake of the same model in Dockerfile.base.
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')"

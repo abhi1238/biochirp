@@ -1,0 +1,72 @@
+name: opentargets
+display_name: OpenTargets
+# Runtime: live GraphQL at https://api.platform.opentargets.org/api/v4/graphql
+# (opentarget_service/app/graphql.py + disease_data.py + target_data.py).
+# The 4 local parquets under database/opentargets/ are an offline-fallback
+# snapshot of Open Targets Platform 26.03 and are NOT consulted by the
+# running stack (see database/opentargets/SOURCE.md).
+description: 'Open Targets Platform — live GraphQL aggregator that scores and ranks target-disease
+  associations across multiple evidence datatypes. Verified content (anchored in opentarget_service/app/graphql.py
+  + disease_data.py): overall association score, per-datatype association breakdown via the
+  GraphQL datatypeScores field (ids: genetic_association, somatic_mutation, drugs, affected_pathway,
+  literature, animal_model, rna_expression, known_variant, clinical, genetic_literature — see
+  disease_data.py _DATATYPE_ID_MAP; clinical + genetic_literature added in OT v26), and
+  known-drug joins for disease pages. Combines ChEMBL, EVA/ClinVar, IntOGen, Gene2Phenotype,
+  OMIM, Orphanet, Reactome, GWAS Catalog, DepMap (CRISPR essentiality, exposed via
+  target_data.py:574-587 depMapEssentiality), and other Open Targets Platform 26.03 datasources
+  (full list: GraphQL introspection at runtime; see https://platform-docs.opentargets.org/data-sources).
+  Drug-centric queries (mechanism of action, indications, clinical trials) route to sibling
+  DB opentargets_drug — this DB is target/disease-centric. The offline drug_master_table parquet
+  is a flat drug catalogue (3 columns: id, name, drugType) — the air-gapped snapshot lacks
+  the drug<->target and drug<->disease link tables, so live GraphQL is required for any
+  target-drug-disease joins. Coverage cardinalities
+  from the 26.03 snapshot: 157,382 target rows (Ensembl gene IDs across 37 distinct biotype
+  values — 36 named biotypes plus 2,038 rows with empty-string biotype; only 40,194 are
+  protein_coding, the largest non-coding bucket is lncRNA at 69,760, followed by
+  processed_pseudogene (18,974), misc_RNA, snRNA, miRNA, and assorted pseudogene/IG/TR gene
+  segments — filter on biotype=protein_coding for druggable-target queries), 47,030 diseases,
+  44,460 drugs (CHEMBL ids), 9,016,004 target-disease association rows.
+
+  '
+is_remote: true
+domain_hint: drug_discovery
+# NOTE: schema fields reflect the live GraphQL response shape AFTER renaming
+# inside opentarget_service/app/{disease_data,target_data}.py
+# (approvedSymbol -> gene_symbol, Disease.name -> disease_name,
+# Drug.name -> drug_name). Canonical output field is gene_symbol; any legacy
+# code emitting 'gene_name' should be treated as an alias for gene_symbol.
+# The offline parquets carry the raw GraphQL column names
+# (approvedSymbol/id/name/targetId/diseaseId); auditors comparing against parquet
+# alone will see a mismatch — this is by design.
+schema:
+  inputs:
+  - field: disease_name
+  - field: gene_symbol
+  - field: target_name
+  - field: drug_name
+  outputs:
+  - field: gene_symbol
+  - field: disease_name
+  - field: target_name
+  - field: drug_name
+valid_queries:
+- Which genes are associated with type 2 diabetes in Open Targets?
+- What is the overall Open Targets association score for KRAS in colorectal cancer?
+- Give the per-datatype evidence breakdown for BRCA1 in breast cancer.
+- Find drugs in clinical trials for cystic fibrosis with Open Targets evidence scores.
+invalid_queries:
+- What is the SMILES structure of aspirin? (use ChEBI/ChEMBL — Open Targets does not store
+  small-molecule structures)
+- What protein-protein interactions exist for EGFR? (use BioGRID/STRING — Open Targets aggregates
+  evidence, not raw PPI networks)
+- What is the molecular function of BRCA1? (use UniProt — Open Targets does not store GO/Swiss-Prot
+  function annotations)
+- What experimental PDB structures contain TP53? (use PDBe — Open Targets has no 3D structure data)
+- What is the mechanism of action of imatinib? (use opentargets_drug — this DB is target/disease-centric,
+  not drug-centric)
+force_relations:
+  drug_target: 0.7
+  gene_disease: 0.85
+  disease_gene: 0.85
+  gwas_association: 0.7
+  cancer_genomics: 0.65

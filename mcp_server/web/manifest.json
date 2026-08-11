@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "name": "biochirp",
+  "display_name": "BioChirp — Curated Biomedical Retrieval",
+  "version": "2.1.0",
+  "description": "Direct access to 11 curated biomedical databases (TTD, CTD, HCDT, HPO, ClinVar, Reactome, MSigDB, Orphanet, STRING, UniProt, Open Targets). Claude plans which DB(s) to query; this server executes queries — no LLM in the server itself.",
+  "homepage_url": "https://biochirp.iiitd.edu.in",
+  "documentation_url": "https://biochirp.iiitd.edu.in/connector",
+  "support_url": "https://biochirp.iiitd.edu.in",
+  "author": {
+    "name": "Abhishekh Gupta",
+    "url": "https://biochirp.iiitd.edu.in"
+  },
+  "license": "MIT",
+  "categories": ["biomedical", "research"],
+  "keywords": ["biology", "drug-discovery", "rare-disease", "ppi", "bioinformatics"],
+  "transports": [
+    {
+      "type": "streamable-http",
+      "url": "https://biochirp.iiitd.edu.in/mcp"
+    },
+    {
+      "type": "sse",
+      "url": "https://biochirp.iiitd.edu.in/mcp/sse"
+    }
+  ],
+  "tools": [
+    { "name": "drugs_and_targets_ttd",                 "description": "TTD — drugs, targets, indications, MoA, approval status" },
+    { "name": "chemicals_genes_diseases_ctd",          "description": "CTD — chemical–gene/disease, gene–disease associations" },
+    { "name": "cancer_drugs_sensitivity_hcdt",         "description": "HCDT — anti-cancer drug–target associations, drug–pathway links" },
+    { "name": "phenotypes_gene_disease_hpo",           "description": "HPO — phenotypes, gene–phenotype, disease–phenotype" },
+    { "name": "genetic_variants_pathogenicity_clinvar","description": "ClinVar — variant pathogenicity, gene–variant associations" },
+    { "name": "biological_pathways_reactome",          "description": "Reactome — biological pathways, gene–pathway memberships" },
+    { "name": "gene_sets_signatures_msigdb",           "description": "MSigDB — gene sets (Hallmark, KEGG, GO, Reactome, …)" },
+    { "name": "rare_diseases_genetics_orphanet",       "description": "Orphanet — rare diseases, disease–gene associations" },
+    { "name": "protein_interactions_network_string",   "description": "STRING — protein–protein interaction networks" },
+    { "name": "protein_function_localisation_uniprot", "description": "UniProt — protein function, gene→protein mapping, localisation" },
+    { "name": "drug_target_disease_evidence_opentargets", "description": "Open Targets — live drug–target–disease evidence (GraphQL)" },
+    { "name": "web_search_live",                       "description": "Live web search — for questions outside the curated databases" }
+  ]
+}

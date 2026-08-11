@@ -1,0 +1,396 @@
+name: uniprot
+display_name: UniProt
+description: 'UniProt Swiss-Prot (human). Manually curated protein knowledge base containing
+  protein names and identifiers, gene cross-references (HGNC/Ensembl/Entrez), the UniProt
+  keyword controlled vocabulary (with PTM/Domain/Ligand categories), subcellular location
+  controlled vocabulary, per-protein GO annotations (BP/CC/MF), disease variants (with
+  Swiss-Prot change and dbSNP rsID), external ID cross-references, free-text CC FUNCTION
+  annotations (protein_function_uniprot, 17K proteins), residue-level post-translational
+  modification sites with position/modification/enzyme (ptm_sites_uniprot, 56K sites), and
+  protein-protein interactions — structured binary IntAct partners and free-text SUBUNIT
+  complex prose (protein_interaction_uniprot, 192K rows). NOTE: this snapshot does NOT
+  contain per-protein domain coordinates, active/binding-site features, catalytic-activity
+  (EC/Rhea) annotations, or amino-acid sequences.
+
+  '
+schema:
+  inputs:
+  - field: gene_symbol
+  - field: protein_name
+  - field: protein_id
+  - field: target_name
+  outputs:
+  - field: protein_id
+  - field: protein_name
+  - field: entry_name
+  - field: gene_symbol
+  - field: hgnc
+  - field: ensembl_accession
+  - field: entrez
+  - field: organism
+  - field: go_id
+  - field: aspect
+  - field: subcell_name
+  - field: keyword_name
+  - field: disease_name
+  - field: variant_type
+  - field: dbsnp
+  - field: swiss_prot_change
+  - field: ftid
+  - field: external_id
+  - field: db
+  - field: function_text
+  - field: position
+  - field: modification
+  - field: enzymes
+  - field: interaction_type
+  - field: interactor_gene
+  - field: description
+  tables:
+    protein_master_table:
+      description: ''
+      key_columns:
+      - name: protein_id
+        description: UniProt accession stored as protein_id (e.g. "P04637" for human p53,
+          "P00533" for human EGFR). Users may ask for "UniProt ID", "UniProt accession",
+          "accession", or "protein ID".
+      - name: entry_name
+        description: UniProt entry name in the format SYMBOL_SPECIES (e.g. "P53_HUMAN", "EGFR_HUMAN").
+          Users may ask for "entry name" or "UniProt name".
+      - name: protein_name
+        description: 'Full protein recommended name (e.g. "Cellular tumor antigen p53",
+          "Epidermal growth factor receptor", "14-3-3 protein beta/alpha"). Users may
+          ask for "protein name", "full name", or "recommended name". This served snapshot
+          carries no {ECO:...} evidence tags in the name (they were stripped at preprocess
+          time), so values are clean for direct contains/exact matching.'
+      - name: gene_symbol
+        description: HGNC short gene symbol (e.g. "TP53"). Users may ask for "gene" or "gene
+          symbol".
+      - name: ensembl_accession
+        description: 'Ensembl gene ID cross-reference (loader strips version suffix and isoform
+          bracket at runtime, e.g. raw "ENSG00000146648.22. [P00533-1]" becomes "ENSG00000146648").
+          For cross-DB joins, the stripped bare ENSG ID is consistent with HGNC/GTEx.
+          For clean versioned Ensembl IDs use id_mapping_uniprot (db="Ensembl").'
+      - name: entrez
+        description: NCBI Entrez gene ID. Users may ask for "Entrez ID" or "NCBI gene ID".
+      - name: organism
+        description: Organism scientific name. In this snapshot the value is constant
+          "Homo sapiens (Human)" (human-only Swiss-Prot); the string contains the common
+          name in parentheses. Users may ask for "organism" or "species".
+      - name: reviewed
+        description: Whether the entry is Swiss-Prot reviewed (stored as String "true"/"false").
+          This snapshot is Swiss-Prot only, so reviewed is always "true"; filtering on
+          reviewed="false" returns 0 rows. Users may ask for "Swiss-Prot reviewed", "reviewed",
+          or "manually curated".
+      - name: hgnc
+        description: HGNC gene symbol identifier with "HGNC:" prefix (e.g. "HGNC:11998"
+          for TP53, "HGNC:3236" for EGFR). Used to join UniProt proteins to gene-centric
+          databases (e.g. HCDT, HPO). Stored WITH the "HGNC:" prefix — prepend it to
+          bare integer user input before filtering. Users may ask for "HGNC ID".
+    gene_protein_association:
+      description: ''
+      key_columns:
+      - name: protein_id
+        description: UniProt accession stored as protein_id that the gene maps to (join key to protein_master_table via gene_protein_association).
+      - name: ensembl_accession
+        description: 'Ensembl gene ID cross-reference for the gene (loader strips version suffix
+          and isoform bracket at runtime, e.g. raw "ENSG00000146648.22. [P00533-1]" becomes
+          "ENSG00000146648"). For clean versioned Ensembl IDs use id_mapping_uniprot (db="Ensembl").'
+      - name: entrez
+        description: NCBI Entrez gene ID cross-reference for the gene.
+    keyword_master_uniprot:
+      description: ''
+      key_columns:
+      - name: keyword_id
+        description: UniProt keyword identifier (e.g. "KW-0053").
+      - name: keyword_name
+        description: UniProt keyword (e.g. "Apoptosis", "Kinase", "Phosphoprotein"). Users
+          may ask for "keyword" or "UniProt keyword".
+      - name: category
+        description: 'Keyword category. Observed values (with counts): "Biological process"
+          (495), "Molecular function" (197), "Cellular component" (158), "Disease" (157),
+          "Ligand" (69), "PTM" (47), "Domain" (35), "Coding sequence diversity" (13),
+          "Technical term" (11), "Developmental stage" (9), None (10) — IC-type entries
+          without a category. Users may ask for "keyword category".'
+      - name: keyword_description
+        description: Description of the keyword.
+      - name: keyword_synonyms
+        description: Synonyms for the keyword.
+      - name: keyword_entry_type
+        description: UniProt keyword entry type label.
+      - name: keyword_hierarchy
+        description: Hierarchical parent/category path for the keyword (used to traverse
+          the keyword taxonomy).
+    subcell_location_uniprot:
+      description: ''
+      key_columns:
+      - name: subcell_id
+        description: UniProt subcellular location identifier (e.g. "SL-0086").
+      - name: subcell_name
+        description: Subcellular localization term (canonical UniProt vocabulary, e.g.
+          "Cytoplasm", "Nucleus", "Cell membrane", "Mitochondrion"). Note UniProt uses
+          "Cell membrane" rather than "Plasma membrane". Users may ask for "subcellular
+          location", "localization", "compartment", or "where is the protein".
+      - name: subcell_description
+        description: Description of the subcellular location.
+      - name: subcell_synonyms
+        description: Semicolon-delimited alternate phrasings for the subcellular
+          location term (e.g. "A-band; A line."). Often null. Users may ask for
+          "synonym" or "alternate name".
+      - name: keyword_id
+        description: Associated UniProt keyword ID (KW-NNNN) — FK to keyword_master_uniprot.keyword_id.
+      - name: subcell_entry_type
+        description: UniProt subcellular-location entry type label.
+      - name: subcell_hierarchy
+        description: Hierarchical parent/category path for the location (used to traverse
+          the subcell-location hierarchy).
+    gene_ontology_uniprot:
+      description: 'Per-protein GO annotations (424,699 rows). Every protein_id here is
+        present in protein_master_table, so joins on protein_id are lossless (0 orphan
+        accessions in this served snapshot).'
+      key_columns:
+      - name: protein_id
+        description: UniProt accession stored as protein_id that the GO annotation applies
+          to (join key to protein_master_table).
+      - name: qualifier
+        description: 'GO qualifier. 22 distinct values: core positives ("enables", "involved_in",
+          "located_in", "part_of", "is_active_in", "acts_upstream_of_or_within", "contributes_to",
+          "colocalizes_with", "acts_upstream_of", "acts_upstream_of_positive_effect",
+          "acts_upstream_of_negative_effect", "acts_upstream_of_or_within_positive_effect",
+          "acts_upstream_of_or_within_negative_effect") plus NOT| prefixed negation variants
+          for each (e.g. "NOT|enables", "NOT|involved_in", "NOT|located_in"). Users may
+          ask for "GO qualifier" or "GO annotation type".'
+      - name: go_id
+        description: Gene Ontology term ID (e.g. "GO:0006915" = apoptotic process). Users
+          may ask for "GO ID", "GO term ID", or "GO accession".
+      - name: db_reference
+        description: Source database reference for the GO annotation.
+      - name: evidence
+        description: GO evidence code (e.g. "IDA"=Inferred from Direct Assay, "IEA"=Inferred
+          from Electronic Annotation, "TAS"=Traceable Author Statement, "ISS"=Inferred from
+          Sequence Similarity). Users may ask for "evidence code" or "GO evidence".
+      - name: aspect
+        description: GO aspect ("P"=Biological Process, "C"=Cellular Component, "F"=Molecular
+          Function). Users may ask for "GO aspect", "GO category", or "biological process/molecular
+          function".
+    variant_disease_uniprot:
+      description: ''
+      key_columns:
+      - name: protein_id
+        description: UniProt accession stored as protein_id that the variant belongs to
+          (join key to protein_master_table; e.g. "P04637" for TP53).
+      - name: ftid
+        description: 'UniProt variant feature ID (e.g. "VAR_005932" for TP53 p.Arg175His).
+          Users may ask for "feature ID" or "variant feature ID". NOTE: ftid is NOT a
+          unique row identifier — 1,016 ftids appear 2+ times (1,147 duplicate rows total)
+          because one variant can be linked to multiple diseases. The composite key is
+          (ftid, disease_name).'
+      - name: swiss_prot_change
+        description: Variant nomenclature in Swiss-Prot format (e.g. "p.Arg175His" on TP53).
+          Users may ask for "variant nomenclature", "amino acid change", or "protein change".
+      - name: variant_type
+        description: 'Variant pathogenicity label. Enum (with counts) "LB/B" (39929) =
+          Likely Benign/Benign, "LP/P" (33127) = Likely Pathogenic/Pathogenic, "US" (11420)
+          = Uncertain Significance. ACMG-style classifications.'
+      - name: dbsnp
+        description: 'dbSNP rsID cross-reference (e.g. "rs28934578" for TP53 p.Arg175His).
+          Users may ask for "dbSNP", "rsID", or "rs number". NULL for 16.3% of rows
+          (13,811/84,476) — dbSNP rsIDs are absent for some variants not yet deposited
+          in dbSNP.'
+      - name: disease_id
+        description: Disease identifier cross-reference. ALWAYS NULL in this snapshot
+          (100%, 84,476/84,476 rows). MIM/OMIM identifiers are embedded inline in
+          disease_name as "[MIM:NNNNNN]" — parse disease_name when an OMIM ID is
+          needed. Filtering or joining by disease_id will return zero rows.
+      - name: disease_name
+        description: 'Disease name linked to the variant (e.g. "Li-Fraumeni syndrome (LFS)
+          [MIM:151623]"). Users may ask for "disease". NOTE: 49.5% of rows (41,802/84,476)
+          have null disease_name — most LB/B variants carry no associated disease annotation.
+          MIM/OMIM identifiers are embedded inline as "[MIM:NNNNNN]" — parse disease_name
+          when an OMIM ID is needed (omim_id is exec_schema-excluded and not planner-joinable).'
+    id_mapping_uniprot:
+      description: 'External ID cross-references for UniProt accessions (205,621 rows).
+        This served snapshot is restricted to the 20,431 reviewed Swiss-Prot accessions
+        that are present in protein_master_table, so joins of id_mapping.protein_id ->
+        protein_master_table.protein_id are lossless (no TrEMBL/isoform rows here).
+        Use protein_id lookups via protein_master_table first, then join to id_mapping for
+        cross-references.'
+      key_columns:
+      - name: protein_id
+        description: UniProt accession stored as protein_id that the cross-reference belongs
+          to. Covers the 20,431 reviewed Swiss-Prot accessions in this snapshot; all join
+          cleanly to protein_master_table.
+      - name: db
+        description: External database name for the cross-reference. Enum of all 10
+          observed values "Ensembl", "Ensembl_PRO", "Ensembl_TRS", "GeneID", "Gene_Name",
+          "Gene_Synonym", "HGNC", "RefSeq", "RefSeq_NT", "UniProtKB-ID". Note PDB
+          cross-references are NOT in this snapshot. Users may ask for "external database"
+          or "cross-reference database".
+      - name: external_id
+        description: External identifier value in db. Users may ask for "external ID" or "cross-reference
+          ID".
+    protein_keyword_uniprot:
+      description: 'Protein→UniProt-keyword membership edges (229,494 rows; all 20,431
+        reviewed proteins), parsed from the KW lines of uniprot_sprot_human.dat. Join
+        protein_master_table on protein_id and keyword_master_uniprot on keyword_id for
+        the keyword_name / category. Answers "which keywords are annotated for protein X".'
+      key_columns:
+      - name: protein_id
+        description: UniProt accession the keyword is annotated on; joins cleanly to
+          protein_master_table.protein_id.
+      - name: keyword_id
+        description: UniProt keyword controlled-vocabulary ID (KW-NNNN); join to
+          keyword_master_uniprot.keyword_id for the human-readable keyword_name.
+    protein_subcell_uniprot:
+      description: 'Protein→subcellular-location membership edges (47,001 rows; 17,299
+        proteins), parsed from the CC SUBCELLULAR LOCATION lines of uniprot_sprot_human.dat.
+        Join protein_master_table on protein_id and subcell_location_uniprot on subcell_id
+        for the subcell_name. Answers "what subcellular locations is protein X found in".'
+      key_columns:
+      - name: protein_id
+        description: UniProt accession the location is annotated on; joins cleanly to
+          protein_master_table.protein_id.
+      - name: subcell_id
+        description: UniProt subcellular-location controlled-vocabulary ID (SL-NNNN); join
+          to subcell_location_uniprot.subcell_id for the human-readable subcell_name.
+    species_master_uniprot:
+      description: ''
+      key_columns:
+      - name: taxon_id
+        description: NCBI taxonomy ID stored as STRING (e.g. "9606" for human, "10090"
+          for mouse). Users may ask for "taxon ID", "taxonomy ID", or "NCBI taxon".
+      - name: species_code
+        description: UniProt 5-letter species mnemonic (e.g. "HUMAN", "MOUSE", "ECOLI"). Users
+          may ask for "species code" or "UniProt mnemonic".
+      - name: kingdom
+        description: 'Taxonomic kingdom stored as a SINGLE-LETTER code, not a full name.
+          Enum (with counts) "E" (20043) = Eukaryota, "B" (4336) = Bacteria, "V" (3194)
+          = Viruses, "A" (333) = Archaea, "O" (1) = Other, "X" (1) = Unclassified. Users
+          may ask for "kingdom" or "domain of life".'
+      - name: scientific_name
+        description: Scientific species name (e.g. "Homo sapiens"). Users may ask for "scientific
+          name" or "Latin name".
+      - name: common_name
+        description: Common species name (e.g. "Human", "Mouse"). Users may ask for "common
+          name".
+      - name: synonym
+        description: Alternate species name / synonym for the taxon (often null).
+    protein_function_uniprot:
+      description: 'Free-text CC -!- FUNCTION annotation for each Swiss-Prot reviewed human
+        protein (17,259 rows; one row per protein). Answers what a protein does, its role
+        in a pathway/process, and its mechanism. Join protein_master_table_uniprot on
+        protein_id for gene_symbol / protein_name.'
+      key_columns:
+      - name: protein_id
+        description: UniProt accession — FK to protein_master_table_uniprot.protein_id.
+      - name: function_text
+        description: 'Full free-text FUNCTION annotation from Swiss-Prot CC -!- FUNCTION
+          lines (ECO evidence tags stripped). Describes the protein''s biochemical activity,
+          biological role, pathway involvement, and known interactors. Substring-match user
+          queries about protein function, role, activity, or mechanism on this field.'
+    ptm_sites_uniprot:
+      description: 'Residue-level post-translational modification (PTM) sites parsed from FT
+        MOD_RES feature blocks (56,150 rows; one row per protein/position/modification triple).
+        Covers phosphorylation, methylation, acetylation, ubiquitination, sumoylation, and
+        other curated PTMs. Answers "is protein X phosphorylated?", "what residues of gene Y
+        are modified?", "which kinase phosphorylates protein Z?". Join
+        protein_master_table_uniprot on protein_id.'
+      key_columns:
+      - name: protein_id
+        description: UniProt accession — FK to protein_master_table_uniprot.protein_id.
+      - name: position
+        description: Sequence position of the modified residue as an integer string (e.g.
+          '133', '308'). No amino-acid prefix — '133', not 'Ser-133'. Rare isoform-specific
+          coordinates use 'accession-isoform:position' (e.g. 'P31946-2:1').
+      - name: modification
+        description: 'Type of PTM at this site from UniProt controlled vocabulary (e.g.
+          "Phosphoserine", "Phosphothreonine", "N6-acetyllysine", "N6-methyllysine",
+          "Asymmetric dimethylarginine"). Users may ask for "PTM type", "phosphorylation",
+          "acetylation", "methylation", "ubiquitination".'
+      - name: enzymes
+        description: Curated enzyme(s) that catalyse this PTM (e.g. "PKA", "CK1", "PLK1",
+          "Aurora-A"), extracted from the /note=by <enzyme> annotation. Null when the
+          modifying enzyme is not curated. Answers "which kinase phosphorylates protein X?".
+    protein_interaction_uniprot:
+      description: 'Protein-protein interaction (PPI) data parsed from CC -!- SUBUNIT and CC
+        -!- INTERACTION lines (191,900 rows). Two interaction_type values: SUBUNIT = free-text
+        curator prose describing subunit composition / complex membership / binding partners;
+        BINARY = structured binary interaction with IntAct experiment count. Answers "what are
+        the interaction partners of protein X?", "is protein A in a complex with B?", "what
+        proteins does gene Y interact with?", "list the subunits of complex Z". Join
+        protein_master_table_uniprot on protein_id.'
+      key_columns:
+      - name: protein_id
+        description: UniProt accession of the bait/anchor protein — FK to
+          protein_master_table_uniprot.protein_id.
+      - name: interaction_type
+        description: '"SUBUNIT" = free-text subunit/complex description from CC -!- SUBUNIT
+          (homodimer/heterodimer/complex/binding statements); "BINARY" = structured binary
+          PPI from CC -!- INTERACTION with IntAct experiment counts. Use SUBUNIT rows for
+          text partner searches; prefer BINARY rows for counting distinct partners.'
+      - name: interactor_gene
+        description: 'Gene symbol of the interacting partner (BINARY rows only; null for
+          SUBUNIT rows). Examples: "TP53", "MDM2", "BRCA1". Use for "what does protein X
+          interact with?" or "does gene Y interact with gene Z?".'
+      - name: nb_experiments
+        description: Number of IntAct experiments supporting this BINARY interaction (integer;
+          null for SUBUNIT rows). Confidence proxy — higher values indicate better support.
+      - name: description
+        description: 'Free-text description of the interaction. SUBUNIT rows carry full curator
+          prose about complex composition, binding domains, and regulatory context; BINARY
+          rows carry the raw CC INTERACTION line. Substring-match when the user asks about a
+          specific complex name, binding partner, or structural context.'
+valid_queries:
+- What is the molecular function of the BRCA1 protein? (GO MF annotations)
+- What GO biological process terms are annotated for KRAS?
+- What diseases are associated with the protein in Swiss-Prot for CFTR?
+- What is the UniProt accession / HGNC / Ensembl / Entrez cross-reference for a given
+  human gene symbol?
+- What cellular-component GO terms (aspect='C') are annotated for TP53? (approximates
+  subcellular location via gene_ontology_uniprot — returns GO IDs, not human-readable
+  subcell_name; for readable names cross-reference subcell_location_uniprot.go column)
+- Which UniProt keywords are associated with TP53? (joins protein_master_table_uniprot
+  → protein_keyword_uniprot → keyword_master_uniprot; protein_keyword_uniprot has
+  229,494 rows covering all 20,431 reviewed proteins)
+- "Where is TP53 located in the cell? (uses protein_subcell_uniprot: protein_id →\
+  \ subcell_location_uniprot.subcell_id → subcell_name; protein_subcell_uniprot\
+  \ has 47,001 rows with direct protein_id → subcell_id edges)"
+- What is the function of the BRCA1 protein? (free-text CC FUNCTION from protein_function_uniprot)
+- What post-translational modifications / phosphorylation sites are on TP53? (per-residue
+  MOD_RES sites from ptm_sites_uniprot — position + modification, plus modifying enzyme where
+  curated)
+- Which residues of MAPK1 are phosphorylated, and by which kinase? (ptm_sites_uniprot —
+  position, modification and enzymes columns)
+- What proteins interact with TP53? / What are the binary interaction partners of 14-3-3
+  beta (P31946)? (protein_interaction_uniprot BINARY rows — interactor_gene + IntAct
+  experiment count)
+- What is the subunit composition / complex membership of a protein? (protein_interaction_uniprot
+  SUBUNIT rows — free-text curator prose)
+invalid_queries:
+- What drugs bind to BRCA1? (use TTD/DrugCentral — UniProt has no drug-target data)
+- What pathways does EGFR participate in? (use Reactome — UniProt has GO terms, not Reactome
+  pathway membership)
+- What TFs regulate EGFR expression? (use TRRUST/OmniPath for TF-target regulation)
+- What is the amino-acid sequence of TP53? (this snapshot has NO sequence column —
+  use the live UniProt REST API.)
+- What are the domain coordinates / active sites / binding sites of EGFR? (this snapshot
+  has NO per-protein feature table for domains or active/binding sites — the ptm_sites table
+  covers MOD_RES modification positions only, not domain/active/binding-site coordinates;
+  keyword_master carries only the controlled-vocabulary list of domain/site keywords.)
+- What is the catalytic activity / EC number / Rhea reaction of an enzyme? (NOT stored in
+  this snapshot — use Rhea/IntEnz/UniProt REST.)
+- What PDB structures are linked to a UniProt accession? (id_mapping_uniprot does NOT
+  contain PDB rows in this snapshot — use PDBe or AlphaFold queries.)
+explicit_id_patterns:
+- regex: \b(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})\b
+  description: UniProt accession — also drives AlphaFold model lookup
+force_relations:
+  protein_domain: 0.85
+  # protein_interaction is a first-class served edge: protein_interaction_uniprot
+  # (191,900 rows; BINARY IntAct partners + SUBUNIT complex prose) is loaded and joined
+  # by the planner. Force it so PPI queries resolve to this DB rather than being dropped.
+  protein_interaction: 0.85
+service:
+  tool:
+    port: 8089
+    memory_reservation: 2g

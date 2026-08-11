@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BioChirp — table viewer</title>
+<style>
+:root {
+  --bg:#0f1115; --fg:#e6e8ee; --muted:#9aa3b2; --accent:#5fb3ff;
+  --row-alt:#181b22; --border:#262b34; --hl:#2b3140;
+  --good:#3ddc97; --warn:#ffb454; --bad:#ff6b6b;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg:#fafbfc; --fg:#1a1d23; --muted:#6b7280; --accent:#0969da;
+          --row-alt:#f4f6f9; --border:#d0d7de; --hl:#dbeafe; }
+}
+* { box-sizing:border-box; }
+body { margin:0; font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       background:var(--bg); color:var(--fg); }
+header { padding:14px 20px; border-bottom:1px solid var(--border);
+         display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+header h1 { font-size:15px; margin:0; font-weight:600; }
+header .meta { color:var(--muted); font-size:12px; }
+header .spacer { flex:1; }
+header a, header button { color:var(--accent); background:none; border:1px solid var(--border);
+                          padding:6px 10px; border-radius:6px; cursor:pointer;
+                          text-decoration:none; font-size:13px; }
+header a:hover, header button:hover { background:var(--hl); }
+.controls { padding:10px 20px; border-bottom:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; }
+.controls input, .controls select { background:var(--bg); color:var(--fg); border:1px solid var(--border);
+                                    padding:6px 10px; border-radius:6px; font-size:13px; }
+.controls input[type=search] { min-width:240px; }
+.controls .count { color:var(--muted); font-size:12px; align-self:center; margin-left:auto; }
+.scroll { overflow:auto; max-height:calc(100vh - 140px); }
+table { border-collapse:collapse; width:max-content; min-width:100%; font-size:13px; }
+thead th { position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--border);
+           text-align:left; padding:8px 12px; cursor:pointer; user-select:none;
+           white-space:nowrap; font-weight:600; }
+thead th:hover { background:var(--hl); }
+thead th .arrow { color:var(--muted); margin-left:4px; font-size:11px; }
+tbody td { padding:6px 12px; border-bottom:1px solid var(--border); vertical-align:top;
+           white-space:nowrap; max-width:520px; overflow:hidden; text-overflow:ellipsis; }
+tbody tr:nth-child(even) { background:var(--row-alt); }
+tbody tr:hover { background:var(--hl); }
+tbody td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.empty { padding:40px; text-align:center; color:var(--muted); }
+.error { padding:20px; background:#3a1f24; color:var(--bad); border-bottom:1px solid var(--border); }
+.pager { padding:10px 20px; border-top:1px solid var(--border); display:flex; gap:10px;
+         align-items:center; color:var(--muted); font-size:12px; }
+.pager button { background:none; color:var(--accent); border:1px solid var(--border);
+                padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; }
+.pager button:disabled { opacity:0.4; cursor:default; }
+</style>
+</head>
+<body>
+<header>
+  <h1>BioChirp <span class="meta" id="filename"></span></h1>
+  <span class="meta" id="meta"></span>
+  <span class="spacer"></span>
+  <a id="download" href="#">⬇ download CSV</a>
+  <button id="copyjson">Copy as JSON</button>
+</header>
+<div class="controls">
+  <input type="search" id="search" placeholder="Filter rows… (matches any column, case-insensitive)" />
+  <select id="page-size">
+    <option value="25">25 / page</option>
+    <option value="50" selected>50 / page</option>
+    <option value="100">100 / page</option>
+    <option value="500">500 / page</option>
+    <option value="0">all</option>
+  </select>
+  <span class="count" id="count"></span>
+</div>
+<div class="scroll"><table id="t"><thead></thead><tbody></tbody></table></div>
+<div class="pager">
+  <button id="prev">‹ Prev</button>
+  <button id="next">Next ›</button>
+  <span id="pageinfo"></span>
+</div>
+
+<script>
+// Minimal CSV parser. Handles quoted fields with embedded commas + newlines +
+// escaped quotes ("" -> "). For BioChirp CSVs (UTF-8, RFC4180-ish) this is enough.
+function parseCSV(text) {
+  const rows = []; let row = []; let cell = ""; let i = 0;
+  let inQuotes = false;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { cell += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      cell += ch; i++; continue;
+    }
+    if (ch === '"') { inQuotes = true; i++; continue; }
+    if (ch === ',') { row.push(cell); cell = ""; i++; continue; }
+    if (ch === '\r') { i++; continue; }
+    if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ""; i++; continue; }
+    cell += ch; i++;
+  }
+  if (cell.length || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+const params = new URLSearchParams(location.search);
+const file = params.get('file');
+const titleEl = document.getElementById('filename');
+const metaEl = document.getElementById('meta');
+const downloadEl = document.getElementById('download');
+const countEl = document.getElementById('count');
+const thead = document.querySelector('#t thead');
+const tbody = document.querySelector('#t tbody');
+const searchEl = document.getElementById('search');
+const pageSizeEl = document.getElementById('page-size');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+const pageInfo = document.getElementById('pageinfo');
+const copyJsonBtn = document.getElementById('copyjson');
+
+function showError(msg) {
+  const div = document.createElement('div');
+  div.className = 'error';
+  div.textContent = msg;
+  document.body.appendChild(div);
+}
+
+if (!file) {
+  showError('No ?file= parameter given.');
+} else {
+  titleEl.textContent = file;
+  const url = '/results/' + encodeURIComponent(file);
+  downloadEl.href = url;
+  fetch(url).then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.text();
+  }).then(boot).catch(err => {
+    showError(`Failed to load: ${err}`);
+  });
+}
+
+let header = []; let rows = []; let view = [];
+let sortCol = -1; let sortAsc = true;
+let page = 0;
+
+function isNumericCol(idx) {
+  let seen = 0, num = 0;
+  for (let i = 0; i < Math.min(rows.length, 30); i++) {
+    const v = rows[i][idx];
+    if (v === undefined || v === '') continue;
+    seen++;
+    if (!isNaN(parseFloat(v)) && isFinite(v)) num++;
+  }
+  return seen > 0 && num / seen > 0.7;
+}
+
+function boot(text) {
+  const parsed = parseCSV(text);
+  if (!parsed.length) {
+    const tr = document.createElement('tr'); const td = document.createElement('td');
+    td.textContent = '(empty)'; tr.appendChild(td); tbody.replaceChildren(tr); return;
+  }
+  header = parsed[0];
+  rows = parsed.slice(1).filter(r => r.length && r.some(c => c !== ''));
+  view = rows.slice();
+  metaEl.textContent = `· ${rows.length.toLocaleString()} rows · ${header.length} columns`;
+  renderHead();
+  applyFilter();
+}
+
+function renderHead() {
+  thead.innerHTML = '<tr>' + header.map((h, i) => {
+    const arrow = sortCol === i ? (sortAsc ? '▲' : '▼') : '';
+    return `<th data-col="${i}">${escapeHTML(h)} <span class="arrow">${arrow}</span></th>`;
+  }).join('') + '</tr>';
+  thead.querySelectorAll('th').forEach(th => {
+    th.addEventListener('click', () => {
+      const i = +th.dataset.col;
+      if (sortCol === i) sortAsc = !sortAsc;
+      else { sortCol = i; sortAsc = true; }
+      applyFilter();
+    });
+  });
+}
+
+function applyFilter() {
+  const q = searchEl.value.trim().toLowerCase();
+  view = q ? rows.filter(r => r.some(c => String(c).toLowerCase().includes(q)))
+           : rows.slice();
+  if (sortCol >= 0) {
+    const numeric = isNumericCol(sortCol);
+    view.sort((a, b) => {
+      const av = a[sortCol] ?? ''; const bv = b[sortCol] ?? '';
+      let cmp;
+      if (numeric) cmp = parseFloat(av || 0) - parseFloat(bv || 0);
+      else cmp = String(av).localeCompare(String(bv), undefined, { numeric: true });
+      return sortAsc ? cmp : -cmp;
+    });
+  }
+  page = 0;
+  renderHead();
+  renderBody();
+}
+
+function renderBody() {
+  const size = parseInt(pageSizeEl.value, 10);
+  const start = size ? page * size : 0;
+  const end = size ? Math.min(start + size, view.length) : view.length;
+  const slice = view.slice(start, end);
+  tbody.innerHTML = slice.map(r =>
+    '<tr>' + header.map((_, i) => {
+      const v = r[i] ?? '';
+      const cls = isNumericCol(i) ? 'num' : '';
+      return `<td class="${cls}" title="${escapeAttr(v)}">${escapeHTML(v)}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+  countEl.textContent = view.length === rows.length
+    ? `${rows.length.toLocaleString()} rows`
+    : `${view.length.toLocaleString()} of ${rows.length.toLocaleString()} rows`;
+  const totalPages = size ? Math.max(1, Math.ceil(view.length / size)) : 1;
+  pageInfo.textContent = size ? `page ${page + 1} / ${totalPages}` : 'all rows';
+  prevBtn.disabled = page <= 0;
+  nextBtn.disabled = !size || page >= totalPages - 1;
+}
+
+function escapeHTML(s) {
+  return String(s ?? '').replace(/[&<>"]/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+  })[c]);
+}
+function escapeAttr(s) { return escapeHTML(s).replace(/'/g, '&#39;'); }
+
+searchEl.addEventListener('input', () => applyFilter());
+pageSizeEl.addEventListener('change', () => { page = 0; renderBody(); });
+prevBtn.addEventListener('click', () => { if (page > 0) { page--; renderBody(); } });
+nextBtn.addEventListener('click', () => { page++; renderBody(); });
+copyJsonBtn.addEventListener('click', async () => {
+  const objects = view.map(r => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
+  await navigator.clipboard.writeText(JSON.stringify(objects, null, 2));
+  copyJsonBtn.textContent = 'Copied ✓';
+  setTimeout(() => copyJsonBtn.textContent = 'Copy as JSON', 1500);
+});
+</script>
+</body>
+</html>

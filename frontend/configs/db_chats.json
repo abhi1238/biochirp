@@ -1,0 +1,274 @@
+{
+  "msigdb": {
+    "name": "Molecular Signatures Database (MSigDB)",
+    "desc": "Curated gene sets for enrichment analysis (GSEA): human Hallmark/C1–C9 and mouse collections, with gene↔gene-set membership and provenance.",
+    "color": "from-rose-500 to-pink-400",
+    "icon": "🧬",
+    "accent": "#f43f5e",
+    "is_multi": false,
+    "entity_types": [
+      "gene_symbol",
+      "geneset_name",
+      "collection",
+      "organism"
+    ],
+    "samples": [
+      "Which MSigDB gene sets is EGFR a member of?",
+      "What Hallmark gene sets does BRCA1 belong to?",
+      "Which genes are in HALLMARK_APOPTOSIS?",
+      "List all genes in the KEGG_CELL_CYCLE gene set"
+    ],
+    "welcome": "**MSigDB** is a curated collection of gene sets (signatures) for gene-set enrichment analysis, spanning human Hallmark/C1–C9 and mouse MH/M1–M8 collections. Ask which gene sets contain a gene, or which genes are members of a named gene set — always scoped by `collection` and `organism`.\n\n*Try: \"Which gene sets contain TP53?\"* or *\"What genes are in HALLMARK_APOPTOSIS?\"*\n\nNote: this is membership + provenance only — it has no enrichment statistics or p-values for your own gene list (that is a GSEA computation, not stored data).",
+    "doc_full": "## MSigDB — Molecular Signatures Database\n\nCurated gene sets for GSEA. Human friendly-name collections (Hallmark, Positional, Curated, Regulatory, Computational, Ontology, Oncogenic, Immunologic, CellType, CellLineage) plus mouse MH/M1–M8. Three tables: `geneset_master_table` (name, collection, organism, gene_count), `gene_geneset_association` (gene↔geneset membership), and `geneset_metadata` (PMID, GEO id, descriptions). Join on `geneset_id`, not `geneset_name` (the same name recurs once per organism).\n\n### What to ask\n- *\"Which MSigDB gene sets is EGFR a member of?\"*\n- *\"What Hallmark gene sets does BRCA1 belong to?\"*\n- *\"Which genes are in HALLMARK_APOPTOSIS?\"*\n- *\"List all genes in the KEGG_CELL_CYCLE gene set\"*"
+  },
+  "ttd": {
+    "name": "Therapeutic Target Database (TTD)",
+    "desc": "Drug-target-disease relationships: 3,000+ drugs, 2,600+ curated protein targets.",
+    "color": "from-pink-500 to-fuchsia-500",
+    "icon": "🎯",
+    "accent": "#e879f9",
+    "is_multi": false,
+    "entity_types": [
+      "drug_name",
+      "target_name",
+      "gene_symbol",
+      "disease_name",
+      "drug_status",
+      "target_type",
+      "activity_type",
+      "biomarker_name"
+    ],
+    "samples": [
+      "What drugs are used to treat TB?",
+      "What drugs target EGFR and what is their approval status?",
+      "Which approved drugs bind BRAF in melanoma?",
+      "Which targets are linked to Alzheimer disease biomarkers?",
+      "Show all approved drugs for non-small cell lung cancer."
+    ],
+    "welcome": "**Therapeutic Target Database (TTD)**\n\n*Try: \"What drugs are used to treat TB?\"*",
+    "doc_full": "## TTD — Therapeutic Target Database\n\nCurated drug-target-disease relationships with biochemical activity data across 32K drugs, 3.8K targets, and 1.6K diseases.\n\n**Key tables:**\n- `drug_master_table_ttd` (32,660 rows): `drug_id`, `drug_name`\n- `target_uniprot_association_ttd` (4,487 rows): `target_name`, `target_type`, `gene_symbol`, `uniprot_xref`\n- `drug_disease_association_ttd` (30,077 rows): `drug_id`, `disease_id`, `approval_status`\n- `target_compound_activity_association_ttd` (829K rows): `activity_type` (IC50/Ki/Kd/EC50), `activity_value`, `activity_unit`, `gene_symbol`\n- `biomarker_master_table_ttd` (2,512 rows): `biomarker_id`, `biomarker_name`\n\n### What to ask\n- *\"What drugs are used to treat TB?\"*\n- *\"What drugs target EGFR and what is their approval status?\"*\n- *\"Which approved drugs bind BRAF in melanoma?\"*\n- *\"Which targets are linked to Alzheimer disease biomarkers?\"*\n- *\"Show all approved drugs for non-small cell lung cancer.\"*"
+  },
+  "ctd": {
+    "name": "Comparative Toxicogenomics Database (CTD)",
+    "desc": "Chemical–gene–disease interactions including environmental exposures and toxicology.",
+    "color": "from-orange-600 to-amber-500",
+    "icon": "🧪",
+    "accent": "#d97706",
+    "is_multi": false,
+    "entity_types": [
+      "drug_name",
+      "drug_id",
+      "gene_symbol",
+      "disease_name",
+      "disease_id",
+      "pathway_name",
+      "phenotype_name",
+      "stressor_name",
+      "organism",
+      "interaction_actions"
+    ],
+    "samples": [
+      "Which genes does bisphenol A interact with?",
+      "What diseases are associated with cadmium exposure?",
+      "What chemicals interact with TP53?",
+      "Which diseases are linked to the TP53 gene?"
+    ],
+    "welcome": "**Comparative Toxicogenomics Database (CTD)**\n\nCovers chemical–gene interactions (3M+ rows), chemical–disease associations (209K rows), exposure events (243K rows), pathway enrichments, GO enrichments, and chemical–phenotype interactions across 179K chemicals and 13K diseases.\n\n*Try: \"Which genes does bisphenol A interact with?\" or \"What diseases are linked to cadmium exposure?\"*",
+    "doc_full": "## CTD — Comparative Toxicogenomics Database\n\nCTD integrates curated literature and computational inference to link chemicals, genes, diseases, pathways, phenotypes, and real-world exposure events. Key tables:\n\n- **chemical_gene_interaction_v2** (3.08M rows): `drug_name`, `gene_symbol`, `organism`, `interaction_actions`, `pubmed_ids` — evidence-ranked per drug–gene pair.\n- **chemical_disease_association_v2** (209K rows): `drug_name`, `disease_name`, `direct_evidence`, `inference_gene`, `inference_score` — includes inferred associations via gene intermediaries.\n- **exposure_events_v2** (243K rows): `stressor_name`, `exposure_event_medium`, `disease_name`, `exposure_event_phenotype_name`, `exposure_event_receptors`, `exposure_event_study_countries` — real-world human exposure studies.\n- **chemical_pathway_enriched_v2** (1.69M rows): `drug_name`, `pathway_name`, `p_value`, `corrected_p_value` — pathway enrichment per chemical.\n- **chemical_go_enriched_v2** (6.38M rows): `drug_name`, `go_term_name`, `go_ontology`, `corrected_p_value` — GO term enrichment.\n- **chemical_phenotype_ixn_v2** (464K rows): `drug_name`, `phenotype_name`, `anatomy_terms`, `interaction_actions`.\n- **gene_disease / disease_pathway** associations and **phenotype_disease** GO tables (BP/CC/MF) round out the coverage.\n\n### What to ask\n- *\"Which genes does bisphenol A interact with?\"*\n- *\"What diseases are associated with cadmium exposure?\"*\n- *\"What chemicals interact with TP53?\"*\n- *\"Which diseases are linked to the TP53 gene?\"*"
+  },
+  "hcdt": {
+    "name": "Highly Confident Drug-Target Database (HCDT)",
+    "desc": "Validated high-confidence drug-target interactions in human cancer.",
+    "color": "from-violet-500 to-indigo-500",
+    "icon": "💊",
+    "accent": "#8b5cf6",
+    "is_multi": false,
+    "entity_types": [
+      "drug_name",
+      "drug_smiles_canon",
+      "gene_symbol",
+      "disease_name",
+      "pathway_name",
+      "rna_name",
+      "rna_type"
+    ],
+    "samples": [
+      "What drugs target EGFR?",
+      "Which diseases is imatinib associated with?",
+      "What pathways are associated with sorafenib?",
+      "Find RNAs linked to doxorubicin."
+    ],
+    "welcome": "**HCDT — High-Confidence Drug-Target**\n\nCovers 678K drugs, 5.7K cancer-related genes, 634 diseases, and 1.2M drug-gene associations with binding data (Ki, IC50, Kd). Also links drugs to pathways and RNAs.\n\n*Try: \"What drugs target EGFR?\" or \"Which pathways are associated with sorafenib?\"*",
+    "doc_full": "## HCDT — High-Confidence Drug-Target\n\nContains 678K drugs, 5.7K genes (gene_symbol, uniprot_id, hgnc_id), 634 diseases (disease_name, icd11, mesh_id, omim_id), 1.7K pathways (Reactome/KEGG), and 4K RNAs. Key association tables: drug-gene (1.2M rows), drug-disease (16K rows), drug-pathway (48K rows), drug-RNA (11.7K rows), and drug-target-negative with binding affinity (ki_nM, ic50_nM, kd_nM).\n\n### What to ask\n- *\"What drugs target EGFR?\"*\n- *\"Which diseases is imatinib associated with?\"*\n- *\"What pathways are associated with sorafenib?\"*\n- *\"Find RNAs linked to doxorubicin.\"*"
+  },
+  "clinvar": {
+    "name": "ClinVar",
+    "desc": "Pathogenicity classifications of germline variants with submitter evidence.",
+    "color": "from-slate-600 to-gray-500",
+    "icon": "🔴",
+    "accent": "#64748b",
+    "is_multi": false,
+    "entity_types": [
+      "gene_symbol",
+      "variant_name",
+      "disease_name",
+      "clinical_significance",
+      "rsid",
+      "variant_type",
+      "review_status"
+    ],
+    "samples": [
+      "What variants in BRCA1 are classified as Pathogenic?",
+      "Show pathogenic variants in CFTR linked to cystic fibrosis.",
+      "What is the clinical significance of rs80357906?",
+      "What variant types are reported for TP53?"
+    ],
+    "welcome": "**ClinVar** holds ~4.45 M curated variant records spanning variant–gene, variant–disease, and variant–submission links across 20 K genes.\n\n*Try: \"What pathogenic variants are reported for BRCA1?\" or \"Show CFTR variants linked to cystic fibrosis.\"*",
+    "doc_full": "## ClinVar\n\nCovers 7 linked tables: `variant_master_table` (4.45 M variants with `gene_symbol`, `variant_type`, `clinical_significance`, `review_status`), `variant_disease_association` (4.77 M rows, `disease_name`), `variant_submission` (6.35 M rows, `submitter`, `oncogenicity`), `variant_genomic_coords` (8.87 M rows, `chrom`, `pos`, `ref`, `alt`, `clnsig`), `variant_citation` (4.57 M rows, `rsid`), `variant_gene_association`, and `gene_master_table` (20 K genes).\n\n### What to ask\n- *\"What variants in BRCA1 are classified as Pathogenic?\"*\n- *\"Show pathogenic variants in CFTR linked to cystic fibrosis.\"*\n- *\"What is the clinical significance of rs80357906?\"*\n- *\"What variant types are reported for TP53?\"*"
+  },
+  "hpo": {
+    "name": "Human Phenotype Ontology (HPO)",
+    "desc": "Human Phenotype Ontology: standardized phenotype terms linked to diseases and genes.",
+    "color": "from-lime-500 to-green-400",
+    "icon": "🩺",
+    "accent": "#84cc16",
+    "is_multi": false,
+    "entity_types": [
+      "phenotype_name",
+      "phenotype_id",
+      "disease_name",
+      "disease_id",
+      "gene_symbol"
+    ],
+    "samples": [
+      "What phenotypes are associated with Marfan syndrome?",
+      "What diseases are linked to the HPO term 'Aortic aneurysm'?",
+      "What genes cause the phenotype 'Seizure' in HPO?",
+      "Which diseases are associated with gene BRCA2 in HPO?"
+    ],
+    "welcome": "**Human Phenotype Ontology (HPO)**\n\nOver 11,600 standardized clinical phenotype terms linked to 12,900+ diseases and 5,200+ genes via 280,000+ curated annotations.\n\n*Try: \"What phenotypes does Marfan syndrome have?\" or \"Which genes are linked to the HPO term 'Seizure'?\"*",
+    "doc_full": "## HPO — Human Phenotype Ontology\n\nStandardized clinical abnormality vocabulary: 11,600 phenotype terms, 12,900+ diseases, 280,000+ annotations with frequency/onset/sex/modifier, gene–phenotype links.\n\n### What to ask\n- *\"What phenotypes are associated with Marfan syndrome?\"*\n- *\"What diseases are linked to the HPO term 'Aortic aneurysm'?\"*\n- *\"What genes cause the phenotype 'Seizure' in HPO?\"*\n- *\"Which diseases are associated with gene BRCA2 in HPO?\"*"
+  },
+  "orphanet": {
+    "name": "Orphanet",
+    "desc": "Rare disease database with phenotypes, gene causes, prevalence, and epidemiology.",
+    "color": "from-sky-500 to-blue-400",
+    "icon": "🦄",
+    "accent": "#0ea5e9",
+    "is_multi": false,
+    "entity_types": [
+      "disease_name",
+      "disease_id",
+      "gene_symbol",
+      "hpo_term",
+      "xref_source",
+      "xref_id"
+    ],
+    "samples": [
+      "What genes cause Gaucher disease?",
+      "What HPO phenotypes are associated with Fabry disease?",
+      "What is the prevalence of Marfan syndrome?",
+      "List rare diseases caused by mutations in CFTR."
+    ],
+    "welcome": "**Orphanet** covers 4,128 rare diseases with causative genes, HPO phenotypes, prevalence, inheritance patterns, disease classification, and cross-references to ICD-10/11, OMIM, UMLS, and MONDO.\n\n*Try: \"What genes cause Gaucher disease?\" or \"What is the prevalence of Marfan syndrome by geography?\"*",
+    "doc_full": "## Orphanet\n\nNine tables spanning 4,128 diseases: **gene_disease_association** (8,374 rows: `gene_symbol`, `association_type`, `ensembl_id`), **disease_phenotype_association** (115,878 rows: `hpo_term`, `hpo_id`, `frequency`), **disease_epidemiology** (16,657 rows: `prevalence_class`, `prevalence_type`, `geographic`), **disease_onset_inheritance** (19,093 rows: `attribute`, `value`), **disease_xref** (50,128 rows: `xref_source`, `xref_id`), and **disease_classification** (37,911 rows: `disorder_type`, `parent_disease_name`).\n\n### What to ask\n- *\"What genes cause Gaucher disease?\"*\n- *\"What HPO phenotypes are associated with Fabry disease?\"*\n- *\"What is the prevalence of Marfan syndrome?\"*\n- *\"List rare diseases caused by mutations in CFTR.\"*"
+  },
+  "reactome": {
+    "name": "Reactome",
+    "desc": "Curated biological pathway database: 2,870 pathways, 11,686 genes, with ChEBI/UniProt/Ensembl cross-links.",
+    "color": "from-green-600 to-teal-500",
+    "icon": "🔗",
+    "accent": "#16a34a",
+    "is_multi": false,
+    "entity_types": [
+      "gene_symbol",
+      "pathway_name",
+      "pathway_id",
+      "chebi_id",
+      "uniprot_accession",
+      "ncbi_gene_id",
+      "ensembl_id"
+    ],
+    "samples": [
+      "What pathways does EGFR participate in?",
+      "What genes are annotated to the MAPK signaling pathway?",
+      "Show pathways for UniProt accession P04637.",
+      "List child pathways of the Immune System pathway."
+    ],
+    "welcome": "**Reactome** covers 2,870 curated biological pathways linking 11,686 genes with cross-references to ChEBI compounds and UniProt proteins. Explore pathway membership by gene symbol, Ensembl/NCBI gene ID, ChEBI ID, or UniProt accession, and navigate the pathway hierarchy.\n\n*Try: \"What pathways does EGFR participate in?\"* or *\"What genes are annotated to the MAPK signaling pathway?\"*",
+    "doc_full": "## Reactome\n\n2,870 curated pathways and 11,686 genes with links via gene symbol, NCBI/Ensembl IDs, UniProt accession, and ChEBI ID. Pathway hierarchy navigation included.\n\n### What to ask\n- *\"What pathways does EGFR participate in?\"*\n- *\"What genes are annotated to the MAPK signaling pathway?\"*\n- *\"Show pathways for UniProt accession P04637.\"*\n- *\"List child pathways of the Immune System pathway.\"*"
+  },
+  "string": {
+    "name": "Search Tool for the Retrieval of Interacting Genes/Proteins (STRING)",
+    "desc": "Protein-protein interaction network with functional and physical associations.",
+    "color": "from-purple-600 to-violet-500",
+    "icon": "🔀",
+    "accent": "#a855f7",
+    "is_multi": false,
+    "entity_types": [
+      "gene_symbol",
+      "protein1_id",
+      "protein2_id",
+      "combined_score",
+      "string_id",
+      "alias"
+    ],
+    "samples": [
+      "What proteins interact with TP53?",
+      "What is the STRING score between BRCA1 and BARD1?",
+      "Which proteins physically interact with KRAS?",
+      "What is the protein size and annotation for PTEN?"
+    ],
+    "welcome": "**STRING** covers ~473 k high-confidence protein-protein associations (combined score ≥ 700) for ~19 700 human proteins, integrating experimental, co-expression, text-mining, database, gene-fusion, neighbourhood, and co-occurrence channels.\n\n*Try: \"What proteins physically interact with EGFR?\" or \"Which proteins physically interact with KRAS?\"*",
+    "doc_full": "## STRING\n\n473 k PPIs (score ≥ 700) for 19 700 human proteins. Tables: `ppi_association`, `ppi_physical`, `ppi_detailed_channels` (7 channel scores), `protein_master_table`, `protein_alias`.\n\n### What to ask\n- *\"What proteins interact with TP53?\"*\n- *\"What is the STRING score between BRCA1 and BARD1?\"*\n- *\"Which proteins physically interact with KRAS?\"*\n- *\"What is the protein size and annotation for PTEN?\"*"
+  },
+  "uniprot": {
+    "name": "Universal Protein Resource (UniProt)",
+    "desc": "Protein sequences, functions, domains, and annotations from Swiss-Prot.",
+    "color": "from-indigo-500 to-violet-400",
+    "icon": "🧷",
+    "accent": "#6366f1",
+    "is_multi": false,
+    "entity_types": [
+      "gene_symbol",
+      "protein_id",
+      "protein_name",
+      "organism",
+      "go_id",
+      "keyword_name",
+      "subcell_name",
+      "disease_name",
+      "dbsnp"
+    ],
+    "samples": [
+      "What is the UniProt accession for BRCA1?",
+      "Which GO terms are annotated to TP53?",
+      "What subcellular locations does EGFR localize to?",
+      "What variants in PTEN are linked to disease?"
+    ],
+    "welcome": "**UniProt** covers 20,000+ reviewed human proteins with GO annotations, subcellular locations, disease-linked variants, and cross-database ID mappings.\n\n*Try: \"What GO terms are annotated to TP53?\" or \"What diseases are linked to variants in CFTR?\"*",
+    "doc_full": "## UniProt\n\nSwiss-Prot reviewed proteins (20,431 entries) with GO annotations (636 K), variant-disease links (84 K), subcellular locations, keywords, and cross-DB ID mappings (Ensembl, Entrez, HGNC).\n\n### What to ask\n- *\"What is the UniProt accession for BRCA1?\"*\n- *\"Which GO terms are annotated to TP53?\"*\n- *\"What subcellular locations does EGFR localize to?\"*\n- *\"What variants in PTEN are linked to disease?\"*"
+  },
+  "opentarget": {
+    "name": "Open Targets Platform",
+    "desc": "Drug-disease-target evidence from the Open Targets Platform: approved drugs, clinical candidates, and target associations scored across 20+ evidence sources.",
+    "icon": "🎯",
+    "accent": "#FF6B35",
+    "is_multi": false,
+    "entity_types": [
+      "drug_name",
+      "disease_name",
+      "gene_name",
+      "target_name"
+    ],
+    "samples": [
+      "What targets does pembrolizumab bind?",
+      "Which approved drugs target EGFR?",
+      "Which drugs are approved for non-small cell lung cancer?",
+      "What diseases are associated with the BRCA1 gene?",
+      "Which clinical-stage drugs target BRAF in melanoma?"
+    ],
+    "welcome": "**Welcome to Open Targets.**\n\nQuery the Open Targets Platform for drug–disease associations, target evidence, and approved drug information. Covers 20+ evidence sources including clinical trials, genetic associations, and literature mining.\n\n*Try one of the example questions below to get started.*",
+    "doc_full": "## Open Targets\n\nThe Open Targets Platform integrates evidence from genetics, genomics, transcriptomics, drug mechanisms, and literature to score drug–target–disease associations.\n\n### What it answers\n- **Drug indications**: approved and clinical-stage drugs for a disease\n- **Drug targets**: which proteins a drug binds\n- **Disease–target associations**: genes/proteins associated with a disease\n- **Target–disease associations**: diseases linked to a specific gene or protein\n\n### Evidence sources covered\n- Clinical trials (ChEMBL), genetic associations (GWAS, OMIM), somatic mutations (COSMIC, CancerGeneCensus), gene expression, literature (Europe PMC), pathways (Reactome)\n\n### Sample questions\n- *What targets does pembrolizumab bind?*\n- *Which approved drugs target EGFR?*\n- *Which drugs are approved for non-small cell lung cancer?*\n- *What diseases are associated with the BRCA1 gene?*\n- *Which clinical-stage drugs target BRAF in melanoma?*"
+  }
+}
