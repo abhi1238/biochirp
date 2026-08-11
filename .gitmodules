@@ -1,7 +1,0 @@
-[submodule "opentargets-mcp-server"]
-	path = opentargets-mcp-server
-	url = https://github.com/Augmented-Nature/OpenTargets-MCP-Server
-	# Ignore the submodule's untracked files (build/ and node_modules/) when
-	# computing `git status` in the parent. Keeps the parent's worktree clean
-	# without losing visibility of actual commit drift (`ignore = all` would).
-	ignore = untracked

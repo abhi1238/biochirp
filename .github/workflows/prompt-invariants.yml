@@ -21,14 +21,18 @@ on:
       - 'scripts/check_prompt_*'
       - '.github/workflows/prompt-invariants.yml'
 
-# Enforces the four prompt-consistency invariants surfaced by the
+# Enforces two of the prompt-consistency invariants surfaced by the
 # 2026-05-23 audit:
-#   1. gene_symbol/gene_name canonical (YAML-block-aware) — Python
-#   2. medical-advice disclaimer = 5 byte-identical occurrences — Bash
-#   3. provenance disclaimer = 10 byte-identical occurrences — Bash
-#   4. no live miRBase references (only the intentional tombstone) — Bash
+#   1. medical-advice disclaimer = 5 byte-identical occurrences — Bash
+#   2. provenance disclaimer = 10 byte-identical occurrences — Bash
 #
-# Background: audit_reports/prompt_consistency_audit_2026-05-23/FINAL_REPORT.md
+# A third invariant (gene_symbol/gene_name canonical check) previously ran
+# here via scripts/check_prompt_gene_field_canonical.py, but that script
+# targeted resources/prompts/interpreter_db_notes.yaml, a filename that no
+# longer exists (renamed to db_notes.yaml). The script was retired along
+# with the rest of the legacy per-DB architecture; removed from this
+# workflow rather than restored, since fixing it requires re-deriving the
+# check against the current db_notes.yaml schema, not just restoring a file.
 
 jobs:
   invariants:
@@ -42,9 +46,6 @@ jobs:
 
       - name: Install minimal deps
         run: pip install --quiet pyyaml
-
-      - name: Gene-field canonical (YAML-block-aware)
-        run: python scripts/check_prompt_gene_field_canonical.py
 
       - name: Disclaimer counts + miRBase ghost
         # LC_ALL=C.UTF-8 ensures grep handles the em-dash (U+2014) and
