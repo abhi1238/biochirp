@@ -255,6 +255,11 @@ services:
       - *v-utils
       - *v-utils-app
       - *v-settings
+      # Whole directory, not a single file: fuzzy_tool's own startup preflight
+      # (validate_concept_values_mount() in app/utils/concept_values.py, called
+      # from app/tools/fuzzy/app/main.py) checks every per-DB concept-values
+      # pkl that exists on disk, not just concept_values_by_db_and_field.pkl —
+      # a single-file mount here makes the container fail to boot.
       - ./resources/values:/app/resources/values:ro
       - *v-schema
       # Live-edited fuzzy code (STRUCTURED_FIELDS_BYPASS_LLM set, string→list
