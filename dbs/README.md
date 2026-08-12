@@ -12,7 +12,7 @@ Each subdirectory under `dbs/` is a single biomedical database. One file —
 > onboarder (and the matrix of "14 integration points" it targeted) is **gone**.
 > The current routing path is simpler: a per-DB LLM router reads only the
 > `capabilities`/`limitations` strings in each tool's `SchemaKgConfig`, plus the
-> schema_mapper's ANN over `schema_kg/inputs/<slug>/schema.json`. No `db_catalog`,
+> schema_mapper's ANN over `evaluation/schema_kg/inputs/<slug>/schema.json`. No `db_catalog`,
 > no `relation_db_map`, no capability_triggers. The live surfaces are the few
 > steps below.
 >
@@ -49,8 +49,8 @@ python scripts/schema_manifest_sync.py --emit <slug>
 
 # 3. Build the schema_kg planner inputs (schema/queryable/concept_type/rules/
 #    questions JSON). See evaluation/schema_kg/inputs/README.md for the file contract and
-#    schema_kg/src/build.py for the builder. Dropping
-#    schema_kg/inputs/<slug>/schema.json AUTO-REGISTERS the DB as schema_kg-
+#    evaluation/schema_kg/src/build.py for the builder. Dropping
+#    evaluation/schema_kg/inputs/<slug>/schema.json AUTO-REGISTERS the DB as schema_kg-
 #    enabled: config/schema_kg_dbs.py discovers it, so gen_compose.py (lean image
 #    + nginx route) and the schema_mapper / schema_planner warm-lists all pick it
 #    up with NO further edits.
