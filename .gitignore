@@ -1,6 +1,18 @@
 # Decommissioned components — kept on disk for reference, never pushed to GitHub.
 # Use `git log --diff-filter=R --summary -- decommissioned/` to browse history.
 decommissioned/
+_decommissioned_*/
+# Dead legacy graph-router code (bio_chat_service-era kg/ knowledge graph +
+# relation_db_map/capability_triggers YAMLs) — unreferenced by any live
+# service; confirmed via full-repo grep during the 2026-08 GitHub audit.
+kg/
+# Archival/internal-only — audit dumps and old README notes, not part of
+# the shipped system.
+_archive/
+audit_reports/
+# Packaging build output (wheel/sdist) — not the source of the actual
+# package, and not meant to be committed.
+pkg/
 
 # Environment
 .env
@@ -166,3 +178,4 @@ scripts/finetune/*.jsonl
 # Accidental duplicate dirs left by file-manager "Copy"
 **/* (Copy)/
 **/*(Copy).*
+docs

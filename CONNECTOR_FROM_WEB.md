@@ -1,92 +1,40 @@
-# Making BioChirp a Claude Desktop connector — accessible from the web
+# Making BioChirp a Claude Desktop / claude.ai connector
 
-This doc explains the **complete user journey** from a public webpage to a working Claude Desktop / Claude Code connector. Three install paths, all served from a single landing page at `https://biochirp.iiitd.edu.in/connector`.
+BioChirp's MCP server (`mcp_server/http_server.py`) can be reached over SSE from any MCP client, including Claude Desktop and claude.ai's Connectors panel, once it's reverse-proxied to a public URL — see [`DEPLOY.md`](DEPLOY.md) for actually standing it up.
 
----
+## What the server actually exposes
 
-## What "from the web" means in 2026
+Verified directly against `mcp_server/http_server.py`'s route table and `mcp_server/web/manifest.json`:
 
-Claude Desktop currently supports three install vectors. They all start from a webpage:
-
-| User flow | Time to first query |
+| Route | Returns |
 |---|---|
-| Visit page → copy SSE URL → paste in Claude Desktop's *Custom Connector* dialog | ~30 sec |
-| Visit page → click *Download .dxt* → drag onto Claude Desktop | ~45 sec |
-| Visit page → run `pip install biochirp-mcp` → edit JSON config | ~3 min |
+| `/sse` | The Server-Sent Events MCP transport |
+| `/streamable` | The Streamable-HTTP MCP transport (claude.ai connector) |
+| `/messages/` | MCP message ingress (POST, used by the SSE transport) |
+| `/health` | Liveness probe — `{"status":"ok","service":"biochirp-mcp","version":"2.0.0"}` |
+| `/connector`, `/connector/install.html` | Install/landing page (served from `mcp_server/web/install.html`) |
+| `/mcp/manifest.json` | Machine-readable connector manifest — currently declares **2 transports** (streamable-http, sse) and **12 tools** (one per database + `web_search_live`) |
+| `/.well-known/mcp` | RFC-style discovery document |
+| `/view.html`, `/connector/view.html` | CSV result viewer page |
+| `/csv/{db}/{filename}` | Proxies a per-DB tool's downloadable result CSV through the public endpoint |
 
-The landing page (`/connector`) presents all three side by side, with copy buttons and a download button. **No GitHub clone, no Docker, no Python** for the SSE path.
+All served by the single `mcp_server.http_server:app` process (Starlette + uvicorn).
 
----
+There is currently no `.dxt` bundle download route and no published PyPI package for this server — if you want either of those install paths, they'd need to be built; right now the only working install path is pointing an MCP client at the SSE or streamable-HTTP URL directly.
 
-## What's already built and verified
+## Claude Desktop config
 
-| Endpoint on biochirp.iiitd.edu.in | Returns | Status |
-|---|---|---|
-| `/connector`               | The 3-path install landing page (HTML) | ✅ verified live |
-| `/connector/biochirp.dxt`  | The 36 KB Claude Desktop extension bundle | ✅ verified — `Content-Type: application/x-claude-desktop-extension` |
-| `/mcp/manifest.json`       | Machine-readable connector metadata (3 transports, 17 tools, stats) | ✅ verified |
-| `/.well-known/mcp`         | RFC-style discovery endpoint | ✅ verified |
-| `/mcp/sse`                 | The Server-Sent Events MCP transport | ✅ verified — `text/event-stream`, `x-accel-buffering: no` |
-| `/mcp/messages/`           | MCP message ingress (POST endpoint) | ✅ wired |
-| `/mcp/health`              | Liveness probe — JSON `{"status":"ok",…}` | ✅ verified |
-
-All seven endpoints are served by the **same** `biochirp-mcp-http` process (Starlette + uvicorn behind an nginx reverse-proxy).
-
----
-
-## Submitting to Anthropic's connector directory (when public)
-
-Anthropic has been gradually opening MCP server registries. Three paths exist or are emerging:
-
-### A. **Anthropic MCP Reference Servers list** (public GitHub)
-Open a PR against `https://github.com/modelcontextprotocol/servers` listing BioChirp under *Community Servers*. Format:
-```markdown
-- [BioChirp](https://biochirp.iiitd.edu.in/connector) — Federated retrieval
-  over 28 curated biomedical databases with provenance and a
-  token-budget-aware planner.
+```json
+{
+  "mcpServers": {
+    "biochirp": {
+      "type": "sse",
+      "url": "https://your-domain/mcp/sse"
+    }
+  }
+}
 ```
-Cite the manifest URL: `https://biochirp.iiitd.edu.in/mcp/manifest.json`.
 
-### B. **Smithery / mcp-get** (third-party registries)
-- Smithery: <https://smithery.ai/server/new> — paste manifest URL
-- mcp-get: <https://github.com/michaellatman/mcp-get> — submit PR
+## Submitting to third-party MCP registries
 
-Both directories scrape the same `/mcp/manifest.json` we already serve.
-
-### C. **Claude.ai Connectors (web app)**
-Anthropic's claude.ai web app has begun exposing third-party connectors via the *Connectors* panel. As of the documentation this requires either (i) admin/enterprise registration via the Anthropic Console or (ii) inclusion in a curated public catalog. The hosted SSE URL (`/mcp/sse`) is already compatible — submit when the public catalog opens.
-
----
-
-## The "share with one URL" pattern
-
-Once `/connector` is live behind nginx, the entire BioChirp distribution collapses to a single URL you can paste into a paper, a Slack channel, a poster, or a tweet:
-
-> **`https://biochirp.iiitd.edu.in/connector`**
-
-Anyone — biologist, clinician, developer — visits, picks an install method (recommended: copy the SSE URL into Claude Desktop's Custom Connector dialog), and is asking BioChirp questions in 30 seconds. No GitHub. No CLI. No Docker.
-
-This is the single highest-leverage shareable artefact you can have for adoption (and for the *Code & Data Availability* section of the manuscript).
-
----
-
-## Manuscript sentence
-
-After the nginx step, you can write:
-
-> *"BioChirp is publicly accessible at `https://biochirp.iiitd.edu.in/connector`, which presents three install paths: a hosted Server-Sent Events endpoint (`/mcp/sse`) requiring no local installation, a one-click Claude Desktop extension (DXT bundle, 36 KB), and a PyPI package (`pip install biochirp-mcp`). A machine-readable connector manifest (`/mcp/manifest.json`) and an RFC-style discovery document (`/.well-known/mcp`) make BioChirp ingestible by any third-party MCP registry. The 75 K-edge knowledge graph, the BioRetrieve-v2 benchmark, and the formal methods are deposited at Zenodo (DOI: 10.5281/zenodo.NNNNNNNN)."*
-
-That paragraph satisfies every reviewer-grade availability mandate at NAR Web Server, Bioinformatics, Nat Comp Sci, Nat Comms, and NPJ Digital Medicine.
-
----
-
-## What's still your job (cannot be automated)
-
-| Action | One-line command | Credential |
-|---|---|---|
-| Deploy the HTTP server | `sudo systemctl enable --now biochirp-mcp` | server SSH/sudo |
-| Reverse-proxy `/mcp/*` and `/connector*` | drop `deploy/nginx-mcp.conf` into nginx | server SSH/sudo |
-| Open PR to `modelcontextprotocol/servers` | `gh pr create -R modelcontextprotocol/servers ...` | GitHub login |
-| Submit to Smithery | paste `/mcp/manifest.json` URL at `smithery.ai/server/new` | Smithery account |
-
-After those, BioChirp is genuinely a one-URL shareable Claude Desktop connector.
+Registries that ingest a manifest URL (Smithery, mcp-get, the community servers list at `github.com/modelcontextprotocol/servers`) can point at `https://your-domain/mcp/manifest.json` once your instance is publicly reachable. When writing a description for one of these, use the real numbers: **11 curated biomedical databases** (see [README.md §1](README.md#1-the-11-databases)) plus a live web-search fallback, not a larger historical figure — check `mcp_server/web/manifest.json` for the current, authoritative description text.
