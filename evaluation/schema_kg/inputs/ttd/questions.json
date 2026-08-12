@@ -1,0 +1,610 @@
+[
+  {
+    "label": "drug+formula",
+    "question": "give the chemical formula of pembrolizumab",
+    "required": [
+      "drug_name",
+      "formula"
+    ]
+  },
+  {
+    "label": "drug+gene+disease",
+    "question": "what drugs target TP53 and are used to treat chronic myeloid leukemia?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+gene+IC50",
+    "question": "what is the IC50 of imatinib against EGFR?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "activity_value",
+      "activity_type"
+    ]
+  },
+  {
+    "label": "drug+gene+disease",
+    "question": "what drugs target EGFR and are used to treat breast cancer?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "what biological processes include BRAF?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "what biological processes include TP53?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+gene",
+    "question": "what genes does pembrolizumab target?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "drug+pathway",
+    "question": "which KEGG pathways include targets of vemurafenib?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+pathway",
+    "question": "which KEGG pathways include targets of imatinib?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+uniprot",
+    "question": "what is the UniProt accession for BRAF?",
+    "required": [
+      "gene_symbol",
+      "uniprot_xref"
+    ]
+  },
+  {
+    "label": "drug+pathway",
+    "question": "which KEGG pathways include targets of imatinib?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+disease",
+    "question": "what are the indications for trastuzumab?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+uniprot",
+    "question": "UniProt ID of BRAF",
+    "required": [
+      "gene_symbol",
+      "uniprot_xref"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases is EGFR associated with in TTD?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+gene+disease+moa",
+    "question": "drugs that inhibit EGFR for breast cancer treatment",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name",
+      "drug_mechanism_of_action_on_target"
+    ]
+  },
+  {
+    "label": "gene+uniprot",
+    "question": "UniProt ID of MYC",
+    "required": [
+      "gene_symbol",
+      "uniprot_xref"
+    ]
+  },
+  {
+    "label": "drug+formula",
+    "question": "give the chemical formula of imatinib",
+    "required": [
+      "drug_name",
+      "formula"
+    ]
+  },
+  {
+    "label": "drug+gene+disease+moa",
+    "question": "drugs that inhibit MYC for colorectal cancer treatment",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name",
+      "drug_mechanism_of_action_on_target"
+    ]
+  },
+  {
+    "label": "drug+gene+disease",
+    "question": "what drugs target BRAF and are used to treat lung cancer?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+gene+IC50",
+    "question": "IC50 of imatinib for EGFR",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "activity_value",
+      "activity_type"
+    ]
+  },
+  {
+    "label": "drug+gene+IC50",
+    "question": "what is the IC50 of pembrolizumab against MYC?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "activity_value",
+      "activity_type"
+    ]
+  },
+  {
+    "label": "drug+pathway",
+    "question": "which KEGG pathways include targets of vemurafenib?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+pathway",
+    "question": "which KEGG pathways include targets of trastuzumab?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+disease+approval",
+    "question": "what diseases is imatinib approved to treat?",
+    "required": [
+      "drug_name",
+      "disease_name",
+      "approval_status"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with TP53?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with MYC?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+gene+IC50",
+    "question": "what is the IC50 of trastuzumab against BRAF?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "activity_value",
+      "activity_type"
+    ]
+  },
+  {
+    "label": "drug+gene+disease+moa",
+    "question": "drugs that inhibit BRAF for lung cancer treatment",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name",
+      "drug_mechanism_of_action_on_target"
+    ]
+  },
+  {
+    "label": "drug+gene",
+    "question": "which proteins does trastuzumab bind to?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "what biological processes include EGFR?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+disease",
+    "question": "what are the indications for pembrolizumab?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+gene+disease+moa",
+    "question": "drugs that inhibit TP53 for chronic myeloid leukemia treatment",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name",
+      "drug_mechanism_of_action_on_target"
+    ]
+  },
+  {
+    "label": "drug+gene",
+    "question": "what genes does imatinib target?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "drug+gene",
+    "question": "what genes does trastuzumab target?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "what biological processes include MYC?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+gene+IC50",
+    "question": "IC50 of vemurafenib for TP53",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "activity_value",
+      "activity_type"
+    ]
+  },
+  {
+    "label": "drug+gene",
+    "question": "which proteins does imatinib bind to?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "drug+gene",
+    "question": "which proteins does pembrolizumab bind to?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+uniprot",
+    "question": "UniProt ID of TP53",
+    "required": [
+      "gene_symbol",
+      "uniprot_xref"
+    ]
+  },
+  {
+    "label": "drug+disease+approval",
+    "question": "what diseases is vemurafenib approved to treat?",
+    "required": [
+      "drug_name",
+      "disease_name",
+      "approval_status"
+    ]
+  },
+  {
+    "label": "gene+uniprot",
+    "question": "what is the UniProt accession for EGFR?",
+    "required": [
+      "gene_symbol",
+      "uniprot_xref"
+    ]
+  },
+  {
+    "label": "drug+formula",
+    "question": "what is the molecular formula of trastuzumab?",
+    "required": [
+      "drug_name",
+      "formula"
+    ]
+  },
+  {
+    "label": "drug+disease",
+    "question": "what are the indications for imatinib?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+gene",
+    "question": "which proteins does vemurafenib bind to?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases is TP53 associated with in TTD?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "which pathways involve TP53?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+pathway",
+    "question": "which KEGG pathways include targets of pembrolizumab?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+disease+approval",
+    "question": "what diseases is trastuzumab approved to treat?",
+    "required": [
+      "drug_name",
+      "disease_name",
+      "approval_status"
+    ]
+  },
+  {
+    "label": "gene+uniprot",
+    "question": "UniProt ID of EGFR",
+    "required": [
+      "gene_symbol",
+      "uniprot_xref"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "which pathways involve EGFR?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+formula",
+    "question": "give the chemical formula of trastuzumab",
+    "required": [
+      "drug_name",
+      "formula"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "which pathways involve MYC?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+gene+IC50",
+    "question": "IC50 of pembrolizumab for MYC",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "activity_value",
+      "activity_type"
+    ]
+  },
+  {
+    "label": "gene+uniprot",
+    "question": "what is the UniProt accession for TP53?",
+    "required": [
+      "gene_symbol",
+      "uniprot_xref"
+    ]
+  },
+  {
+    "label": "drug+gene+disease",
+    "question": "what drugs target MYC and are used to treat colorectal cancer?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+pathway",
+    "question": "which KEGG pathways include targets of trastuzumab?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+formula",
+    "question": "what is the molecular formula of imatinib?",
+    "required": [
+      "drug_name",
+      "formula"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "which pathways involve BRAF?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+disease",
+    "question": "what are the indications for vemurafenib?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases is MYC associated with in TTD?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+gene+IC50",
+    "question": "what is the IC50 of vemurafenib against TP53?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "activity_value",
+      "activity_type"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with BRAF?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+formula",
+    "question": "give the chemical formula of vemurafenib",
+    "required": [
+      "drug_name",
+      "formula"
+    ]
+  },
+  {
+    "label": "drug+gene",
+    "question": "what genes does vemurafenib target?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "drug+gene+IC50",
+    "question": "IC50 of trastuzumab for BRAF",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "activity_value",
+      "activity_type"
+    ]
+  },
+  {
+    "label": "drug+formula",
+    "question": "what is the molecular formula of vemurafenib?",
+    "required": [
+      "drug_name",
+      "formula"
+    ]
+  },
+  {
+    "label": "drug+disease+approval",
+    "question": "what diseases is pembrolizumab approved to treat?",
+    "required": [
+      "drug_name",
+      "disease_name",
+      "approval_status"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with EGFR?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+uniprot",
+    "question": "what is the UniProt accession for MYC?",
+    "required": [
+      "gene_symbol",
+      "uniprot_xref"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases is BRAF associated with in TTD?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+formula",
+    "question": "what is the molecular formula of pembrolizumab?",
+    "required": [
+      "drug_name",
+      "formula"
+    ]
+  },
+  {
+    "label": "drug+pathway",
+    "question": "which KEGG pathways include targets of pembrolizumab?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  }
+]

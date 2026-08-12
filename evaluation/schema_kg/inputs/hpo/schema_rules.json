@@ -1,0 +1,220 @@
+{
+  "mandatory_entity_columns": {
+    "gene": [
+      "gene_symbol"
+    ],
+    "disease": [
+      "disease_name"
+    ],
+    "phenotype": [
+      "phenotype_name"
+    ]
+  },
+  "xref_id_columns": [
+    "phenotype_id",
+    "disease_id",
+    "gene_id",
+    "ncbi_gene_id",
+    "reference",
+    "onset",
+    "modifier",
+    "is_a_parents",
+    "alt_ids",
+    "xrefs"
+  ],
+  "schema_grounding_notes": [
+    "phenotype_name: use the official HPO term name — e.g. 'Seizure' not 'seizures', 'Intellectual disability' not 'mental retardation'",
+    "aspect: P=Phenotypic abnormality (264207 rows), C=Clinical course (8444 rows), I=Inheritance/Mode of inheritance (9104 rows), H=Past medical history (124 rows), M=Clinical modifier (78 rows)",
+    "frequency in disease_phenotype_annotation_hpo is a raw fraction (e.g. '7/42') or HP frequency term (e.g. HP:0040282); NOT an enum",
+    "frequency in gene_phenotype_association_hpo is a raw fraction string or HP term; filter by numeric range is not directly supported",
+    "qualifier: reserved for the value 'NOT' (phenotype explicitly absent), but in this snapshot the column is null in 100% of served rows — no 'NOT' values are present",
+    "onset: HP ontology term (e.g. HP:0003593) or free text age-of-onset string",
+    "source (gene_disease_association_hpo): stored as a full provenance URL, not a friendly label. There are exactly two values — Orphanet rows contain 'orphadata' (http://www.orphadata.org/data/xml/en_product6.xml) and OMIM/MedGen rows contain 'mim2gene' (ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/mim2gene_medgen). When the user names a source, filter source by the URL substring: 'Orphanet' -> 'orphadata', 'OMIM'/'MedGen' -> 'mim2gene'."
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "phenotype_name"
+      ],
+      "require_column": "phenotype_id",
+      "require_behavior": "requested",
+      "reason": "HPO term names are not unique across versions; include phenotype_id (HP:XXXXXXX) for unambiguous reference"
+    },
+    {
+      "trigger_columns": [
+        "phenotype_id"
+      ],
+      "require_column": "phenotype_name",
+      "require_behavior": "requested",
+      "reason": "opaque HP:XXXXXXX IDs need the human-readable phenotype name"
+    },
+    {
+      "trigger_columns": [
+        "disease_id"
+      ],
+      "require_column": "disease_name",
+      "require_behavior": "requested",
+      "reason": "disease IDs (OMIM/ORPHA) need the human-readable disease name"
+    },
+    {
+      "trigger_columns": [
+        "reference"
+      ],
+      "require_column": "disease_name",
+      "require_behavior": "infer_from_question",
+      "reason": "literature references need disease context"
+    }
+  ],
+  "abbreviation_map": {
+    "CML": "chronic myeloid leukemia",
+    "AML": "acute myeloid leukemia",
+    "GBM": "glioblastoma multiforme"
+  },
+  "filter_few_shot_examples": [
+    {
+      "question": "What HPO phenotypes are caused by FGFR3 mutations?",
+      "keep": [
+        "gene_symbol",
+        "phenotype_name",
+        "phenotype_id"
+      ],
+      "drop": [
+        "disease_name",
+        "disease_id",
+        "association_type",
+        "source"
+      ],
+      "note": "gene→phenotype direct query: gene_symbol (WHERE filter on FGFR3), phenotype_name + phenotype_id (SELECT output, always co-output per co_output_rules). disease_name is IRRELEVANT — the question asks for phenotypes directly linked to the gene, not via disease."
+    },
+    {
+      "question": "What are the HPO terms for achondroplasia?",
+      "keep": [
+        "disease_name",
+        "phenotype_name",
+        "phenotype_id",
+        "disease_phenotype_frequency",
+        "onset"
+      ],
+      "drop": [
+        "gene_symbol",
+        "gene_id",
+        "association_type",
+        "source",
+        "evidence",
+        "biocuration"
+      ],
+      "note": "disease→phenotype query: disease_name (WHERE filter on achondroplasia), phenotype_name + phenotype_id (SELECT output). gene_symbol is IRRELEVANT — this is a disease-to-phenotype mapping, not a gene query. Frequency and onset are useful clinical co-outputs."
+    },
+    {
+      "question": "What genes cause short stature?",
+      "keep": [
+        "phenotype_name",
+        "phenotype_id",
+        "gene_symbol"
+      ],
+      "drop": [
+        "disease_name",
+        "disease_id",
+        "association_type",
+        "source",
+        "evidence",
+        "onset"
+      ],
+      "note": "phenotype→gene query: phenotype_name (WHERE filter on 'Short stature'), gene_symbol (SELECT output). disease_name is IRRELEVANT — the question is about which genes are linked to the phenotype, not about diseases. Do NOT add disease_name even if disease_id appears in the join path."
+    },
+    {
+      "question": "What diseases have the HPO term HP:0001250 (seizures)?",
+      "keep": [
+        "phenotype_name",
+        "phenotype_id",
+        "disease_name",
+        "disease_id"
+      ],
+      "drop": [
+        "gene_symbol",
+        "gene_id",
+        "association_type",
+        "source",
+        "evidence",
+        "onset",
+        "disease_phenotype_frequency"
+      ],
+      "note": "phenotype→disease query: phenotype_id/phenotype_name (WHERE filter on HP:0001250/Seizure), disease_name + disease_id (SELECT output). gene_symbol is IRRELEVANT — the question asks which diseases are annotated with this phenotype, not which genes cause it."
+    },
+    {
+      "question": "What is the definition of HP:0001250?",
+      "keep": [
+        "phenotype_id",
+        "phenotype_name",
+        "definition"
+      ],
+      "drop": [
+        "gene_symbol",
+        "disease_name",
+        "disease_id",
+        "association_type",
+        "source",
+        "evidence",
+        "onset",
+        "disease_phenotype_frequency"
+      ],
+      "note": "HPO term lookup: phenotype_id (WHERE filter on HP:0001250), phenotype_name + definition (SELECT output from phenotype_master_table_hpo). gene_symbol and disease_name are IRRELEVANT — this is a pure ontology term definition lookup, not an association query."
+    },
+    {
+      "question": "Which phenotypes are associated with heterozygous mutations of the BSCL2 gene?",
+      "keep": [
+        "gene_symbol",
+        "disease_name",
+        "association_type"
+      ],
+      "drop": [
+        "phenotype_name",
+        "phenotype_id",
+        "gene_id",
+        "source",
+        "evidence",
+        "onset"
+      ],
+      "note": "gene→disease query (mutations context): despite 'phenotypes' in the question, the expected answers are DISEASE NAMES (e.g. Silver syndrome, CMT2, distal HMN type V). Use gene_disease_association_hpo (output: disease_name, association_type). Use gene_phenotype_association_hpo ONLY when the question explicitly asks for HP: codes or specific HP phenotype term names — NOT when 'mutations of gene X' implies disease entities."
+    },
+    {
+      "question": "Which amino acid is implicated in Blue diaper syndrome?",
+      "keep": [
+        "disease_name",
+        "phenotype_id",
+        "phenotype_name"
+      ],
+      "drop": [
+        "gene_symbol",
+        "gene_id",
+        "association_type",
+        "source",
+        "biocuration"
+      ],
+      "note": "disease→phenotype query about a specific biochemical/metabolite abnormality: disease_name (WHERE filter on Blue diaper syndrome), phenotype_name + phenotype_id (SELECT output from disease_phenotype_association_hpo). The 'amino acid' in the question refers to a phenotype term (e.g. HP:0004365 Abnormal circulating tryptophan concentration). Always route amino-acid/metabolite/biochemical questions about a disease to disease_phenotype_association_hpo — NEVER stop at disease_master_table_hpo alone."
+    }
+  ],
+  "_comment": "Schema rules for hpo. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/hpo/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "db_name": "hpo",
+  "db_display_name": "HPO",
+  "db_description": "Human Phenotype Ontology — phenotype-gene and phenotype-disease associations with hierarchical ontology structure",
+  "enum_columns": {
+    "evidence": [
+      "IEA",
+      "PCS",
+      "TAS"
+    ],
+    "aspect": [
+      "P",
+      "C",
+      "M",
+      "H",
+      "I"
+    ]
+  },
+  "column_notes_override": {
+    "gene_symbol": "HGNC official symbol — p53→TP53",
+    "disease_name": "Orphanet or OMIM disease name as stored; e.g. 'Marfan syndrome', 'Phenylketonuria'",
+    "phenotype_name": "official HPO term name; do not use lay terms or synonyms as filter values"
+  }
+}

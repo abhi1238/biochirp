@@ -1,0 +1,15 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/hcdt/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "drug_master_table_hcdt": "drug_master_table_v2.parquet",
+  "drug_synonyms_association_hcdt": "drug_synonyms_association_hcdt_v2.parquet",
+  "drug_gene_association_hcdt": "drug_gene_association_v2.parquet",
+  "drug_disease_association_hcdt": "drug_disease_association_v2.parquet",
+  "drug_pathway_association_hcdt": "drug_pathway_association_v2.parquet",
+  "disease_master_table_hcdt": "disease_master_table_v2.parquet",
+  "gene_master_table_hcdt": "gene_master_table_v2.parquet",
+  "pathway_master_table_hcdt": "pathway_master_table_v2.parquet",
+  "rna_master_table_hcdt": "rna_master_table_v2.parquet",
+  "drug_rna_association_hcdt": "drug_rna_association_v2.parquet",
+  "drug_target_negative_hcdt": "drug_target_negative_v2.parquet",
+  "pathway_gene_association_hcdt": "pathway_gene_association_v2.parquet"
+}

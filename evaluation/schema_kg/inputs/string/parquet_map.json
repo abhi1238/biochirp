@@ -1,0 +1,8 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/string/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "protein_master_table_string": "protein_master_table_string_v2.parquet",
+  "ppi_association_string": "ppi_association_string_v2.parquet",
+  "ppi_physical_string": "ppi_physical_string_v2.parquet",
+  "ppi_detailed_channels_string": "ppi_detailed_channels_string_v2.parquet",
+  "protein_alias_string": "protein_alias_string_v2.parquet"
+}

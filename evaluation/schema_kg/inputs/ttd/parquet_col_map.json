@@ -1,0 +1,5 @@
+{
+  "_comment": "Maps queryable.json logical field names → physical parquet column names for TTD. Needed because the loader renames columns on load (parquet_name in schema.yaml). Generated manually 2026-06-28.",
+  "crossmatch_pubchem_cid": "pubchem_cid",
+  "compound_activity_gene_symbol": "gene_symbol"
+}

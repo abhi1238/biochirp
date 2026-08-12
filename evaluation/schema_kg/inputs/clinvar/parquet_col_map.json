@@ -1,0 +1,23 @@
+{
+  "_comment": "Maps queryable.json logical field names → physical parquet column names for ClinVar. HAND-MAINTAINED — do not overwrite with gen_schema.py --write. Renames are applied at load time in app/tools/clinvar/app/database_loader.py and are cross-verified by parquet_name: annotations in dbs/clinvar/schema.yaml.",
+
+  "_table:variant_master_table_clinvar": "physical parquet cols: review_status, clinical_significance, gene_symbol",
+  "aggregate_review_status": "review_status",
+  "aggregate_clinical_significance": "clinical_significance",
+  "variant_gene_symbol": "gene_symbol",
+
+  "_table:variant_disease_association_clinvar": "physical parquet cols: clinical_significance, disease_name, phenotype_ids",
+  "disease_clinical_significance": "clinical_significance",
+  "variant_disease_name": "disease_name",
+  "variant_phenotype_ids": "phenotype_ids",
+
+  "_table:variant_submission_clinvar": "physical parquet cols: clinical_significance, review_status",
+  "submission_clinical_significance": "clinical_significance",
+  "submission_review_status": "review_status",
+
+  "_table:variant_citation_clinvar": "physical parquet col: allele_id",
+  "citation_allele_id": "allele_id",
+
+  "_table:variant_genomic_coords_clinvar": "physical parquet col: allele_id",
+  "genomic_allele_id": "allele_id"
+}

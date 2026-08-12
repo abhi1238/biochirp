@@ -1,0 +1,11 @@
+{
+  "_comment": "Maps queryable.json logical field names → physical parquet column names for HCDT. Needed because database_loader.py renames xref columns on load (uniprot_id→uniprot, ki_nM→ki_nm, etc.) via schema.yaml parquet_name aliases.",
+  "uniprot": "uniprot_id",
+  "hgnc": "hgnc_id",
+  "ensembl": "ensembl_id",
+  "entrez": "entrez_id",
+  "ki_nm": "ki_nM",
+  "ic50_nm": "ic50_nM",
+  "kd_nm": "kd_nM",
+  "omim_xref": "omim_id"
+}

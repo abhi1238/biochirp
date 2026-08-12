@@ -1,0 +1,16 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/uniprot/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "protein_master_table_uniprot": "protein_master_table_uniprot_v2.parquet",
+  "gene_protein_association_uniprot": "gene_protein_xwalk_uniprot_v2.parquet",
+  "keyword_master_uniprot": "keyword_master_uniprot_v2.parquet",
+  "subcell_location_uniprot": "subcell_location_uniprot_v2.parquet",
+  "gene_ontology_uniprot": "gene_ontology_uniprot_v2.parquet",
+  "variant_disease_uniprot": "variant_disease_uniprot_v2.parquet",
+  "id_mapping_uniprot": "id_mapping_uniprot_v2.parquet",
+  "protein_keyword_uniprot": "protein_keyword_uniprot_v2.parquet",
+  "protein_subcell_uniprot": "protein_subcell_uniprot_v2.parquet",
+  "protein_function_uniprot": "protein_function_uniprot_v2.parquet",
+  "ptm_sites_uniprot": "ptm_sites_uniprot_v2.parquet",
+  "protein_interaction_uniprot": "protein_interaction_uniprot_v2.parquet",
+  "species_master_uniprot": "species_master_uniprot_v2.parquet"
+}

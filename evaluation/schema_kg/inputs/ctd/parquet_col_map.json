@@ -1,0 +1,16 @@
+{
+  "_comment": "Maps queryable.json logical field names → physical parquet column names for CTD. Needed because database_loader.py renames columns via schema.yaml parquet_name aliases. HAND-MAINTAINED — do not overwrite with gen_schema.py --write.",
+  "study_receptors": "receptors",
+  "exposure_study_countries": "study_countries",
+  "chemical_synonym": "synonym",
+  "gene_synonym": "synonym",
+  "disease_synonym": "synonym",
+  "chem_disease_direct_evidence": "direct_evidence",
+  "gene_disease_direct_evidence": "direct_evidence",
+  "chemical_gene_interaction_actions": "interaction_actions",
+  "chemical_phenotype_name": "phenotype_name",
+  "event_phenotype_name": "phenotype_name",
+  "disease_pathway_inference_gene": "inference_gene",
+  "event_receptors": "receptors",
+  "event_study_countries": "study_countries"
+}

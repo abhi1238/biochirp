@@ -1,0 +1,13 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/hpo/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "gene_master_table_hpo": "gene_master_table_hpo_v2.parquet",
+  "disease_master_table_hpo": "disease_master_table_hpo_v2.parquet",
+  "phenotype_master_table_hpo": "phenotype_master_table_hpo_v2.parquet",
+  "gene_phenotype_association_hpo": "gene_phenotype_association_hpo_v2.parquet",
+  "disease_phenotype_association_hpo": "disease_phenotype_association_hpo_v2.parquet",
+  "phenotype_hierarchy_hpo": "phenotype_hierarchy_hpo_v2.parquet",
+  "phenotype_synonym_hpo": "phenotype_synonym_hpo_v2.parquet",
+  "phenotype_gene_association_hpo": "phenotype_gene_association_hpo_v2.parquet",
+  "gene_disease_association_hpo": "gene_disease_association_hpo_v2.parquet",
+  "disease_phenotype_annotation_hpo": "disease_phenotype_annotation_hpo_v2.parquet"
+}

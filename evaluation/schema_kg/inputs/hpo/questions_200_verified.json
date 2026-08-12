@@ -1,0 +1,1683 @@
+[
+  {
+    "label": "disease+phenotype+evidence",
+    "question": "What evidence code supports Optic atrophy annotation in Neurodevelopmental disorder with motor and language delay, ocular defects, and brain abnormalities?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "evidence"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "What genes are associated with Holoprosencephaly 9?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Which diseases present with Limited knee extension?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype+ref",
+    "question": "What literature reference supports Photophobia in Encephalitis lethargica?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "reference"
+    ]
+  },
+  {
+    "label": "disease+phenotype+modifier",
+    "question": "What clinical modifier applies to Bronchoconstriction in Asthma, nasal polyps, and aspirin intolerance?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "modifier"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "Which HPO terms are linked to CFAP43?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "What phenotypes are associated with ARSL mutations?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "What phenotypes are associated with Intellectual developmental disorder, X-linked, syndromic, with pigmentary mosaicism and coarse facies?",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Diseases associated with the phenotype Delayed proximal femoral epiphyseal ossification?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Which genes are implicated in Breast-Ovarian cancer, familial, susceptibility to, 1?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "Which genes cause Ring scotoma?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+definition",
+    "question": "What is the HPO definition of Pulmonary artery intimal thickening?",
+    "required": [
+      "phenotype_name",
+      "definition"
+    ]
+  },
+  {
+    "label": "disease+phenotype+aspect",
+    "question": "What aspect category is Severe short stature in Nephrogenic diabetes insipidus - intracranial calcification?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease+source",
+    "question": "What data source links TSPAN12 to Exudative vitreoretinopathy 5?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "source"
+    ]
+  },
+  {
+    "label": "disease+phenotype+freq",
+    "question": "What is the frequency of Cerebellar atrophy in Autosomal recessive ataxia due to ubiquinone deficiency?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "disease_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+synonym",
+    "question": "What HPO term matches the synonym 'Short fourth metatarsus'?",
+    "required": [
+      "synonym",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "Which conditions involve mutations in SCP2?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "List clinical features of Retinitis pigmentosa 3.",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "List Mendelian diseases linked to ADAMTS18.",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "disease+phenotype+onset",
+    "question": "What is the age of onset for Redundant skin in Ablepharon-Macrostomia syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "onset"
+    ]
+  },
+  {
+    "label": "gene+disease+type",
+    "question": "What association type links MCEE to Methylmalonyl-Coa epimerase deficiency?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "NCBI gene ID for STK4?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+hierarchy",
+    "question": "What are the parent HPO terms of Abnormal coccyx morphology?",
+    "required": [
+      "phenotype_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype+freq",
+    "question": "What is the frequency of Finger syndactyly in patients with WNT10B variants?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name",
+      "gene_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "What genes are associated with Quotidian fever?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "What is the mode of inheritance for Hiatt-Neu-Cooper neurodevelopmental syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "What diseases are associated with B2M?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "What is the Entrez gene ID for SCAPER?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "disease+phenotype+sex",
+    "question": "Is Decreased serum testosterone concentration in Hypogonadotropic hypogonadism 25 with anosmia sex-specific?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "sex"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "What genes are associated with Neurodevelopmental disorder with or without anomalies of the brain, eye, or heart?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Which diseases present with Ankle flexion contracture?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype+ref",
+    "question": "What literature reference supports Large for gestational age in Monosomy 9q22.3 syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "reference"
+    ]
+  },
+  {
+    "label": "disease+phenotype+modifier",
+    "question": "What clinical modifier applies to Intellectual disability in Pontocerebellar hypoplasia, type 2E?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "modifier"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "Which HPO terms are linked to LNPK?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "What phenotypes are associated with JAZF1 mutations?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "What phenotypes are associated with Trichomegaly?",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Diseases associated with the phenotype Anti-nucleolus-organizing region antibody positivity?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Which genes are implicated in Schuurs-Hoeijmakers syndrome?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "Which genes cause Fibular hypoplasia?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+definition",
+    "question": "What is the HPO definition of Broad long bones?",
+    "required": [
+      "phenotype_name",
+      "definition"
+    ]
+  },
+  {
+    "label": "disease+phenotype+aspect",
+    "question": "What aspect category is Proptosis in Microcephalic osteodysplastic primordial dwarfism, type I?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease+source",
+    "question": "What data source links SCN11A to Familial episodic pain syndrome with predominantly lower limb involvement?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "source"
+    ]
+  },
+  {
+    "label": "disease+phenotype+freq",
+    "question": "What is the frequency of Long philtrum in Molybdenum cofactor deficiency, complementation group A?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "disease_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+synonym",
+    "question": "What HPO term matches the synonym 'Loss of large myelinated fibers'?",
+    "required": [
+      "synonym",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "Which conditions involve mutations in GGT1?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "List clinical features of HAIRY EARS, Y-LINKED.",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "List Mendelian diseases linked to SEC24C.",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "disease+phenotype+onset",
+    "question": "What is the age of onset for Respiratory failure in Congenital multicore myopathy with external ophthalmoplegia?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "onset"
+    ]
+  },
+  {
+    "label": "gene+disease+type",
+    "question": "What association type links SPTBN4 to Neurodevelopmental disorder with hypotonia, neuropathy, and deafness?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "NCBI gene ID for CTSD?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+hierarchy",
+    "question": "What are the parent HPO terms of Coombs-positive hemolytic anemia?",
+    "required": [
+      "phenotype_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype+freq",
+    "question": "What is the frequency of Hyperextensible skin in patients with SMARCD2 variants?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name",
+      "gene_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "What genes are associated with Reduced granulocyte surface marker level?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "What is the mode of inheritance for Immunodeficiency 53?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "What diseases are associated with OTUD7A?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "What is the Entrez gene ID for TFAP2B?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "disease+phenotype+sex",
+    "question": "Is Anxiety in Xq28 (MECP2) duplication sex-specific?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "sex"
+    ]
+  },
+  {
+    "label": "disease+phenotype+evidence",
+    "question": "What evidence code supports Hepatomegaly annotation in Gaucher disease type 1?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "evidence"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "What genes are associated with Exudative vitreoretinopathy 6?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Which diseases present with Pancreatic alpha-cell hyperplasia?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype+ref",
+    "question": "What literature reference supports Tachycardia in Cocaine intoxication?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "reference"
+    ]
+  },
+  {
+    "label": "disease+phenotype+modifier",
+    "question": "What clinical modifier applies to Spasticity in Encephalopathy, acute transient?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "modifier"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "Which HPO terms are linked to TYMS?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "What phenotypes are associated with CCDC88C mutations?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "What phenotypes are associated with Epileptic encephalopathy, early infantile, 36?",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Diseases associated with the phenotype Thenar muscle weakness?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Which genes are implicated in High bone mass osteogenesis imperfecta?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "Which genes cause Proximal radio-ulnar synostosis?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+definition",
+    "question": "What is the HPO definition of Calf muscle hypertrophy?",
+    "required": [
+      "phenotype_name",
+      "definition"
+    ]
+  },
+  {
+    "label": "disease+phenotype+aspect",
+    "question": "What aspect category is Fever in Kleine-Levin syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease+source",
+    "question": "What data source links TP63 to Adult syndrome?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "source"
+    ]
+  },
+  {
+    "label": "disease+phenotype+freq",
+    "question": "What is the frequency of Portal hypertension in Neurodevelopmental disorder with hypotonia and dysmorphic facies?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "disease_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+synonym",
+    "question": "What HPO term matches the synonym 'Spasticity in lower extremity'?",
+    "required": [
+      "synonym",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "Which conditions involve mutations in PSMB9?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "List clinical features of Split cord malformation type I.",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "List Mendelian diseases linked to RNF220.",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "disease+phenotype+onset",
+    "question": "What is the age of onset for Inguinal hernia in Cutis laxa, autosomal recessive, type IIA?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "onset"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "NCBI gene ID for ADSS1?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+hierarchy",
+    "question": "What are the parent HPO terms of Large vessel vasculitis?",
+    "required": [
+      "phenotype_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype+freq",
+    "question": "What is the frequency of Spherophakia in patients with LAMB2 variants?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name",
+      "gene_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "What genes are associated with Abnormal lymphocyte morphology?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "What is the mode of inheritance for Pulmonary alveolar proteinosis, acquired?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "What diseases are associated with MYMX?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "What is the Entrez gene ID for ZPR1?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "disease+phenotype+sex",
+    "question": "Is Camptodactyly of finger in Frontometaphyseal dysplasia sex-specific?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "sex"
+    ]
+  },
+  {
+    "label": "disease+phenotype+evidence",
+    "question": "What evidence code supports Megaloblastic anemia annotation in Homocystinuria-megaloblastic anemia, cblG complementation type?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "evidence"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "What genes are associated with Cataract 43?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Which diseases present with Malrotation of small bowel?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype+ref",
+    "question": "What literature reference supports Irregular vertebral endplates in Spondyloepimetaphyseal dysplasia with joint laxity, type 3?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "reference"
+    ]
+  },
+  {
+    "label": "disease+phenotype+modifier",
+    "question": "What clinical modifier applies to Plantar warts in Immunodeficiency 79?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "modifier"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "Which HPO terms are linked to MME?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "What phenotypes are associated with GPD1L mutations?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "What phenotypes are associated with Osteoglophonic dysplasia?",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Diseases associated with the phenotype Chest pain?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Which genes are implicated in 46,XX sex reversal 5?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "Which genes cause Urinary bladder sphincter dysfunction?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+definition",
+    "question": "What is the HPO definition of Underdeveloped inferior crus of antihelix?",
+    "required": [
+      "phenotype_name",
+      "definition"
+    ]
+  },
+  {
+    "label": "disease+phenotype+aspect",
+    "question": "What aspect category is Global developmental delay in Cortical dysplasia, complex, with other brain malformations 3?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease+source",
+    "question": "What data source links SLC39A8 to SLC39A8-CDG?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "source"
+    ]
+  },
+  {
+    "label": "disease+phenotype+freq",
+    "question": "What is the frequency of Autism in 8p inverted duplication/deletion syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "disease_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+synonym",
+    "question": "What HPO term matches the synonym 'Decreased fat tissue'?",
+    "required": [
+      "synonym",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "Which conditions involve mutations in AFP?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "List clinical features of Retinitis pigmentosa with or without situs inversus.",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "List Mendelian diseases linked to SET.",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "disease+phenotype+onset",
+    "question": "What is the age of onset for Overlapping toe in Chromosome 1q21.1 deletion syndrome, 1.35-mb?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "onset"
+    ]
+  },
+  {
+    "label": "gene+disease+type",
+    "question": "What association type links GUCY2D to Cone-Rod dystrophy 6?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "NCBI gene ID for TEX14?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+hierarchy",
+    "question": "What are the parent HPO terms of Occupational exposure history?",
+    "required": [
+      "phenotype_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype+freq",
+    "question": "What is the frequency of Congenital onset in patients with PAM16 variants?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name",
+      "gene_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "What genes are associated with Lethal infantile mitochondrial myopathy?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "What is the mode of inheritance for Fibrochondrogenesis 2?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "What diseases are associated with TOP3A?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "What is the Entrez gene ID for WARS1?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "disease+phenotype+sex",
+    "question": "Is Bilateral cryptorchidism in Persistent mullerian duct syndrome, types I and II sex-specific?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "sex"
+    ]
+  },
+  {
+    "label": "disease+phenotype+evidence",
+    "question": "What evidence code supports Brain imaging abnormality annotation in Rubinstein-Taybi syndrome due to EP300 haploinsufficiency?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "evidence"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "What genes are associated with Adult syndrome?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Which diseases present with Lewy bodies?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype+ref",
+    "question": "What literature reference supports Small for gestational age in Severe X-linked intellectual disability, Gustavson type?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "reference"
+    ]
+  },
+  {
+    "label": "disease+phenotype+modifier",
+    "question": "What clinical modifier applies to Spondyloepiphyseal dysplasia in Stickler syndrome, type I?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "modifier"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "Which HPO terms are linked to CD164?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "What phenotypes are associated with IL2RB mutations?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "What phenotypes are associated with Symphalangism, distal, with microdontia, dental pulp stones, and narrowedzygomatic arch?",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Diseases associated with the phenotype Bruising susceptibility?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Which genes are implicated in Greenberg skeletal dysplasia?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "Which genes cause Resting tremor?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+definition",
+    "question": "What is the HPO definition of Pituicytoma?",
+    "required": [
+      "phenotype_name",
+      "definition"
+    ]
+  },
+  {
+    "label": "disease+phenotype+aspect",
+    "question": "What aspect category is Low insertion of columella in 13q12.3 microdeletion syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease+source",
+    "question": "What data source links FLNC to Cardiomyopathy, familial hypertrophic, 26?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "source"
+    ]
+  },
+  {
+    "label": "disease+phenotype+freq",
+    "question": "What is the frequency of Absent lacrimal punctum in Lacrimoauriculodentodigital syndrome-3?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "disease_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+synonym",
+    "question": "What HPO term matches the synonym 'Small antitragus'?",
+    "required": [
+      "synonym",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "Which conditions involve mutations in ADGRG2?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "List clinical features of Pyruvate dehydrogenase E2 deficiency.",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "List Mendelian diseases linked to ALOX5.",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "disease+phenotype+onset",
+    "question": "What is the age of onset for Hypospadias in Ring chromosome 3 syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "onset"
+    ]
+  },
+  {
+    "label": "gene+disease+type",
+    "question": "What association type links TP53 to Small cell lung cancer?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "NCBI gene ID for SEC23A?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+hierarchy",
+    "question": "What are the parent HPO terms of Self hugging?",
+    "required": [
+      "phenotype_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype+freq",
+    "question": "What is the frequency of Cerebral cortical atrophy in patients with PLK4 variants?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name",
+      "gene_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "What genes are associated with Agenesis of mandibular central incisor?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "What is the mode of inheritance for Phosphohydroxylysinuria?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "What diseases are associated with RAB32?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "What is the Entrez gene ID for MOS?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "disease+phenotype+sex",
+    "question": "Is Subungual hyperkeratosis in IFAP syndrome with or without BRESHECK syndrome sex-specific?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "sex"
+    ]
+  },
+  {
+    "label": "disease+phenotype+evidence",
+    "question": "What evidence code supports Waddling gait annotation in Charcot-Marie-Tooth disease, axonal, type 2CC?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "evidence"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "What genes are associated with Lactate dehydrogenase B deficiency?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Which diseases present with Abnormal cutaneous elastic fiber morphology?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype+ref",
+    "question": "What literature reference supports Hypotonia in Microcephaly-corpus callosum hypoplasia-intellectual disability-facial dysmorphism syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "reference"
+    ]
+  },
+  {
+    "label": "disease+phenotype+modifier",
+    "question": "What clinical modifier applies to Seizure in Epileptic encephalopathy, early infantile, 30?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "modifier"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "Which HPO terms are linked to ACTN2?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "What phenotypes are associated with KCNQ2 mutations?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "What phenotypes are associated with ACTH-independent macronodular adrenal hyperplasia 3?",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Diseases associated with the phenotype Iritis?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Which genes are implicated in Dehydrated hereditary stomatocytosis?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "Which genes cause Abnormal macrophage morphology?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+definition",
+    "question": "What is the HPO definition of Abnormal cervical spine morphology?",
+    "required": [
+      "phenotype_name",
+      "definition"
+    ]
+  },
+  {
+    "label": "disease+phenotype+aspect",
+    "question": "What aspect category is Brachycephaly in MOMO syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease+source",
+    "question": "What data source links ERBB3 to Erythroleukemia, familial, susceptibility to?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "source"
+    ]
+  },
+  {
+    "label": "disease+phenotype+freq",
+    "question": "What is the frequency of Nemaline bodies in Arthrogryposis multiplex congenita 6?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "disease_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+synonym",
+    "question": "What HPO term matches the synonym 'Bullous myringitis'?",
+    "required": [
+      "synonym",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "Which conditions involve mutations in CLRN1?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "List clinical features of Dyskinesia, limb and orofacial, infantile-onset.",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "List Mendelian diseases linked to SLC2A2.",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "disease+phenotype+onset",
+    "question": "What is the age of onset for Ventricular septal defect in Holoprosencephaly 13, X-linked?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "onset"
+    ]
+  },
+  {
+    "label": "gene+disease+type",
+    "question": "What association type links PROP1 to Hypothyroidism due to deficient transcription factors involved in pituitary development or function?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "NCBI gene ID for TLR5?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+hierarchy",
+    "question": "What are the parent HPO terms of Non-pruritic urticaria?",
+    "required": [
+      "phenotype_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype+freq",
+    "question": "What is the frequency of Autosomal dominant inheritance in patients with DPF2 variants?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name",
+      "gene_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "What genes are associated with Prominent floating ribs?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "What is the mode of inheritance for Polydactyly, preaxial II?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "What diseases are associated with HSPB8?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "What is the Entrez gene ID for SMOC2?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "disease+phenotype+sex",
+    "question": "Is Cryptorchidism in Faundes-Banka syndrome sex-specific?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "sex"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "What genes are associated with Epileptic encephalopathy, early infantile, 79?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Which diseases present with Absent retinal pigment epithelium?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype+ref",
+    "question": "What literature reference supports Spastic diplegia in X-linked intellectual disability, Golabi-Ito-Hall type?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "reference"
+    ]
+  },
+  {
+    "label": "disease+phenotype+modifier",
+    "question": "What clinical modifier applies to Hypertension in Morbid obesity and spermatogenic failure?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "modifier"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "Which HPO terms are linked to KCNJ13?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "What phenotypes are associated with ASPN mutations?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "What phenotypes are associated with Peroxisome biogenesis disorder 5B?",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Diseases associated with the phenotype Motor conduction block?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Which genes are implicated in Inflammatory bowel disease 25, early onset, autosomal recessive?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "Which genes cause Low 5-minute APGAR score?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+definition",
+    "question": "What is the HPO definition of Nevus sebaceous?",
+    "required": [
+      "phenotype_name",
+      "definition"
+    ]
+  },
+  {
+    "label": "disease+phenotype+aspect",
+    "question": "What aspect category is Proptosis in Cutaneous mastocytosis-deafness-microtia syndrome?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease+source",
+    "question": "What data source links MAN2C1 to Congenital disorder of deglycosylation 2?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "source"
+    ]
+  },
+  {
+    "label": "disease+phenotype+freq",
+    "question": "What is the frequency of Autosomal recessive inheritance in Intellectual developmental disorder, autosomal recessive 31?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "disease_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+synonym",
+    "question": "What HPO term matches the synonym 'Wedged vertebrae'?",
+    "required": [
+      "synonym",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "Which conditions involve mutations in IGHV3-21?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "List clinical features of Mitochondrial complex V (atp synthase) deficiency, nuclear type 4.",
+    "required": [
+      "disease_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "List Mendelian diseases linked to ACAN.",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "disease+phenotype+onset",
+    "question": "What is the age of onset for Hepatomegaly in Diaphragmatic hernia 4, with cardiovascular defects?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "onset"
+    ]
+  },
+  {
+    "label": "gene+disease+type",
+    "question": "What association type links PLD3 to Spinocerebellar ataxia type 46?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "association_type"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "NCBI gene ID for CCDC146?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+hierarchy",
+    "question": "What are the parent HPO terms of Irregular tarsal bones?",
+    "required": [
+      "phenotype_name",
+      "phenotype_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype+freq",
+    "question": "What is the frequency of Scleroderma in patients with UROD variants?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name",
+      "gene_phenotype_frequency"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "What genes are associated with Hypertonia?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "What is the mode of inheritance for Retinitis pigmentosa 68?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "What diseases are associated with HIRA?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "What is the Entrez gene ID for DHRS3?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "disease+phenotype+sex",
+    "question": "Is Primary amenorrhea in Premature ovarian failure 21 sex-specific?",
+    "required": [
+      "disease_name",
+      "phenotype_name",
+      "sex"
+    ]
+  }
+]

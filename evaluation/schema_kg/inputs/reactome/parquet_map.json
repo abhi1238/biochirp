@@ -1,0 +1,11 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/reactome/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "pathway_master_table_reactome": "pathway_master_table_reactome_v2.parquet",
+  "gene_master_table_reactome": "gene_master_table_reactome_v2.parquet",
+  "gene_pathway_association_reactome": "gene_pathway_association_reactome_v2.parquet",
+  "pathway_hierarchy_reactome": "pathway_hierarchy_reactome_v2.parquet",
+  "uniprot_pathway_reactome": "uniprot_pathway_reactome_v2.parquet",
+  "chebi_pathway_reactome": "chebi_pathway_reactome_v2.parquet",
+  "ensembl_pathway_reactome": "ensembl_pathway_reactome_v2.parquet",
+  "ncbi_pathway_reactome": "ncbi_pathway_reactome_v2.parquet"
+}

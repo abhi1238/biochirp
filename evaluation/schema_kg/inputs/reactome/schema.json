@@ -1,0 +1,43 @@
+{
+  "reactome": {
+    "pathway_master_table_reactome": {
+      "pathway_id": "Reactome stable identifier in the format R-HSA-<integer> for human (e.g. R-HSA-109581 = Apoptosis, R-HSA-162582 = Signal Transduction). Used as the primary key for pathway records and as a join key to hierarchy and xref tables. Users may ask for 'Reactome ID', 'pathway ID', or 'stable ID'.",
+      "pathway_name": "Reactome pathway preferred human-readable name (e.g. 'Apoptosis', 'Signaling by EGFR', 'Cell Cycle', 'Immune System'). Users may ask for 'pathway', 'pathway name', 'biological process', or just type the pathway name."
+    },
+    "gene_master_table_reactome": {
+      "gene_id": "NCBI Entrez gene ID for the Reactome gene record in NCBIGene:N format (e.g. NCBIGene:1956 for EGFR) — internal join key.",
+      "gene_symbol": "HGNC short gene symbol of a gene annotated in Reactome (e.g. EGFR, TP53, KRAS, BRCA1). Users may ask for 'gene', 'gene symbol', or 'HGNC symbol'."
+    },
+    "gene_pathway_association_reactome": {
+      "gene_id": "FK to gene_master_table.gene_id — Entrez gene ID",
+      "pathway_id": "FK to pathway_master_table.pathway_id — Reactome stable ID",
+      "gene_pathway_evidence": "Evidence code for the gene–pathway annotation (only TAS = traceable author statement, ~80.0%, and IEA = inferred from electronic annotation, ~20.0% occur). Users may ask for 'evidence', 'evidence code', or 'annotation type'."
+    },
+    "pathway_hierarchy_reactome": {
+      "parent_id": "Parent pathway stable ID (R-HSA-…) in the Reactome hierarchy — internal join key only (FK to pathway_master_table.pathway_id). Filter/display via parent_pathway_name, not this column.",
+      "parent_pathway_name": "Human-readable name of the PARENT (broader / super) pathway, denormalized from pathway_master_table so this table is SELF-CONTAINED for hierarchy queries (no join needed). To find the CHILD / sub-pathways OF a named pathway (e.g. 'children of Immune System', 'sub-pathways of Cell Cycle'), filter parent_pathway_name = <the named pathway> and return child_pathway_name. Each parent_pathway_name→child_pathway_name row is one direct parent-to-child edge.",
+      "child_id": "Child pathway stable ID (R-HSA-…) — internal join key only (FK to pathway_master_table.pathway_id). Filter/display via child_pathway_name, not this column.",
+      "child_pathway_name": "Human-readable name of the CHILD (narrower / sub) pathway, denormalized from pathway_master_table. To find the PARENT / super-pathway OF a named pathway (e.g. 'parent of Apoptosis', 'what is X a sub-pathway of'), filter child_pathway_name = <the named pathway> and return parent_pathway_name."
+    },
+    "uniprot_pathway_reactome": {
+      "uniprot_accession": "UniProt protein accession participating in the pathway (e.g. P04637 for TP53, P00533 for EGFR). Users may ask for 'UniProt ID', 'UniProt accession', or 'protein ID'.",
+      "pathway_id": "FK to pathway_master_table.pathway_id — Reactome stable ID. Join to pathway_master_table for the human-readable pathway_name (not stored here).",
+      "uniprot_pathway_evidence": "Evidence code for the UniProt–pathway annotation. Enum: {TAS (traceable author statement, ~80.1%), IEA (inferred from electronic annotation, ~19.9%)}."
+    },
+    "chebi_pathway_reactome": {
+      "chebi_id": "ChEBI compound identifier participating in the pathway (e.g. CHEBI:15377 for water, CHEBI:58702). Users may ask for 'ChEBI ID', 'ChEBI compound', or 'small molecule'.",
+      "pathway_id": "FK to pathway_master_table.pathway_id — Reactome stable ID. Join to pathway_master_table for the human-readable pathway_name (not stored here).",
+      "chebi_pathway_evidence": "Evidence code for the ChEBI–pathway annotation. Enum: {TAS (traceable author statement, ~85.7%), IEA (inferred from electronic annotation, ~14.3%)}."
+    },
+    "ensembl_pathway_reactome": {
+      "ensembl_id": "Ensembl identifier participating in the pathway; mixes ENSG (gene, ~16%), ENST (transcript, ~42%), and ENSP (protein, ~42%) IDs — do NOT assume gene-only semantics. Users may ask for 'Ensembl ID', 'Ensembl gene', 'Ensembl transcript', or 'Ensembl protein'.",
+      "pathway_id": "FK to pathway_master_table.pathway_id — Reactome stable ID. Join to pathway_master_table for the human-readable pathway_name (not stored here).",
+      "ensembl_pathway_evidence": "Evidence code for the Ensembl–pathway annotation. Enum: {TAS (~79.8%), IEA (~20.2%)}."
+    },
+    "ncbi_pathway_reactome": {
+      "ncbi_gene_id": "NCBI Entrez gene ID participating in the pathway (e.g. 1956 for EGFR, 7157 for TP53). Users may ask for 'Entrez ID', 'NCBI gene ID', or 'Entrez gene'.",
+      "pathway_id": "FK to pathway_master_table.pathway_id — Reactome stable ID. Join to pathway_master_table for the human-readable pathway_name (not stored here).",
+      "ncbi_pathway_evidence": "Evidence code for the NCBI–pathway annotation. Enum: {TAS (~80.0%), IEA (~20.0%)}."
+    }
+  }
+}

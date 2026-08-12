@@ -1,0 +1,354 @@
+[
+  {
+    "label": "disease+gene",
+    "question": "what genes are associated with Marfan syndrome?",
+    "required": [
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what rare diseases are caused by FBN1 mutations?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which rare conditions involve mutations in NF1?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what rare diseases are associated with DMD?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which rare diseases are caused by CFTR mutations?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what rare conditions are linked to HTT gene mutations?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "what are the phenotypes of cystic fibrosis?",
+    "required": [
+      "disease_name",
+      "hpo_term"
+    ]
+  },
+  {
+    "label": "disease+phenotype",
+    "question": "what clinical features are associated with Duchenne muscular dystrophy?",
+    "required": [
+      "disease_name",
+      "hpo_term"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "which rare diseases present with short stature?",
+    "required": [
+      "hpo_term",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "which diseases present with muscle weakness?",
+    "required": [
+      "hpo_term",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "which diseases present with intellectual disability?",
+    "required": [
+      "hpo_term",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "which diseases present with seizures?",
+    "required": [
+      "hpo_term",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "diseases associated with the phenotype intellectual disability",
+    "required": [
+      "hpo_term",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "diseases associated with the phenotype muscle weakness",
+    "required": [
+      "hpo_term",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "diseases associated with the phenotype seizures",
+    "required": [
+      "hpo_term",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "diseases associated with the phenotype short stature",
+    "required": [
+      "hpo_term",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "what genes are associated with short stature?",
+    "required": [
+      "hpo_term",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "what genes are associated with muscle weakness?",
+    "required": [
+      "hpo_term",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "what genes are associated with seizures?",
+    "required": [
+      "hpo_term",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "which genes cause the phenotype short stature?",
+    "required": [
+      "hpo_term",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "which genes cause the phenotype muscle weakness?",
+    "required": [
+      "hpo_term",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "what genes are associated with intellectual disability?",
+    "required": [
+      "hpo_term",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "which genes cause the phenotype seizures?",
+    "required": [
+      "hpo_term",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "which genes cause the phenotype intellectual disability?",
+    "required": [
+      "hpo_term",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+prevalence",
+    "question": "what is the prevalence of Huntington disease?",
+    "required": [
+      "disease_name",
+      "prevalence_class"
+    ]
+  },
+  {
+    "label": "disease+prevalence",
+    "question": "what is the prevalence of cystic fibrosis in Europe?",
+    "required": [
+      "disease_name",
+      "prevalence_class"
+    ]
+  },
+  {
+    "label": "disease+prevalence",
+    "question": "what is the annual incidence of phenylketonuria?",
+    "required": [
+      "disease_name",
+      "prevalence_class"
+    ]
+  },
+  {
+    "label": "disease+prevalence",
+    "question": "how common is Duchenne muscular dystrophy?",
+    "required": [
+      "disease_name",
+      "prevalence_class"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "what is the inheritance pattern of Duchenne muscular dystrophy?",
+    "required": [
+      "disease_name",
+      "value"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "what is the inheritance pattern of cystic fibrosis?",
+    "required": [
+      "disease_name",
+      "value"
+    ]
+  },
+  {
+    "label": "disease+inheritance",
+    "question": "is Marfan syndrome autosomal dominant or recessive?",
+    "required": [
+      "disease_name",
+      "value"
+    ]
+  },
+  {
+    "label": "disease+onset",
+    "question": "what is the age of onset of Huntington disease?",
+    "required": [
+      "disease_name",
+      "value"
+    ]
+  },
+  {
+    "label": "disease+onset",
+    "question": "at what age does Duchenne muscular dystrophy typically present?",
+    "required": [
+      "disease_name",
+      "value"
+    ]
+  },
+  {
+    "label": "disease+xref",
+    "question": "what is the ICD-10 code for Marfan syndrome?",
+    "required": [
+      "disease_name",
+      "xref_id"
+    ]
+  },
+  {
+    "label": "disease+xref",
+    "question": "what is the OMIM ID for cystic fibrosis?",
+    "required": [
+      "disease_name",
+      "xref_id"
+    ]
+  },
+  {
+    "label": "disease+xref",
+    "question": "what cross-reference IDs are available for Huntington disease?",
+    "required": [
+      "disease_name",
+      "xref_id"
+    ]
+  },
+  {
+    "label": "disease+xref",
+    "question": "what is the MONDO identifier for Noonan syndrome?",
+    "required": [
+      "disease_name",
+      "xref_id"
+    ]
+  },
+  {
+    "label": "disease+xref",
+    "question": "OMIM identifier for Li-Fraumeni syndrome",
+    "required": [
+      "disease_name",
+      "xref_id"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "what is the OMIM gene ID for FBN1?",
+    "required": [
+      "gene_symbol",
+      "entrez"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "what is the OMIM gene ID for CFTR?",
+    "required": [
+      "gene_symbol",
+      "entrez"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "what is the Ensembl accession for NF1?",
+    "required": [
+      "gene_symbol",
+      "ensembl_accession"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "OMIM gene ID for DMD",
+    "required": [
+      "gene_symbol",
+      "entrez"
+    ]
+  },
+  {
+    "label": "disease+natural_history",
+    "question": "what broad Orphanet category does Marfan syndrome belong to?",
+    "required": [
+      "disease_name",
+      "target_disease_name"
+    ]
+  },
+  {
+    "label": "disease+classification",
+    "question": "which Orphanet classification does cystic fibrosis fall under?",
+    "required": [
+      "disease_name",
+      "classification"
+    ]
+  }
+]

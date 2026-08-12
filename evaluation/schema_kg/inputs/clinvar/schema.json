@@ -1,0 +1,78 @@
+{
+  "clinvar": {
+    "variant_master_table_clinvar": {
+      "variant_id": "BioChirp-internal ClinVar variant identifier in the form CLINVAR:<int> (e.g. CLINVAR:12345) — primary join key; raw NCBI VCV/RCV accessions are NOT stored on disk",
+      "variant_name": "HGVS or descriptive name of the variant; e.g. NM_007294.4(BRCA1):c.5266dupC (p.Gln1756Profs), c.1799T>A",
+      "variant_gene_symbol": "gene symbol denormalized in variant_master — route gene queries to gene_master_table_clinvar via variant_gene_association_clinvar.gene_id FK",
+      "variant_type": "class of variant; e.g. single nucleotide variant, Indel, Duplication, Deletion, Microsatellite, Complex",
+      "aggregate_clinical_significance": "ClinVar aggregate clinical interpretation across all submitters; e.g. pathogenic, likely pathogenic, uncertain significance, likely benign, benign",
+      "aggregate_review_status": "aggregate review status for the consensus ClinVar classification; e.g. reviewed by expert panel, criteria provided single submitter, no assertion criteria provided",
+      "origin_simple": "germline or somatic origin of the variant; e.g. germline, somatic, unknown",
+      "chromosome": "chromosome where the variant is located; e.g. 1, 2, X, Y, MT",
+      "start": "genomic start position (1-based) on the chromosome",
+      "stop": "genomic stop position (1-based) on the chromosome"
+    },
+    "gene_master_table_clinvar": {
+      "gene_id": "NCBI Gene ID — primary join key",
+      "gene_symbol": "HGNC gene symbol; e.g. BRCA1, CFTR, TP53, EGFR"
+    },
+    "variant_gene_association_clinvar": {
+      "variant_id": "",
+      "gene_id": ""
+    },
+    "variant_disease_association_clinvar": {
+      "variant_id": "",
+      "disease_id": "BioChirp-internal disease identifier (CLINVAR_DIS:<id>) — join key to disease records; NOT a MedGen/OMIM/SNOMED ID. External xrefs (MedGen, OMIM, Orphanet) are in variant_genomic_coords_clinvar.clndisdb",
+      "variant_disease_name": "name of the disease or condition associated with the variant; e.g. Hereditary breast and ovarian cancer syndrome, Cystic fibrosis, Parkinson disease",
+      "disease_clinical_significance": "ClinVar clinical interpretation of the variant for this specific disease; e.g. pathogenic, likely pathogenic, uncertain significance, benign",
+      "variant_phenotype_ids": "pipe-separated external phenotype identifiers (MedGen, OMIM, Orphanet, MONDO, HP) for the associated disease"
+    },
+    "variant_submission_clinvar": {
+      "variant_id": "",
+      "submission_clinical_significance": "individual submitter's interpretation of clinical significance for this submission",
+      "date_last_evaluated": "date the submitter last evaluated the variant interpretation",
+      "description": "free-text description or notes from the submitter about this interpretation",
+      "submitted_phenotype": "phenotype or condition as reported by the submitter",
+      "reported_phenotype": "standardised phenotype name after ClinVar curation",
+      "submission_review_status": "review status of this specific submission from the submitting laboratory",
+      "collection_method": "method used to collect evidence; e.g. clinical testing, research, literature only. Missing values are stored as NULL on disk (NOT as the string \"not provided\"). Note: 29 compound semicolon-joined values also exist on disk (e.g. \"clinical testing;curation\", \"research;clinical testing\") that are not listed in the enum — use str.contains() for partial matching on these compound forms.",
+      "origin_counts": "counts of germline/somatic/unknown allele origins",
+      "submitter": "name of the submitting laboratory or organisation",
+      "scv": "SCV accession for this specific submitter interpretation",
+      "submitted_gene_symbol": "gene symbol as submitted (may differ from canonical HGNC)",
+      "explanation": "explanation of conflicts in the submission",
+      "somatic_clinical_impact": "somatic clinical impact classification where applicable",
+      "oncogenicity": "oncogenicity classification for somatic variants",
+      "contributes_to_aggregate": "flag indicating whether this submission contributes to the aggregate classification"
+    },
+    "variant_citation_clinvar": {
+      "variant_id": "",
+      "citation_allele_id": "ClinVar allele ID — internal join key",
+      "rsid": "dbSNP rsID stored as bare numeric string WITHOUT rs prefix (e.g. \"397704705\"); strip the 'rs' prefix from user input before matching",
+      "nsv": "dbVar NSV structural variant ID where applicable",
+      "citation_source": "source database for the citation. Three values on disk: PubMed (3,935,444 rows), PubMedCentral (625,551 rows), NCBIBookShelf (9,693 rows). OMIM does not appear as a citation_source value.",
+      "citation_id": "identifier in the citation source; e.g. PubMed PMID"
+    },
+    "variant_genomic_coords_clinvar": {
+      "variant_id": "",
+      "genomic_allele_id": "ClinVar allele ID — internal join key",
+      "assembly": "genome assembly version; e.g. GRCh38, GRCh37",
+      "chrom": "chromosome; e.g. 1, X, MT",
+      "pos": "genomic position (1-based) on the chromosome",
+      "ref": "reference allele nucleotide(s); e.g. A, GCTA",
+      "alt": "alternate allele nucleotide(s); e.g. T, -",
+      "clnsig": "VCF-formatted clinical significance code",
+      "clnrevstat": "VCF-formatted review status code",
+      "clndn": "ClinVar disease name(s) associated with this allele",
+      "clndisdb": "disease database cross-references in the VCF record",
+      "gene_info": "NCBI gene info for this locus",
+      "molecular_consequence": "molecular effect of the variant; e.g. missense variant, synonymous variant, stop gained, frameshift variant",
+      "variant_class": "variant class code; e.g. single_nucleotide_variant, Deletion, Duplication, Microsatellite, Indel, Insertion, Inversion, Variation"
+    },
+    "disease_master_table_clinvar": {
+      "disease_id": "BioChirp-internal disease identifier (CLINVAR_DIS:<md5>) — primary key; NOT a MedGen/OMIM/SNOMED ID",
+      "disease_name": "canonical disease name derived from ClinVar PhenotypeList; e.g. Hereditary breast and ovarian cancer syndrome, Cystic fibrosis, Parkinson disease. NOT queryable: this is the KG-only master; disease-name filtering routes to the exec-visible variant_disease_association.variant_disease_name (concept_type disease_name) — making this queryable created planner ambiguity → values routed here cannot execute (exec_schema:false) → \"No filter terms\".",
+      "phenotype_ids": "pipe-separated external phenotype identifiers (MedGen, OMIM, Orphanet, MONDO, HP) associated with this disease. NOT queryable (KG-only master, exec_schema:false)."
+    }
+  }
+}

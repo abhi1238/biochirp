@@ -1,0 +1,5 @@
+{
+  "_comment": "Maps queryable.json logical field names → physical parquet column names for MSigDB. Needed because database_loader.py renames the organism column differently per table: geneset_master_table uses geneset_organism and gene_master_table uses gene_organism, but both map to the physical column named organism in the parquets. HAND-MAINTAINED — do not overwrite with gen_schema.py --write.",
+  "geneset_organism": "organism",
+  "gene_organism": "organism"
+}

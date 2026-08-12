@@ -1,0 +1,363 @@
+{
+  "_comment": "Schema rules for orphanet. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/orphanet/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "db_name": "orphanet",
+  "db_display_name": "Orphanet",
+  "db_description": "Orphanet rare disease database — gene-disease associations, phenotypes, epidemiology, inheritance, and cross-references for rare diseases",
+  "mandatory_entity_columns": {
+    "disease": [
+      "disease_name"
+    ],
+    "gene": [
+      "gene_symbol"
+    ]
+  },
+  "xref_id_columns": [
+    "disease_id",
+    "phenotype_id",
+    "ensembl_accession",
+    "entrez",
+    "target_disease_id",
+    "parent_disease_id",
+    "xref_source"
+  ],
+  "schema_grounding_notes": [
+    "disease_name is the Orphanet-canonical rare disease name; use the full official name, e.g. 'Cystic fibrosis' not 'CF'",
+    "gene_symbol is the primary gene query key in gene_master_table_orphanet; the association table uses gene_id (FK = HGNC symbol value mirrored at load) for the join. Route all gene_symbol queries to gene_master; the planner joins gene_master.gene_id → gene_disease_association_orphanet.gene_id.",
+    "disease_onset_inheritance_orphanet has attribute='age_of_onset' for onset rows and attribute='inheritance' for inheritance rows; filter by attribute to get the right type",
+    "prevalence_class values are free-text estimates like '<1 / 1 000 000' or '1-9 / 100 000'; do NOT treat as numeric",
+    "frequency in disease_phenotype_association_orphanet is a string like 'Very frequent (99-80%)' — NOT a numeric; filter by string match",
+    "xref_source valid values include: UMLS, OMIM, MONDO, ICD-10, ICD-11, GARD, MeSH, MedDRA — filter by these when asking for specific cross-references",
+    "gene_disease_association_type in gene_disease_association_orphanet is a long string; e.g. 'Disease-causing germline mutation(s) (gain of function) in'; use substring match"
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "xref_id"
+      ],
+      "require_column": "xref_source",
+      "require_behavior": "requested",
+      "reason": "cross-reference IDs are ambiguous without knowing the source database"
+    },
+    {
+      "trigger_columns": [
+        "disease_id"
+      ],
+      "require_column": "disease_name",
+      "require_behavior": "requested",
+      "reason": "ORPHA:XXXXXX IDs need the human-readable disease name"
+    },
+    {
+      "trigger_columns": [
+        "hpo_term"
+      ],
+      "require_column": "disease_name",
+      "require_behavior": "infer_from_question",
+      "reason": "phenotype terms need disease context"
+    },
+    {
+      "trigger_columns": [
+        "prevalence_class",
+        "prevalence_type"
+      ],
+      "require_column": "disease_name",
+      "require_behavior": "requested",
+      "reason": "prevalence data needs disease name for interpretation"
+    },
+    {
+      "trigger_columns": [
+        "value"
+      ],
+      "require_column": "attribute",
+      "require_behavior": "requested",
+      "reason": "onset/inheritance values need the attribute label for context"
+    }
+  ],
+  "few_shot_examples": [
+    {
+      "question": "What genes are associated with Marfan syndrome?",
+      "parsed_value": {
+        "disease_name": [
+          "Marfan syndrome"
+        ],
+        "gene_symbol": "requested"
+      },
+      "note": "disease→gene query — disease_name is the FILTER (list), gene_symbol is the output. Marfan syndrome (ORPHA:558) is caused by FBN1 germline mutations. Never request disease_name when it is explicitly named in the question."
+    },
+    {
+      "question": "What rare diseases are caused by CFTR mutations?",
+      "parsed_value": {
+        "gene_symbol": [
+          "CFTR"
+        ],
+        "disease_name": "requested"
+      },
+      "note": "gene→disease query — gene_symbol is the FILTER, disease_name is the output. CFTR mutations cause Cystic fibrosis (ORPHA:586) via 'Disease-causing germline mutation(s)' association type."
+    },
+    {
+      "question": "What are the HPO phenotypes of cystic fibrosis?",
+      "parsed_value": {
+        "disease_name": [
+          "Cystic fibrosis"
+        ],
+        "hpo_term": "requested"
+      },
+      "note": "disease→phenotype query — disease_name is the FILTER, hpo_term is the output. Uses disease_phenotype_association_orphanet. Confirmed phenotypes include Depression, Anxiety, Osteopenia. Do NOT include frequency unless asked."
+    },
+    {
+      "question": "What is the inheritance pattern of Huntington disease?",
+      "parsed_value": {
+        "disease_name": [
+          "Huntington disease"
+        ],
+        "attribute": [
+          "inheritance"
+        ],
+        "value": "requested"
+      },
+      "note": "inheritance query — disease_name + attribute=['inheritance'] are BOTH filters; value is the output. Huntington disease (ORPHA:399) is Autosomal dominant. attribute must always be a filter list (not 'requested') when asking for inheritance or age of onset."
+    },
+    {
+      "question": "What is the OMIM cross-reference ID for cystic fibrosis?",
+      "parsed_value": {
+        "disease_name": [
+          "Cystic fibrosis"
+        ],
+        "xref_source": [
+          "OMIM"
+        ],
+        "xref_id": "requested"
+      },
+      "note": "xref query — disease_name + xref_source are BOTH filters; xref_id is the output. CF OMIM ID is 219700. co_output_rules automatically adds xref_source to output when xref_id is requested."
+    }
+  ],
+  "orchestrator_examples": [
+    {
+      "question": "What genes are associated with Marfan syndrome?",
+      "mapper_1": {
+        "disease_name": [
+          "Marfan syndrome"
+        ],
+        "gene_symbol": "requested"
+      },
+      "mapper_2": {
+        "disease_name": "requested",
+        "gene_symbol": "requested"
+      },
+      "correct": {
+        "disease_name": [
+          "Marfan syndrome"
+        ],
+        "gene_symbol": "requested"
+      },
+      "reasoning": "'Marfan syndrome' is explicitly named in the question → disease_name must be a FILTER list, never 'requested'. mapper_2 incorrectly treats the named disease as open-ended output. The named entity is always a filter; only the open-ended ask is 'requested'."
+    },
+    {
+      "question": "What is the inheritance pattern of Huntington disease?",
+      "mapper_1": {
+        "disease_name": [
+          "Huntington disease"
+        ],
+        "attribute": [
+          "inheritance"
+        ],
+        "value": "requested"
+      },
+      "mapper_2": {
+        "disease_name": [
+          "Huntington disease"
+        ],
+        "value": "requested"
+      },
+      "correct": {
+        "disease_name": [
+          "Huntington disease"
+        ],
+        "attribute": [
+          "inheritance"
+        ],
+        "value": "requested"
+      },
+      "reasoning": "disease_onset_inheritance_orphanet contains BOTH age_of_onset and inheritance rows. attribute=['inheritance'] is a mandatory filter to isolate inheritance records. mapper_2 silently dropped the attribute filter, which would return both onset and inheritance rows incorrectly."
+    },
+    {
+      "question": "What is the OMIM cross-reference for cystic fibrosis?",
+      "mapper_1": {
+        "disease_name": [
+          "Cystic fibrosis"
+        ],
+        "xref_source": [
+          "OMIM"
+        ],
+        "xref_id": "requested"
+      },
+      "mapper_2": {
+        "disease_name": [
+          "Cystic fibrosis"
+        ],
+        "xref_id": "requested"
+      },
+      "correct": {
+        "disease_name": [
+          "Cystic fibrosis"
+        ],
+        "xref_source": [
+          "OMIM"
+        ],
+        "xref_id": "requested"
+      },
+      "reasoning": "xref_source must be a filter when the user specifies a specific database (OMIM). mapper_2 dropped xref_source, which would return ICD-10, GARD, MeSH, UMLS, and MedDRA IDs as well. Valid xref_source values include OMIM, ICD-10, ICD-11, UMLS, MONDO, GARD, MeSH, MedDRA."
+    },
+    {
+      "question": "What are the HPO phenotypes of cystic fibrosis with their frequency?",
+      "mapper_1": {
+        "disease_name": [
+          "Cystic fibrosis"
+        ],
+        "hpo_term": "requested",
+        "frequency": "requested"
+      },
+      "mapper_2": {
+        "disease_name": [
+          "Cystic fibrosis"
+        ],
+        "hpo_term": "requested"
+      },
+      "correct": {
+        "disease_name": [
+          "Cystic fibrosis"
+        ],
+        "hpo_term": "requested",
+        "frequency": "requested"
+      },
+      "reasoning": "The question explicitly asks for frequency alongside phenotypes — mapper_2 incorrectly omitted it. frequency is a string enum in disease_phenotype_association_orphanet (e.g. 'Occasional (29-5%)', 'Very frequent (99-80%)'). Include it when the user asks 'with their frequency'."
+    }
+  ],
+  "enum_columns": {
+    "mapping_relation": [
+      "E (Exact mapping: the two concepts are equivalent)",
+      "NTBT (ORPHAcode is narrower than the targeted code used to represent it)",
+      "BTNT (ORPHAcode is broader than the targeted code used to represent it)",
+      "ND (not yet decided/unable to decide: the alignment cannot be qualified by any of the existing labels)"
+    ],
+    "attribute": [
+      "age_of_onset",
+      "inheritance"
+    ],
+    "disorder_type": [
+      "Disease",
+      "Malformation syndrome",
+      "Morphological anomaly",
+      "Biological anomaly",
+      "Clinical group",
+      "Etiological subtype",
+      "Histopathological subtype",
+      "Clinical subtype",
+      "Category",
+      "Clinical syndrome",
+      "Particular clinical situation in a disease or syndrome"
+    ]
+  },
+  "filter_few_shot_examples": [
+    {
+      "question": "What genes are associated with Marfan syndrome?",
+      "keep": [
+        "disease_name",
+        "gene_symbol",
+        "gene_disease_association_type"
+      ],
+      "drop": [
+        "hpo_term",
+        "prevalence_class",
+        "prevalence_type",
+        "xref_id",
+        "xref_source",
+        "attribute",
+        "value"
+      ],
+      "note": "disease→gene query: disease_name (WHERE filter on Marfan syndrome), gene_symbol (SELECT output), gene_disease_association_type (useful co-output). hpo_term, prevalence, xref, and onset/inheritance columns are IRRELEVANT — this is a gene association question, not a phenotype, epidemiology, or cross-reference question."
+    },
+    {
+      "question": "What HPO phenotypes does cystic fibrosis present?",
+      "keep": [
+        "disease_name",
+        "hpo_term",
+        "frequency"
+      ],
+      "drop": [
+        "gene_symbol",
+        "gene_disease_association_type",
+        "prevalence_class",
+        "prevalence_type",
+        "xref_id",
+        "xref_source",
+        "attribute",
+        "value"
+      ],
+      "note": "disease→phenotype query: disease_name (WHERE filter), hpo_term (SELECT output), frequency (useful co-output from disease_phenotype_association_orphanet). gene_symbol, prevalence, xref, and onset/inheritance columns are IRRELEVANT — this is a phenotype question only."
+    },
+    {
+      "question": "What is the prevalence of neurofibromatosis type 1?",
+      "keep": [
+        "disease_name",
+        "prevalence_class",
+        "prevalence_type",
+        "geographic"
+      ],
+      "drop": [
+        "gene_symbol",
+        "gene_disease_association_type",
+        "hpo_term",
+        "frequency",
+        "xref_id",
+        "xref_source",
+        "attribute",
+        "value"
+      ],
+      "note": "disease epidemiology query: disease_name (WHERE filter), prevalence_class + prevalence_type + geographic (SELECT outputs from disease_epidemiology_orphanet). gene_symbol, hpo_term, xref, and onset/inheritance columns are IRRELEVANT — this is an epidemiology question only."
+    },
+    {
+      "question": "What is the OMIM ID for Marfan syndrome?",
+      "keep": [
+        "disease_name",
+        "xref_source",
+        "xref_id"
+      ],
+      "drop": [
+        "gene_symbol",
+        "gene_disease_association_type",
+        "hpo_term",
+        "frequency",
+        "prevalence_class",
+        "prevalence_type",
+        "attribute",
+        "value"
+      ],
+      "note": "cross-reference query: disease_name (WHERE filter), xref_source (WHERE filter on OMIM), xref_id (SELECT output from disease_xref_orphanet). gene, phenotype, prevalence, and onset/inheritance columns are IRRELEVANT — this is an identifier lookup only."
+    },
+    {
+      "question": "What rare diseases are caused by FBN1 mutations?",
+      "keep": [
+        "gene_symbol",
+        "disease_name",
+        "gene_disease_association_type"
+      ],
+      "drop": [
+        "hpo_term",
+        "frequency",
+        "prevalence_class",
+        "prevalence_type",
+        "xref_id",
+        "xref_source",
+        "attribute",
+        "value"
+      ],
+      "note": "gene→disease query: gene_symbol (WHERE filter on FBN1), disease_name (SELECT output), gene_disease_association_type (useful co-output). hpo_term, prevalence, xref, and onset/inheritance columns are IRRELEVANT — this is a reverse gene-disease lookup, not a phenotype or epidemiology question."
+    }
+  ],
+  "column_notes_override": {
+    "disease_name": "Orphanet canonical rare disease name; use full name, e.g. 'Marfan syndrome', 'Duchenne muscular dystrophy'",
+    "gene_symbol": "HGNC official symbol in gene_disease_association_orphanet; e.g. FBN1, CFTR, DMD, HTT",
+    "prevalence_class": "free-text prevalence range string; e.g. '<1 / 1 000 000'; NOT a numeric field",
+    "attribute": "enum: 'age_of_onset' or 'inheritance' — always filter on this column before using 'value'"
+  }
+}

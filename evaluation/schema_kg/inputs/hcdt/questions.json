@@ -1,0 +1,460 @@
+[
+  {
+    "label": "drug+disease+OMIM",
+    "question": "what OMIM cross-references correspond to diseases treated by imatinib?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+disease+OMIM",
+    "question": "give OMIM identifiers for indications of pembrolizumab",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+disease+ICD11",
+    "question": "ICD-11 codes for diseases where nivolumab is indicated",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+disease+OMIM+ICD11",
+    "question": "find OMIM and ICD-11 codes for the indication of imatinib in chronic myeloid leukemia",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+disease+OMIM",
+    "question": "OMIM cross-references for autoimmune diseases where adalimumab is used",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+disease+OMIM+ICD11",
+    "question": "OMIM and ICD-11 codes for rare cancers treated by imatinib",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+disease+OMIM",
+    "question": "OMIM ID for drugs treating Huntington disease",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "drug+gene+UniProt",
+    "question": "what UniProt accession does gefitinib bind to?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "uniprot"
+    ]
+  },
+  {
+    "label": "drug+gene+HGNC",
+    "question": "what is the HGNC ID of the gene targeted by vemurafenib?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "hgnc"
+    ]
+  },
+  {
+    "label": "drug+gene+Entrez",
+    "question": "what Entrez gene ID corresponds to the target of erlotinib?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "entrez"
+    ]
+  },
+  {
+    "label": "drug+gene+UniProt+HGNC",
+    "question": "give both UniProt and HGNC IDs for EGFR targeted by afatinib",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "uniprot",
+      "hgnc"
+    ]
+  },
+  {
+    "label": "drug+gene+UniProt",
+    "question": "UniProt accession of JAK2 targeted by ruxolitinib",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "uniprot"
+    ]
+  },
+  {
+    "label": "drug+gene+HGNC",
+    "question": "HGNC IDs of CDK4 and CDK6 targeted by ribociclib",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "hgnc"
+    ]
+  },
+  {
+    "label": "drug+gene+Entrez",
+    "question": "Entrez gene ID for PARP1 targeted by olaparib",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "entrez"
+    ]
+  },
+  {
+    "label": "drug+gene+HGNC+Entrez",
+    "question": "HGNC and Entrez IDs for genes targeted by ponatinib",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "hgnc",
+      "entrez"
+    ]
+  },
+  {
+    "label": "drug+gene+UniProt+HGNC",
+    "question": "both UniProt and HGNC IDs for AKT1 targeted by MK-2206",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "uniprot",
+      "hgnc"
+    ]
+  },
+  {
+    "label": "drug+pathway+KEGG",
+    "question": "KEGG pathway IDs for mTOR signaling affected by everolimus",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+pathway+KEGG",
+    "question": "KEGG pathway IDs for apoptosis pathways perturbed by bortezomib",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+pathway+SMPDB",
+    "question": "SMPDB identifier for the mTOR pathway affected by rapamycin",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+pathway+KEGG+SMPDB",
+    "question": "both KEGG and SMPDB IDs for MAPK signaling altered by imatinib",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+pathway+KEGG",
+    "question": "KEGG pathway IDs for pathways perturbed by lapatinib via EGFR",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+pathway+KEGG",
+    "question": "KEGG pathway IDs for VEGF signaling pathways affected by erlotinib",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+rna+type",
+    "question": "which miRNA molecules does imatinib regulate?",
+    "required": [
+      "drug_name",
+      "rna_name",
+      "rna_type"
+    ]
+  },
+  {
+    "label": "drug+rna+type",
+    "question": "list lncRNA targets of tamoxifen",
+    "required": [
+      "drug_name",
+      "rna_name",
+      "rna_type"
+    ]
+  },
+  {
+    "label": "drug+rna+type",
+    "question": "circRNA interactions of metformin",
+    "required": [
+      "drug_name",
+      "rna_name",
+      "rna_type"
+    ]
+  },
+  {
+    "label": "drug+rna+type",
+    "question": "what RNA molecules (miRNA, lncRNA, circRNA) does gefitinib regulate?",
+    "required": [
+      "drug_name",
+      "rna_name",
+      "rna_type"
+    ]
+  },
+  {
+    "label": "drug+rna+type",
+    "question": "what lncRNA molecules are associated with crizotinib?",
+    "required": [
+      "drug_name",
+      "rna_name",
+      "rna_type"
+    ]
+  },
+  {
+    "label": "drug+rna+type",
+    "question": "what lncRNA does cetuximab regulate?",
+    "required": [
+      "drug_name",
+      "rna_name",
+      "rna_type"
+    ]
+  },
+  {
+    "label": "gene+disease+drug",
+    "question": "drugs that target KRAS and treat pancreatic cancer",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+disease+drug",
+    "question": "drugs targeting ERBB2 used for breast cancer treatment",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+disease+drug",
+    "question": "what drugs targeting ALK are approved for lung cancer?",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+disease+drug",
+    "question": "drugs targeting TP53 in colorectal cancer",
+    "required": [
+      "gene_symbol",
+      "disease_name",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+pathway+KEGG",
+    "question": "KEGG pathway IDs for pathways involving EGFR",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway+KEGG",
+    "question": "KEGG pathway IDs for MAPK signaling pathways involving BRAF",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway+SMPDB",
+    "question": "which SMPDB pathways involve TP53?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway+KEGG",
+    "question": "KEGG IDs for cell cycle pathways involving CDK4",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway+KEGG",
+    "question": "KEGG pathway IDs for apoptosis pathways involving BCL2",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway+KEGG",
+    "question": "KEGG IDs for pathways involving MTOR",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway+SMPDB",
+    "question": "SMPDB IDs for DNA repair pathways involving BRCA1",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway+SMPDB",
+    "question": "SMPDB IDs for metabolic pathways involving LDHA",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "smiles+disease",
+    "question": "SMILES of drugs approved for acute myeloid leukemia",
+    "required": [
+      "drug_name",
+      "drug_smiles_iso",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "inchikey+disease",
+    "question": "what is the InChIKey of drugs used to treat tuberculosis?",
+    "required": [
+      "drug_name",
+      "drug_inchikey",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "inchi+gene",
+    "question": "what are the InChI strings of drugs that target EGFR?",
+    "required": [
+      "drug_name",
+      "drug_inchi",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "smiles+gene",
+    "question": "SMILES of drugs that target CDK4",
+    "required": [
+      "drug_name",
+      "drug_smiles_iso",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "formula+gene",
+    "question": "molecular formula of drugs targeting PARP1",
+    "required": [
+      "drug_name",
+      "drug_formula",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "drug+synonym",
+    "question": "what is the trade name of sildenafil?",
+    "required": [
+      "drug_name",
+      "synonym"
+    ]
+  },
+  {
+    "label": "drug+synonym",
+    "question": "what are the brand names of imatinib?",
+    "required": [
+      "drug_name",
+      "synonym"
+    ]
+  },
+  {
+    "label": "drug+synonym",
+    "question": "what are the synonyms of gefitinib?",
+    "required": [
+      "drug_name",
+      "synonym"
+    ]
+  },
+  {
+    "label": "drug+synonym+gene",
+    "question": "trade names and brand synonyms of drugs targeting EGFR",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "synonym"
+    ]
+  },
+  {
+    "label": "drug+gene+disease+UniProt",
+    "question": "what are the UniProt targets of drugs that target BRAF and treat melanoma?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name",
+      "uniprot"
+    ]
+  },
+  {
+    "label": "drug+gene+pathway",
+    "question": "which drugs target PIK3CA and are involved in the PI3K-Akt pathway?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "drug+disease+gene+OMIM",
+    "question": "OMIM cross-references for breast cancer treated by EGFR-targeting drugs",
+    "required": [
+      "drug_name",
+      "disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "drug+gene+UniProt+Ensembl",
+    "question": "UniProt and Ensembl IDs for VEGFA targeted by gefitinib",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "uniprot",
+      "ensembl"
+    ]
+  }
+]

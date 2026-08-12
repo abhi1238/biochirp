@@ -1,0 +1,61 @@
+{
+  "orphanet": {
+    "disease_master_table_orphanet": {
+      "disease_id": "Orphanet disease identifier in ORPHA:XXXXXX format — join key only; e.g. ORPHA:558 (Marfan syndrome)",
+      "disease_name": "name of the rare disease as defined by Orphanet; e.g. Marfan syndrome, Cystic fibrosis, Duchenne muscular dystrophy, Huntington disease"
+    },
+    "gene_master_table_orphanet": {
+      "gene_id": "internal join key = the HGNC gene symbol value (present in v2 parquet on disk); FK target for gene_disease_association_orphanet.gene_id — join key only (filter/display via gene_symbol)",
+      "gene_symbol": "HGNC gene symbol — primary key of the Orphanet gene master table (4,552 rows, no nulls); e.g. KIF7, CWC27, AGA, FBN1, CFTR. Users may ask for 'gene', 'gene symbol', or 'HGNC symbol'.",
+      "ensembl_accession": "Ensembl gene accession; e.g. ENSG00000166813; used when asking for Ensembl ID",
+      "entrez": "OMIM gene-locus identifier despite the column name (NOT an NCBI Entrez gene ID); e.g. 134797 for FBN1, 602421 for CFTR; values range ~100690..621202 (the OMIM gene-ID space). Users asking for 'Entrez ID' or 'NCBI gene ID' should be told this column is OMIM-coded."
+    },
+    "gene_disease_association_orphanet": {
+      "gene_id": "FK to gene_master_table_orphanet.gene_id (= HGNC gene symbol value; present in v2 parquet on disk) — join key only",
+      "disease_id": "FK to disease_master_table_orphanet.disease_id",
+      "gene_disease_association_type": "type of gene-disease association as classified by Orphanet; e.g. 'Disease-causing germline mutation(s) (gain of function) in', 'Modifying germline mutation in', 'Major susceptibility factor in'"
+    },
+    "disease_phenotype_association_orphanet": {
+      "disease_id": "FK to disease_master_table_orphanet.disease_id",
+      "phenotype_id": "HPO term identifier in HP:XXXXXXX format — join key only",
+      "hpo_term": "HPO phenotype term name associated with the rare disease; e.g. Macrocephaly, Intellectual disability, Seizure, Scoliosis",
+      "frequency": "frequency class of the phenotype in this disease; enum: Very frequent (99-80%), Frequent (79-30%), Occasional (29-5%), Very rare (<4-1%), Obligate (100%), Excluded (0%)"
+    },
+    "disease_xref_orphanet": {
+      "disease_id": "FK to disease_master_table_orphanet.disease_id",
+      "xref_source": "name of the external database being cross-referenced; e.g. UMLS, OMIM, MONDO, ICD-10, ICD-11, GARD, MeSH, MedDRA",
+      "xref_id": "identifier in the external database; e.g. 154700 for OMIM, Q87.4 for ICD-10",
+      "mapping_relation": "mapping relation type; e.g. E (ORPHAcode equivalent/exact), NTBT (ORPHAcode narrower than target), BTNT (ORPHAcode broader than target), ND (not yet decided)",
+      "disease_xref_validation_status": "validation status of the cross-reference; e.g. Validated, Not yet validated",
+      "disease_name": "Disease name for the 2 supplemented ORPHA codes (ORPHA:708014, ORPHA:714413) injected at load time; null for all 50,128 raw parquet rows"
+    },
+    "disease_epidemiology_orphanet": {
+      "disease_id": "FK to disease_master_table_orphanet.disease_id",
+      "source": "source reference (PubMed IDs or ORPHANET references) for the epidemiological data",
+      "prevalence_type": "type of prevalence estimate; enum: Point prevalence, Cases/families, Annual incidence, Prevalence at birth, Lifetime Prevalence (capital P)",
+      "prevalence_qualification": "qualification of the prevalence estimate; e.g. Value and class, Class only, Case(s), Family(ies)",
+      "prevalence_class": "prevalence class estimate; e.g. <1 / 1 000 000, 1-9 / 100 000, 1-9 / 1 000",
+      "val_moy": "mean value of the prevalence estimate (float as string); e.g. 4.0",
+      "geographic": "geographic scope of the prevalence estimate; e.g. Worldwide, Europe, United States, Asia",
+      "disease_epidemiology_validation_status": "validation status of the epidemiological record; e.g. Validated, Not yet validated"
+    },
+    "disease_onset_inheritance_orphanet": {
+      "disease_id": "FK to disease_master_table_orphanet.disease_id",
+      "attribute": "attribute type; either age_of_onset or inheritance; used to distinguish onset records from inheritance records",
+      "value": "value of the attribute; for age_of_onset: e.g. Infancy, Neonatal, Childhood, Adult, Elderly; for inheritance: e.g. Autosomal recessive, Autosomal dominant, X-linked recessive"
+    },
+    "disease_natural_history_orphanet": {
+      "disease_id": "FK to disease_master_table_orphanet.disease_id",
+      "target_disease_id": "FK to disease_master_table_orphanet.disease_id — the related disease in the natural history relationship",
+      "target_disease_name": "name of the related disease in the natural history association",
+      "disease_history_association_type": "type of natural history relationship between source and target disease; constant value 'Preferential parent' across all rows (maps each disease to one of 31 broad Orphanet parent categories)"
+    },
+    "disease_classification_orphanet": {
+      "classification": "Orphanet classification taxonomy name; e.g. 'Orphanet classification of rare neurological diseases', 'Orphanet classification of rare bone diseases', 'Orphanet classification of rare cardiac diseases'",
+      "disease_id": "FK to disease_master_table_orphanet.disease_id",
+      "disorder_type": "Orphanet disorder type; e.g. Disease, Malformation syndrome, Morphological anomaly, Biological anomaly, Clinical group",
+      "parent_disease_id": "FK to disease_master_table_orphanet.disease_id — the parent category in the classification hierarchy",
+      "parent_disease_name": "name of the parent disease or category in the Orphanet classification"
+    }
+  }
+}

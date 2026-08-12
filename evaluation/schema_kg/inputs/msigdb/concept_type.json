@@ -1,0 +1,14 @@
+{
+  "_comment": "Maps each queryable column to a concept type from the closed vocabulary (only queryable columns appear). GENERATED from dbs/msigdb/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "msigdb.geneset_master_table_msigdb.geneset_name": "pathway_name",
+  "msigdb.geneset_master_table_msigdb.collection": "collection_category",
+  "msigdb.geneset_master_table_msigdb.gene_count": "gene_count",
+  "msigdb.geneset_master_table_msigdb.geneset_organism": "organism",
+  "msigdb.gene_master_table_msigdb.gene_symbol": "gene_symbol",
+  "msigdb.gene_master_table_msigdb.gene_organism": "organism",
+  "msigdb.geneset_metadata_msigdb.pmid": "publication_id",
+  "msigdb.geneset_metadata_msigdb.geo_id": "xref_id",
+  "msigdb.geneset_metadata_msigdb.sub_collection": "collection_category",
+  "msigdb.geneset_metadata_msigdb.brief_description": "description",
+  "msigdb.geneset_metadata_msigdb.full_description": "description"
+}

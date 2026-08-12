@@ -1,0 +1,476 @@
+{
+  "mandatory_entity_columns": {
+    "gene": [
+      "gene_symbol",
+      "association_gene_symbol",
+      "physical_gene_symbol",
+      "channel_gene_symbol"
+    ]
+  },
+  "xref_id_columns": [
+    "protein_id",
+    "protein_partner_id",
+    "alias",
+    "source"
+  ],
+  "schema_grounding_notes": [
+    "THREE disjoint PPI tables \u2014 each is independent, never join two of them together; pick ONE based on what the user asked:",
+    "  ppi_association_string  \u2192 general functional interaction partners (all evidence); columns: association_gene_symbol, association_partner_gene_symbol, association_score",
+    "  ppi_physical_string     \u2192 physical binding / complex subset only; columns: physical_gene_symbol, physical_partner_gene_symbol, physical_score",
+    "  ppi_detailed_channels_string \u2192 per-channel evidence breakdown; columns: channel_gene_symbol, channel_partner_gene_symbol, neighborhood/fusion/cooccurence/coexpression/experimental/database/textmining, channel_combined_score",
+    "ALL per-channel scores (experimental, neighborhood, fusion, cooccurence, coexpression, database, textmining) are INTEGER SCORES 0\u20131000, never boolean. When the user asks 'with experimental evidence' or 'by experimental score', set experimental='requested' (SELECT it as output) \u2014 do NOT set it to 'True' or any boolean filter value",
+    "association_score / physical_score / channel_combined_score are integers 700\u2013999 in this snapshot (pre-filtered to high-confidence edges \u2265 700); 900+ is highest confidence",
+    "ppi_association_string is bidirectional: every undirected edge appears in both directions, so a single filter on association_gene_symbol returns ALL of that gene's interaction partners in association_partner_gene_symbol \u2014 do NOT also match association_partner_gene_symbol",
+    "ppi_physical_string is the subset of ppi_association_string based solely on physical/binding evidence; same physical_gene_symbol/physical_partner_gene_symbol layout",
+    "protein_alias_string maps STRING protein IDs to external aliases (Ensembl, UniProt, RefSeq); query through protein_master_table_string.gene_symbol first",
+    "cooccurence is spelled without the double 'r' on disk \u2014 use this spelling verbatim in filters"
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "neighborhood",
+        "fusion",
+        "cooccurence",
+        "coexpression",
+        "experimental",
+        "database",
+        "textmining"
+      ],
+      "require_column": "channel_combined_score",
+      "require_behavior": "requested",
+      "reason": "per-channel scores are not interpretable without the overall combined score for context"
+    },
+    {
+      "trigger_columns": [
+        "alias"
+      ],
+      "require_column": "gene_symbol",
+      "require_behavior": "requested",
+      "reason": "raw alias strings are not interpretable without the canonical gene symbol"
+    }
+  ],
+  "gene_alias_map": {
+    "Bcl-2": "BCL2",
+    "Bcl-XL": "BCL2L1",
+    "beta-catenin": "CTNNB1",
+    "c-KIT": "KIT",
+    "c-MET": "MET",
+    "c-Myc": "MYC",
+    "c-Raf": "RAF1",
+    "c-Src": "SRC",
+    "CTLA-4": "CTLA4",
+    "E-cadherin": "CDH1",
+    "FAK": "PTK2",
+    "HER2": "ERBB2",
+    "HER3": "ERBB3",
+    "HER4": "ERBB4",
+    "HSP90": "HSP90AA1",
+    "LAG-3": "LAG3",
+    "mTOR": "MTOR",
+    "N-cadherin": "CDH2",
+    "p53": "TP53",
+    "PD-1": "PDCD1",
+    "PD-L1": "CD274",
+    "PI3K": "PIK3CA",
+    "Rb": "RB1",
+    "TIM-3": "HAVCR2",
+    "VEGFR2": "KDR",
+    "mTORC1": "MTOR",
+    "mTORC2": "RICTOR",
+    "TORC1": "MTOR",
+    "Raptor": "RPTOR",
+    "Rictor": "RICTOR",
+    "cohesin": "RAD21",
+    "cohesin complex": "RAD21",
+    "COP9 signalosome": "COPS5",
+    "CSN": "COPS5",
+    "nuclear pore basket": "NUP153",
+    "ERK scaffold": "KSR1",
+    "Notch complex": "NOTCH1",
+    "Notch transcriptional activation complex": "NOTCH1",
+    "Fanconi anemia complex": "FANCD2",
+    "Treslin": "TICRR",
+    "CaMKII": "CAMK2D",
+    "CMA": "LAMP2",
+    "LAMP-2A": "LAMP2",
+    "P-body": "DDX6",
+    "processing body": "DDX6",
+    "membrane scission": "DNM1L",
+    "Groucho": "TLE1",
+    "sclerostin": "SOST",
+    "Polycomb group": "EZH2",
+    "Polycomb repressor complex": "EZH2",
+    "PcG": "EZH2",
+    "PRC2": "EZH2",
+    "CTF4": "WDHD1",
+    "Ctf4": "WDHD1",
+    "CTF18": "CHTF18",
+    "Ctf18": "CHTF18",
+    "AND1": "WDHD1"
+  },
+  "db_llm_rules": "COMPLEX / PATHWAY DECOMPOSITION \u2014 when the question names a complex or pathway rather than a single gene, expand to its member gene symbols in the WHERE clause:\n  mTORC1 / TORC1           \u2192 gene_symbol IN [MTOR, RPTOR, MLST8, DEPTOR, AKT1S1]\n  Polycomb / PRC2 / PcG    \u2192 gene_symbol IN [EZH2, EED, SUZ12, RBBP4, JARID2]\n  COP9 signalosome / CSN   \u2192 gene_symbol IN [COPS5, COPS8, COPS1, COPS2, COPS3, COPS4]\n  cohesin complex          \u2192 gene_symbol IN [SMC1A, SMC3, RAD21, STAG1, STAG2]\n  nuclear pore basket      \u2192 gene_symbol IN [NUP153, NUP50, TPR, NUP98]\n  ERK scaffold proteins    \u2192 gene_symbol IN [KSR1, KSR2, IQGAP1, SHOC2]\n  Notch activation complex \u2192 gene_symbol IN [NOTCH1, RBPJ, MAML1, MAML2, EP300]\n  Fanconi anemia complex   \u2192 gene_symbol IN [FANCD2, FANCA, BRCA1, BRCA2, PALB2]\n  mTORC2                   \u2192 gene_symbol IN [MTOR, RICTOR, MLST8, MAPKAP1, PRR5]\nANNOTATION ROUTING \u2014 for questions about function, role, disease involvement, modification, or 'is X involved in Y' (NOT 'who interacts with X'), use protein_master_table annotation column ONLY. Never PPI tables for these.\nYES/NO PPI + NON-PPI PROPERTY \u2014 when asked 'Does X interact with Y [and also has property Z STRING does not store, e.g. circadian, temporal]': return the PPI edge (confirm interaction + score), then state STRING cannot confirm the additional property. NEVER return zero rows when the PPI component is answerable.\nSLASH-SEPARATED NAMES \u2014 'Treslin/TICRR', 'LAMP-2A/CMA', 'COPS5/JAB1' contain synonyms separated by '/'; treat each part as an independent alias and resolve whichever maps first.",
+  "filter_few_shot_examples": [
+    {
+      "question": "What proteins interact with EGFR?",
+      "keep": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score"
+      ],
+      "drop": [
+        "gene_symbol",
+        "annotation",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "experimental",
+        "coexpression",
+        "channel_combined_score",
+        "alias",
+        "source"
+      ],
+      "note": "general PPI query \u2192 ppi_association_string table only: association_gene_symbol (WHERE filter on EGFR), association_partner_gene_symbol (SELECT output), association_score (SELECT output for confidence context). annotation / protein_master columns are irrelevant \u2014 the user asked for partners, not function. physical and channel-score columns belong to separate tables and must be dropped."
+    },
+    {
+      "question": "What are EGFR's top interactors with experimental evidence?",
+      "keep": [
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "experimental",
+        "channel_combined_score"
+      ],
+      "drop": [
+        "gene_symbol",
+        "annotation",
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "neighborhood",
+        "fusion",
+        "cooccurence",
+        "coexpression",
+        "database",
+        "textmining",
+        "alias",
+        "source"
+      ],
+      "note": "per-channel evidence query \u2192 ppi_detailed_channels_string table: channel_gene_symbol (WHERE filter on EGFR), channel_partner_gene_symbol (SELECT output), experimental (SELECT output \u2014 per-channel score, never a boolean filter), channel_combined_score (co-output required alongside any channel score). annotation and all association/physical columns from other tables must be dropped. Unused channel columns (neighborhood, fusion, cooccurence, coexpression, database, textmining) are also dropped."
+    },
+    {
+      "question": "What is the function of TP53 in STRING?",
+      "keep": [
+        "gene_symbol",
+        "annotation"
+      ],
+      "drop": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "experimental",
+        "coexpression",
+        "channel_combined_score",
+        "protein_size",
+        "alias",
+        "source"
+      ],
+      "note": "annotation-only query \u2192 protein_master_table_string: gene_symbol (WHERE filter on TP53), annotation (SELECT output). ALL PPI edge columns from ppi_association, ppi_physical, and ppi_detailed_channels are completely irrelevant and must be dropped \u2014 the user asked for protein function, not interaction partners."
+    },
+    {
+      "question": "Does TP53 physically bind MDM2?",
+      "keep": [
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score"
+      ],
+      "drop": [
+        "gene_symbol",
+        "annotation",
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "experimental",
+        "coexpression",
+        "channel_combined_score",
+        "alias",
+        "source"
+      ],
+      "note": "physical binding check \u2192 ppi_physical_string table only: physical_gene_symbol (WHERE filter on TP53), physical_partner_gene_symbol (WHERE filter on MDM2 for a bidirectional existence check), physical_score (SELECT output for confidence). 'physically bind' / 'direct binding' / 'complex' keywords distinguish ppi_physical from ppi_association. annotation columns are irrelevant; channel-score columns belong to a different table."
+    },
+    {
+      "question": "Is K63-linked polyubiquitination used for proteasomal degradation?",
+      "keep": [
+        "gene_symbol",
+        "annotation"
+      ],
+      "drop": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "neighborhood",
+        "fusion",
+        "cooccurence",
+        "coexpression",
+        "experimental",
+        "database",
+        "textmining",
+        "channel_combined_score",
+        "alias",
+        "source",
+        "protein_size"
+      ],
+      "note": "yes/no question about a ubiquitin chain-type mechanism \u2192 protein_master_table annotation: the rewriter expands 'K63-linked ubiquitin' to the key E2 enzymes [UBE2N, UBE2V1, UBE2V2]. Filter gene_symbol=[UBE2N, UBE2V1, UBE2V2], output annotation='requested'. The UBE2N annotation explicitly states whether K63 chains lead to proteasomal degradation. annotation is OUTPUT-ONLY \u2014 never add a filter value on it. NO PPI table needed."
+    },
+    {
+      "question": "What histone modifications do Polycomb repressor complex proteins deposit?",
+      "keep": [
+        "gene_symbol",
+        "annotation"
+      ],
+      "drop": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "neighborhood",
+        "fusion",
+        "cooccurence",
+        "coexpression",
+        "experimental",
+        "database",
+        "textmining",
+        "channel_combined_score",
+        "alias",
+        "source",
+        "protein_size"
+      ],
+      "note": "list question about the enzymatic activities of a protein complex \u2192 protein_master_table annotation for each complex member: the rewriter expands 'Polycomb group / PRC2' to [EZH2, EED, SUZ12, RBBP4, JARID2]. Filter gene_symbol=[EZH2, EED, SUZ12, RBBP4, JARID2], output annotation='requested'. Each protein's annotation names the specific histone mark it deposits (H3K27me3 for EZH2, H2AK119Ub for RNF2, etc.). Do NOT use ppi_physical or ppi_association \u2014 the user asks what they DO, not who they interact with."
+    },
+    {
+      "question": "Does the PARP1-CTCF interaction exhibit circadian oscillation?",
+      "keep": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score"
+      ],
+      "drop": [
+        "gene_symbol",
+        "annotation",
+        "protein_size",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "neighborhood",
+        "fusion",
+        "cooccurence",
+        "coexpression",
+        "experimental",
+        "database",
+        "textmining",
+        "channel_combined_score",
+        "alias",
+        "source"
+      ],
+      "note": "yes/no PPI question with a non-PPI property STRING cannot answer (circadian oscillation, temporal) \u2192 ppi_association_string: filter association_gene_symbol=[PARP1], association_partner_gene_symbol=[CTCF], output association_score='requested'. The synthesizer will confirm the PPI edge exists with its score and explicitly state STRING has no temporal/circadian data. NEVER return zero results \u2014 the PPI component is answerable from STRING."
+    },
+    {
+      "question": "Which are the main components of mTORC1?",
+      "keep": [
+        "gene_symbol",
+        "annotation"
+      ],
+      "drop": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "neighborhood",
+        "fusion",
+        "cooccurence",
+        "coexpression",
+        "experimental",
+        "database",
+        "textmining",
+        "channel_combined_score",
+        "alias",
+        "source",
+        "protein_size"
+      ],
+      "note": "complex membership question \u2192 protein_master_table annotation for each known component: expand 'mTORC1' \u2192 gene_symbol IN [MTOR, RPTOR, MLST8, DEPTOR, AKT1S1], output annotation='requested'. Each subunit's annotation identifies its role in the complex. Do NOT query PPI tables \u2014 the user asks who is IN the complex, and the annotation directly names complex membership."
+    },
+    {
+      "question": "Which proteins form the nuclear pore basket in human cells?",
+      "keep": [
+        "gene_symbol",
+        "annotation"
+      ],
+      "drop": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "neighborhood",
+        "fusion",
+        "cooccurence",
+        "coexpression",
+        "experimental",
+        "database",
+        "textmining",
+        "channel_combined_score",
+        "alias",
+        "source",
+        "protein_size"
+      ],
+      "note": "complex membership question \u2192 protein_master_table annotation: expand 'nuclear pore basket' \u2192 gene_symbol IN [NUP153, NUP50, TPR, NUP98]. Output annotation='requested'. Each nucleoporin's annotation confirms basket localisation. Do NOT use PPI tables."
+    },
+    {
+      "question": "List scaffold proteins of the ERK signaling pathway.",
+      "keep": [
+        "gene_symbol",
+        "annotation"
+      ],
+      "drop": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "neighborhood",
+        "fusion",
+        "cooccurence",
+        "coexpression",
+        "experimental",
+        "database",
+        "textmining",
+        "channel_combined_score",
+        "alias",
+        "source",
+        "protein_size"
+      ],
+      "note": "list of functional protein class \u2192 protein_master_table annotation: expand 'ERK scaffold' \u2192 gene_symbol IN [KSR1, KSR2, IQGAP1, SHOC2]. Output annotation='requested'. Annotation confirms scaffold role for each. Do NOT use PPI tables."
+    },
+    {
+      "question": "Is there any link between CTF4 and CTF18 during sister chromatid cohesion?",
+      "keep": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score"
+      ],
+      "drop": [
+        "gene_symbol",
+        "annotation",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "experimental",
+        "coexpression",
+        "channel_combined_score",
+        "alias",
+        "source",
+        "protein_size"
+      ],
+      "note": "yes/no question using yeast gene names CTF4 and CTF18 \u2192 resolve via gene_alias_map: CTF4\u2192WDHD1, CTF18\u2192CHTF18. Query ppi_association_string: association_gene_symbol=[CHTF18], association_partner_gene_symbol=[WDHD1], output association_score='requested'. CHTF18-WDHD1 have association score 967. Synthesizer must recognise WDHD1 as the human ortholog of CTF4 and confirm the link."
+    },
+    {
+      "question": "Do U6-associated proteins Lsm4 and Lsm6 interact with SMN?",
+      "keep": [
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score"
+      ],
+      "drop": [
+        "gene_symbol",
+        "annotation",
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "experimental",
+        "coexpression",
+        "channel_combined_score",
+        "alias",
+        "source"
+      ],
+      "note": "Three-entity functional interaction query (bare \"interact\" \u2014 no \"physically\") \u2192 ppi_association_string: association_gene_symbol (WHERE filter: [LSM4, LSM6]), association_partner_gene_symbol (WHERE filter: [SMN1]), association_score (output). NEVER select physical columns for bare \"interact\" \u2014 \"physically\" is required for ppi_physical."
+    },
+    {
+      "question": "Do the snRNA splicing proteins LSM1 and LSM3 physically interact in a complex?",
+      "keep": [
+        "physical_gene_symbol",
+        "physical_partner_gene_symbol",
+        "physical_score"
+      ],
+      "drop": [
+        "gene_symbol",
+        "annotation",
+        "association_gene_symbol",
+        "association_partner_gene_symbol",
+        "association_score",
+        "channel_gene_symbol",
+        "channel_partner_gene_symbol",
+        "experimental",
+        "coexpression",
+        "channel_combined_score",
+        "alias",
+        "source"
+      ],
+      "note": "Physical binding query (\"physically interact\") \u2192 ppi_physical_string: physical_gene_symbol (WHERE filter: [LSM1, LSM3]), physical_partner_gene_symbol (output), physical_score (output). Use ppi_physical ONLY when the user explicitly says \"physically\", \"direct interaction\", \"co-complex\", or \"structural\"."
+    }
+  ],
+  "_comment": "Schema rules for string. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/string/schema.yaml by scripts/gen_schema.py \u2014 DO NOT EDIT.",
+  "db_name": "string",
+  "db_display_name": "STRING",
+  "db_description": "STRING protein-protein association network \u2014 scored confidence interactions across seven evidence channels (physical binding, co-expression, text mining, curated databases, gene fusion, genomic neighbourhood, co-occurrence)",
+  "column_notes_override": {
+    "gene_symbol": "HGNC official symbol (protein_master_table only) \u2014 p53\u2192TP53",
+    "association_gene_symbol": "HGNC official symbol for the query side in ppi_association \u2014 p53\u2192TP53",
+    "association_score": "INTEGER 700\u2013999 in this snapshot (overall confidence across all channels). NOT a fraction.",
+    "physical_gene_symbol": "HGNC official symbol for the query side in ppi_physical \u2014 p53\u2192TP53",
+    "physical_score": "INTEGER 700\u2013999 in this snapshot (physical/binding evidence only). NOT a fraction.",
+    "channel_gene_symbol": "HGNC official symbol for the query side in ppi_detailed_channels \u2014 p53\u2192TP53",
+    "neighborhood": "INTEGER SCORE 0\u20131000 (NOT boolean). Set as 'requested' (output) when user asks about neighbourhood/genomic co-location scores.",
+    "fusion": "INTEGER SCORE 0\u20131000 (NOT boolean). Set as 'requested' (output) when user asks about gene-fusion evidence.",
+    "cooccurence": "IMPORTANT: spelled 'cooccurence' (single 'r') on disk \u2014 use this exact spelling in all filters",
+    "coexpression": "INTEGER SCORE 0\u20131000 (NOT boolean). Set as 'requested' (output) when user asks about co-expression evidence.",
+    "experimental": "INTEGER SCORE 0\u20131000 (NOT boolean). When user asks for 'experimental evidence' or 'experimental score', set experimental='requested' (SELECT output), not a filter value. Only set it as a filter if the user specifies a numeric threshold (e.g. 'experimental > 500').",
+    "database": "INTEGER SCORE 0\u20131000 (NOT boolean). Set as 'requested' (output) when user asks about curated-database evidence.",
+    "textmining": "INTEGER SCORE 0\u20131000 (NOT boolean). Set as 'requested' (output) when user asks about text-mining / literature evidence.",
+    "channel_combined_score": "INTEGER 700\u2013999 in this snapshot (overall combined confidence). NOT a fraction."
+  }
+}

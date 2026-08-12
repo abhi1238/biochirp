@@ -1,0 +1,12 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/orphanet/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "disease_master_table_orphanet": "disease_master_table_orphanet_v2.parquet",
+  "gene_master_table_orphanet": "gene_master_table_orphanet_v2.parquet",
+  "gene_disease_association_orphanet": "gene_disease_association_orphanet_v2.parquet",
+  "disease_phenotype_association_orphanet": "disease_phenotype_association_orphanet_v2.parquet",
+  "disease_xref_orphanet": "disease_xref_orphanet_v2.parquet",
+  "disease_epidemiology_orphanet": "disease_epidemiology_orphanet_v2.parquet",
+  "disease_onset_inheritance_orphanet": "disease_onset_inheritance_orphanet_v2.parquet",
+  "disease_natural_history_orphanet": "disease_natural_history_orphanet_v2.parquet",
+  "disease_classification_orphanet": "disease_classification_orphanet_v2.parquet"
+}

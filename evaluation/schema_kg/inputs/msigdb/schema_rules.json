@@ -1,0 +1,196 @@
+{
+  "_comment": "Schema rules for msigdb. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/msigdb/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "db_name": "msigdb",
+  "db_display_name": "MSigDB",
+  "db_description": "MSigDB (Molecular Signatures Database) — curated gene-set collection for gene set enrichment analysis (GSEA); covers gene–geneset membership across human, mouse, and rat; collections use friendly names (Hallmark, Positional, Curated, Regulatory, Computational, Ontology, Oncogenic, Immunologic, CellType, CellLineage) for both human and mouse sets — no legacy codes on disk",
+  "mandatory_entity_columns": {
+    "gene": [
+      "gene_symbol"
+    ],
+    "geneset": [
+      "geneset_name",
+      "geneset_id"
+    ]
+  },
+  "xref_id_columns": [
+    "geneset_id",
+    "pmid",
+    "geo_id",
+    "exact_source"
+  ],
+  "schema_grounding_notes": [
+    "geneset_name: MSigDB ALL-CAPS underscore-delimited names where the SOURCE DB/ontology is the PREFIX before the first underscore: HALLMARK_, GOBP_/GOMF_/GOCC_, REACTOME_, KEGG_ (KEGG_MEDICUS_*), BIOCARTA_, WP_, PID_, HP_, MIR_. Real examples: HALLMARK_APOPTOSIS, GOBP_RESPONSE_TO_X_RAY, REACTOME_ACTIVATION_OF_NMDA_RECEPTORS_AND_POSTSYNAPTIC_EVENTS, WP_GLYCOLYSIS_IN_SENESCENCE. Users may refer to these as 'gene set', 'signature', or 'pathway name'.",
+    "SOURCE-DB ROUTING (critical): KEGG, REACTOME, GO (GOBP/GOMF/GOCC), BIOCARTA, WikiPathways/WP, PID, Human Phenotype/HP, microRNA/MIR are NOT `collection` values. To answer 'KEGG pathways', 'all GO biological-process gene sets', 'REACTOME sets', 'WikiPathways', etc., filter geneset_name BY PREFIX (geneset_name LIKE 'KEGG_%' / 'GOBP_%' / 'REACTOME_%' / 'WP_%' …) on geneset_master_table_msigdb — no join needed. The precise form also lives in geneset_metadata_msigdb.sub_collection ('CP:KEGG_MEDICUS', 'CP:REACTOME', 'GO:BP', 'CP:BIOCARTA', 'CP:WIKIPATHWAYS'). NEVER map these source DBs to `collection`.",
+    "collection: friendly-name vocabulary only (Hallmark, Positional, Curated, Regulatory, Computational, Ontology, Oncogenic, Immunologic, CellType, CellLineage); the preprocess translates raw category codes to friendly names, so NO legacy codes (H, C1-C9, MH, M1-M8) appear on disk; both human and mouse sets use these names. NORMALIZED: collection lives ONLY in geneset_master_table_msigdb. For 'genes in Hallmark sets' or 'collection of geneset X', filter/read collection on geneset_master_table_msigdb and join the membership table (gene_geneset_association_msigdb) on geneset_id.",
+    "gene_symbol: Human gene sets use HGNC official symbols; mouse gene sets use MGI symbols (Title-Case, e.g. Myc, Egfr, Kras). Apply the organism filter ('Homo sapiens' or 'Mus musculus') when the user specifies human or mouse context.",
+    "gene_master_table_msigdb has NO geneset_id column — it is a flat gene catalog only. Use gene_geneset_association_msigdb to join genes to gene sets.",
+    "geneset_id is the true unique key; the same geneset_name may appear multiple times within an organism (876 cases: 869 Mus musculus M-prefix vs MM-prefix pairs, 5 Homo sapiens anomalous MM-prefix IDs, 2 Rattus norvegicus pairs). 5 Homo sapiens entries carry anomalous MM-prefix IDs (MM17, MM1334, MM1335, MM1336, MM1337) — upstream data anomaly. 2 Rattus norvegicus pairs: MA_RAT_AGING_DN (M46419/MM16097) and MA_RAT_AGING_UP (M46418/MM16096). Filter by geneset_id for unambiguous joins.",
+    "organism_taxon (on gene_master_table_msigdb and geneset_master_table_msigdb) is the denormalized NCBI Taxonomy id: Homo sapiens=9606, Mus musculus=10090, Rattus norvegicus=10116. It is NOT user-queryable — filter organism by geneset_organism (on geneset_master_table_msigdb) or gene_organism (on gene_master_table_msigdb) NAME ('Homo sapiens'/'Mus musculus'), not by the taxon number. The 3-row organism_master_table_msigdb_v2 is the canonical lookup but is not in the query planner.",
+    "gene_count is stored as a String in geneset_master_table_msigdb (observed numeric range 5–1998). Cast to integer before numeric comparison (e.g. gene_count > 100). Exactly 6 gene sets have a NULL gene_count (M40000, M41754, M41755, M41756, M45033, M45034) — they are zero-member sets (absent from gene_geneset_association_msigdb) and should be excluded when listing member genes.",
+    "url field in geneset_master_table_msigdb is null for ~21.4% of sets (11,237). Filter with col.is_not_null() before displaying as a link.",
+    "historical_name and tags columns in geneset_metadata_msigdb are 100% null/empty in the 2026.1 snapshot; do not query on them.",
+    "NORMALIZED membership: gene_geneset_association_msigdb is a FK-only edge [geneset_id, gene_id] — it does NOT store gene_symbol, collection, or organism. Member gene symbols join from gene_master_table_msigdb on gene_id (the composite '<gene_symbol>|<organism>' key, e.g. 'MYC|Homo sapiens' — unique so the join is 1:1; display gene_symbol, never gene_id); geneset_name/collection/organism/gene_count/url join from geneset_master_table_msigdb on geneset_id. Pattern: gene→geneset ('which sets contain TP53') = filter gene_master_table_msigdb.gene_symbol → association on gene_id → geneset_master on geneset_id; geneset→gene ('genes in HALLMARK_APOPTOSIS') = filter geneset_master_table_msigdb.geneset_name → association on geneset_id → gene_master on gene_id (output gene_symbol)."
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "geneset_id"
+      ],
+      "require_column": "geneset_name",
+      "require_behavior": "requested",
+      "reason": "geneset_id is an opaque internal identifier; geneset_name must always accompany geneset_id in output"
+    },
+    {
+      "trigger_columns": [
+        "gene_symbol"
+      ],
+      "require_column": "geneset_name",
+      "require_behavior": "requested",
+      "reason": "gene membership queries should always return the geneset_name alongside the gene_symbol"
+    },
+    {
+      "trigger_columns": [
+        "geneset_name"
+      ],
+      "require_column": "collection",
+      "require_behavior": "requested",
+      "reason": "geneset_name alone can be ambiguous across collections; always include collection for context"
+    }
+  ],
+  "collection_alias_map": {
+    "hallmark": "Hallmark",
+    "positional": "Positional",
+    "curated": "Curated",
+    "regulatory": "Regulatory",
+    "computational": "Computational",
+    "ontology": "Ontology",
+    "oncogenic": "Oncogenic",
+    "immunologic": "Immunologic",
+    "cell type": "CellType",
+    "celltype": "CellType",
+    "cell lineage": "CellLineage",
+    "celllineage": "CellLineage"
+  },
+  "enum_columns": {
+    "collection": [
+      "Hallmark",
+      "Positional",
+      "Curated",
+      "Regulatory",
+      "Computational",
+      "Ontology",
+      "Oncogenic",
+      "Immunologic",
+      "CellType",
+      "CellLineage"
+    ],
+    "geneset_organism": [
+      "Homo sapiens",
+      "Mus musculus",
+      "Rattus norvegicus"
+    ],
+    "gene_organism": [
+      "Homo sapiens",
+      "Mus musculus",
+      "Rattus norvegicus"
+    ]
+  },
+  "column_notes_override": {
+    "geneset_name": "MSigDB ALL-CAPS underscore-delimited signature name; source DB is the prefix (HALLMARK_, GOBP_, REACTOME_, KEGG_, WP_, BIOCARTA_, PID_, HP_, MIR_). Real examples: HALLMARK_APOPTOSIS, GOBP_RESPONSE_TO_X_RAY, REACTOME_TRANSPORT_OF_THE_SLBP_DEPENDANT_MATURE_MRNA. For source-DB queries filter by prefix LIKE. Primary user-facing identifier for gene sets.",
+    "collection": "Friendly-name values only (Hallmark, Curated, Ontology, …); legacy codes (H, C2, C5, …) do NOT appear on disk. Lives ONLY in geneset_master_table_msigdb (normalized) — join via geneset_id to filter membership by collection.",
+    "gene_count": "Stored as String; cast to integer before numeric filtering. Six sets have a null gene_count (zero members).",
+    "gene_symbol": "HGNC official symbol for human gene sets; MGI symbol for mouse gene sets. p53→TP53 for human queries."
+  },
+  "filter_few_shot_examples": [
+    {
+      "question": "What gene sets contain MYC?",
+      "keep": [
+        "gene_symbol",
+        "geneset_name",
+        "collection"
+      ],
+      "drop": [
+        "sub_collection",
+        "brief_description",
+        "full_description",
+        "gene_count",
+        "geneset_organism",
+        "pmid",
+        "geo_id"
+      ],
+      "note": "gene→geneset query: gene_symbol (WHERE filter on MYC), geneset_name (SELECT output), collection (co-output context). sub_collection and description columns are irrelevant — the user wants the set names and their collection category, not metadata or publication details."
+    },
+    {
+      "question": "What genes are in the HALLMARK_APOPTOSIS gene set?",
+      "keep": [
+        "geneset_name",
+        "gene_symbol"
+      ],
+      "drop": [
+        "collection",
+        "sub_collection",
+        "brief_description",
+        "full_description",
+        "gene_count",
+        "geneset_organism",
+        "pmid",
+        "geo_id"
+      ],
+      "note": "geneset→gene query: geneset_name (WHERE filter on HALLMARK_APOPTOSIS), gene_symbol (SELECT output). collection, description, and metadata columns are irrelevant — the user asks for member genes only, not set-level annotation."
+    },
+    {
+      "question": "What Hallmark gene sets contain TP53?",
+      "keep": [
+        "gene_symbol",
+        "geneset_name",
+        "collection"
+      ],
+      "drop": [
+        "sub_collection",
+        "brief_description",
+        "full_description",
+        "gene_count",
+        "geneset_organism",
+        "pmid",
+        "geo_id"
+      ],
+      "note": "collection-filtered gene→geneset query: gene_symbol (WHERE filter on TP53), collection (WHERE filter on 'Hallmark'), geneset_name (SELECT output). sub_collection and description columns are irrelevant — 'Hallmark' is a collection value, NOT a sub_collection; never route 'Hallmark' to sub_collection."
+    },
+    {
+      "question": "What does the HALLMARK_GLYCOLYSIS gene set represent?",
+      "keep": [
+        "geneset_name",
+        "brief_description",
+        "full_description",
+        "collection"
+      ],
+      "drop": [
+        "gene_symbol",
+        "sub_collection",
+        "gene_count",
+        "geneset_organism",
+        "pmid",
+        "geo_id"
+      ],
+      "note": "geneset description query: geneset_name (WHERE filter), brief_description + full_description (SELECT output), collection (co-output context). gene_symbol is irrelevant — the user asks what the set represents, not which genes are in it."
+    },
+    {
+      "question": "What KEGG pathways contain BRCA1?",
+      "keep": [
+        "gene_symbol",
+        "geneset_name",
+        "sub_collection"
+      ],
+      "drop": [
+        "collection",
+        "brief_description",
+        "full_description",
+        "gene_count",
+        "geneset_organism",
+        "pmid",
+        "geo_id"
+      ],
+      "note": "source-DB filtered gene→geneset query: gene_symbol (WHERE filter on BRCA1), geneset_name prefix LIKE 'KEGG_%' OR sub_collection LIKE 'CP:KEGG%' (WHERE filter for KEGG source), geneset_name (SELECT output), sub_collection (co-output discriminator). collection is irrelevant — KEGG is NOT a collection value; it is identified via geneset_name prefix or sub_collection. Never map 'KEGG / REACTOME / GO / WikiPathways' to collection."
+    }
+  ]
+}

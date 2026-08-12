@@ -1,0 +1,11 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/clinvar/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "variant_master_table_clinvar": "variant_master_table_clinvar_v2.parquet",
+  "gene_master_table_clinvar": "gene_master_table_clinvar_v2.parquet",
+  "variant_gene_association_clinvar": "variant_gene_association_clinvar_v2.parquet",
+  "variant_disease_association_clinvar": "variant_disease_association_clinvar_v2.parquet",
+  "variant_submission_clinvar": "variant_submission_clinvar_v2.parquet",
+  "variant_citation_clinvar": "variant_citation_clinvar_v2.parquet",
+  "variant_genomic_coords_clinvar": "variant_genomic_coords_clinvar_v2.parquet",
+  "disease_master_table_clinvar": "disease_master_table_clinvar_v2.parquet"
+}

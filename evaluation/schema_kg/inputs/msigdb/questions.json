@@ -1,0 +1,172 @@
+[
+  {
+    "label": "gene+geneset",
+    "question": "What gene sets contain MYC?",
+    "required": [
+      "gene_symbol",
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "gene+geneset",
+    "question": "Which MSigDB gene sets is EGFR a member of?",
+    "required": [
+      "gene_symbol",
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "gene+geneset",
+    "question": "What gene sets contain TP53?",
+    "required": [
+      "gene_symbol",
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "gene+geneset",
+    "question": "Which gene sets include KRAS?",
+    "required": [
+      "gene_symbol",
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "geneset_members",
+    "question": "Which genes are in HALLMARK_APOPTOSIS?",
+    "required": [
+      "geneset_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "geneset_members",
+    "question": "What genes are members of the HALLMARK_MYC_TARGETS_V1 gene set?",
+    "required": [
+      "geneset_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "geneset_members",
+    "question": "List all genes in the KEGG_CELL_CYCLE gene set",
+    "required": [
+      "geneset_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "collection_filter+gene",
+    "question": "What Hallmark gene sets does BRCA1 belong to?",
+    "required": [
+      "gene_symbol",
+      "geneset_name",
+      "collection"
+    ]
+  },
+  {
+    "label": "collection_filter+gene",
+    "question": "What Curated gene sets contain EGFR?",
+    "required": [
+      "gene_symbol",
+      "geneset_name",
+      "collection"
+    ]
+  },
+  {
+    "label": "collection_filter+gene",
+    "question": "Which Oncogenic gene sets include KRAS?",
+    "required": [
+      "gene_symbol",
+      "geneset_name",
+      "collection"
+    ]
+  },
+  {
+    "label": "collection_filter+gene",
+    "question": "What Immunologic gene sets is CD8A a member of?",
+    "required": [
+      "gene_symbol",
+      "geneset_name",
+      "collection"
+    ]
+  },
+  {
+    "label": "geneset_info",
+    "question": "What is the description and gene count of HALLMARK_APOPTOSIS?",
+    "required": [
+      "geneset_name",
+      "gene_count",
+      "brief_description"
+    ]
+  },
+  {
+    "label": "geneset_info",
+    "question": "What is the source publication for the REACTOME_CELL_CYCLE gene set?",
+    "required": [
+      "geneset_name",
+      "pmid"
+    ]
+  },
+  {
+    "label": "organism_filter",
+    "question": "What mouse Hallmark gene sets contain Myc?",
+    "required": [
+      "gene_symbol",
+      "geneset_name",
+      "geneset_organism"
+    ]
+  },
+  {
+    "label": "organism_filter",
+    "question": "Which human MSigDB gene sets does BRAF belong to?",
+    "required": [
+      "gene_symbol",
+      "geneset_name",
+      "geneset_organism"
+    ]
+  },
+  {
+    "label": "disease_concept_lookup",
+    "question": "Which gene sets in MSigDB are associated with systemic lupus erythematosus or SLE?",
+    "required": [
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "disease_concept_lookup",
+    "question": "What interferon gene signatures exist in MSigDB?",
+    "required": [
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "disease_concept_lookup",
+    "question": "Which MSigDB gene sets involve Notch signaling?",
+    "required": [
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "disease_concept_lookup",
+    "question": "What gene sets in MSigDB are related to cellular senescence?",
+    "required": [
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "disease_concept_lookup",
+    "question": "Which MSigDB gene sets relate to IRE1 or XBP1 unfolded protein response?",
+    "required": [
+      "geneset_name"
+    ]
+  },
+  {
+    "label": "disease_concept_lookup",
+    "question": "How many genes are in the MammaPrint breast cancer poor prognosis signature?",
+    "required": [
+      "geneset_name",
+      "gene_symbol"
+    ]
+  }
+]

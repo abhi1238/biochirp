@@ -1,0 +1,79 @@
+{
+  "ttd": {
+    "biomarker_disease_association_ttd": {
+      "biomarker_id": "FK to biomarker_master_table.biomarker_id",
+      "disease_id": "FK to disease_master_table.disease_id"
+    },
+    "biomarker_master_table_ttd": {
+      "biomarker_id": "internal TTD biomarker identifier — join key only",
+      "biomarker_name": "name of the biomarker associated with a disease, stored as a full protein descriptor with the symbol in parentheses; e.g. 'Erbb2 tyrosine kinase receptor (HER2)', 'GTPase KRas (KRAS)', 'Tyrosine-protein kinase Kit (SCFR)', 'Programmed cell death protein 1 (PD-1)'; used when asking for disease biomarkers"
+    },
+    "disease_master_table_ttd": {
+      "disease_id": "internal TTD disease identifier — join key only",
+      "disease_name": "name of the disease, medical condition, or therapeutic indication (TTD uses British spelling, e.g. 'leukaemia'); e.g. Non-small-cell lung cancer, Chronic myelogenous leukaemia, Type 2 diabetes mellitus, Breast cancer, Alzheimer disease, Hypertension"
+    },
+    "drug_crossmatching_association_ttd": {
+      "drug_id": "FK to drug_master_table.drug_id",
+      "formula": "molecular formula of the drug; e.g. C29H31N7O; used when asking for elemental composition",
+      "crossmatch_pubchem_cid": "PubChem compound identifier stored as a STRING of digits (not an integer); e.g. \"5291\" for imatinib; used when looking up PubChem CID — filter values must be quoted strings",
+      "pubchem_sid": "PubChem substance identifier — xref/join key",
+      "cas_number": "CAS Registry Number for the drug; 99.8% of values carry a literal 'CAS ' prefix on disk (e.g. \"CAS 152459-95-5\"); filter values MUST include the 'CAS ' prefix to match",
+      "chebi_xref": "ChEBI compound identifier cross-reference; e.g. CHEBI:45783; used when asking for ChEBI ID",
+      "superdrug_atc": "SuperDrug ATC code cross-reference — xref/join key",
+      "superdrug_cas": "SuperDrug CAS number cross-reference — xref/join key"
+    },
+    "drug_disease_association_ttd": {
+      "drug_id": "FK to drug_master_table.drug_id",
+      "disease_id": "FK to disease_master_table.disease_id",
+      "approval_status": "clinical approval or development stage of the drug for this indication; e.g. Approved, Phase 1, Phase 2, Phase 3, Investigative, Patented, Preclinical, Terminated, Discontinued in Phase 2, Withdrawn from market"
+    },
+    "drug_master_table_ttd": {
+      "drug_id": "internal TTD drug identifier (e.g. D0Y2ZZ) — join key only",
+      "drug_name": "name of the drug, compound, or therapeutic agent; e.g. imatinib, erlotinib, pembrolizumab, nivolumab, bevacizumab, gefitinib, cetuximab, trastuzumab"
+    },
+    "drug_synonyms_association_ttd": {
+      "drug_id": "FK to drug_master_table.drug_id",
+      "synonym": "alternate name, brand name, or trade name for the drug; e.g. Gleevec for imatinib, Herceptin for trastuzumab, Keytruda for pembrolizumab"
+    },
+    "drug_target_association_ttd": {
+      "target_id": "FK to target_master_table.target_id",
+      "drug_id": "FK to drug_master_table.drug_id",
+      "drug_mechanism_of_action_on_target": "mechanism by which the drug acts on its target; e.g. Inhibitor, Agonist, Antagonist, Blocker, Activator, Modulator, Binder; used when asking how a drug works or its mode of action (MoA). 2,251 of 45,234 rows (5.0%) have an empty-string MoA (no mechanism recorded) — these are valid drug-target links where the mechanism is unknown. Filter with != '' to restrict to named MoAs."
+    },
+    "pathway_master_table_ttd": {
+      "pathway_id": "internal TTD/KEGG pathway identifier — join key only",
+      "pathway_name": "name of the biological signaling or metabolic pathway; e.g. MAPK signaling pathway, PI3K-Akt signaling pathway, Apoptosis, Wnt signaling, mTOR signaling pathway"
+    },
+    "target_compound_activity_association_ttd": {
+      "target_id": "FK to target_master_table.target_id",
+      "drug_compound_id": "TTD drug ID (D-prefix) or raw compound ID (C-prefix) for the compound — internal xref key",
+      "compound_activity_pubchem_cid": "PubChem compound identifier for the tested compound — xref/join key",
+      "activity_raw": "raw activity value string as reported in the source literature, e.g. '0.5 nM', '10 uM' — internal provenance column",
+      "activity_type": "type of bioactivity measurement; exactly three values on disk: IC50, Ki, EC50 (Kd does not appear in TTD); used when asking for activity type",
+      "activity_operator": "relational operator on the activity value; e.g. =, <, >; internal precision qualifier",
+      "activity_value": "numeric bioactivity value (Float64 on disk); e.g. 0.5, 10, 100; used when filtering by potency or activity value",
+      "activity_unit": "unit of the bioactivity measurement; the only non-null value on disk is nM (all potency stored in nanomolar); used when filtering by unit or scale",
+      "compound_activity_gene_symbol": "HGNC gene symbol (denormalised) for the target — used for gene-level filtering without a join; multi-gene targets are stored as a single '; '-joined value (e.g. 'TNNI1; TNNI2; TNNI3')"
+    },
+    "target_disease_association_ttd": {
+      "target_id": "FK to target_master_table.target_id",
+      "disease_id": "FK to disease_master_table.disease_id"
+    },
+    "target_master_table_ttd": {
+      "target_id": "internal TTD target identifier (e.g. T47101) — join key only",
+      "target_name": "full name of the biological target (protein, receptor, enzyme, ion channel) INCLUDING the gene symbol in parentheses as stored on disk; e.g. Epidermal growth factor receptor (EGFR), Serine/threonine-protein kinase B-raf (BRAF), Programmed cell death protein 1 (PDCD1)",
+      "gene_symbol": "official HGNC gene symbol for the target; e.g. EGFR, BRAF, PDCD1, ABL1, KDR; root column for gene-level queries — multi-gene target complexes carry one row per constituent gene, so a single symbol resolves its target"
+    },
+    "target_pathway_association_ttd": {
+      "target_id": "FK to target_master_table.target_id",
+      "pathway_id": "FK to pathway_master_table.pathway_id"
+    },
+    "target_uniprot_association_ttd": {
+      "target_id": "FK to target_master_table.target_id",
+      "uniprot_xref": "UniProt entry name / mnemonic (NOT accession) cross-reference for the target; e.g. EGFR_HUMAN, BRAF_HUMAN, ABL1_HUMAN; multiple values are joined with '; '; used when asking for the UniProt entry name / protein identifier. 613 rows carry the sentinel value 'NOUNIPROTAC' indicating the target has no UniProt accession assigned. Filter with != 'NOUNIPROTAC' to restrict to real accessions.",
+      "target_type": "TTD target development class; exactly six long-form values: Successful target, Clinical trial target, Literature-reported target, Patented-recorded target, Discontinued target, Preclinical target; used when filtering by target development stage",
+      "uniprot_target_name": "target name (denormalised) — used to identify the target in UniProt context",
+      "uniprot_gene_symbol": "HGNC gene symbol (denormalised mirror) for the target — decoration column; multi-gene targets are stored as a single '; '-joined value; do not use as root for gene-symbol queries (prefer target_master_table)"
+    }
+  }
+}

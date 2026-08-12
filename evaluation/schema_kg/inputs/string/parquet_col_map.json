@@ -1,0 +1,28 @@
+{
+  "_comment": "Maps queryable.json logical field names → physical parquet column names for STRING. HAND-MAINTAINED — do not overwrite with gen_schema.py --write.",
+  "_renames": {
+    "protein_master_table_string": {
+      "string_id": "protein_id",
+      "_note": "Conditional rename: if disk column is already 'protein_id' (canonical v2 parquet), this is a no-op. Applied via database_loader.py line 49."
+    },
+    "protein_alias_string": {
+      "string_id": "protein_id",
+      "_note": "Same conditional rename as protein_master_table_string. Applied via database_loader.py line 70."
+    },
+    "ppi_association_string": {
+      "partner_protein_size": "association_partner_protein_size",
+      "_note": "partner_protein_size is injected by utils/partner_denorm.auto_add_partner_attributes(), then renamed to the table-prefixed name to avoid spurious FK cross-joins across the three PPI tables."
+    },
+    "ppi_physical_string": {
+      "partner_protein_size": "physical_partner_protein_size",
+      "_note": "Same partner_protein_size injection + table-prefixed rename as ppi_association_string."
+    },
+    "ppi_detailed_channels_string": {
+      "partner_protein_size": "channels_partner_protein_size",
+      "_note": "Same partner_protein_size injection + table-prefixed rename as ppi_association_string."
+    }
+  },
+  "_structural_transforms": {
+    "_normalize_ppi_v2": "All three PPI tables undergo bidirectional expansion: canonical undirected rows (A→B) are duplicated with protein_id↔protein_partner_id and gene_col↔partner_col swapped, so a single filter on the query-side gene column returns ALL partners. This is a row-duplication transform, not a column rename."
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "_comment": "Maps each queryable column to a concept type from the closed vocabulary (only queryable columns appear). GENERATED from dbs/hpo/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "hpo.gene_master_table_hpo.gene_symbol": "gene_symbol",
+  "hpo.disease_master_table_hpo.disease_name": "disease_name",
+  "hpo.phenotype_master_table_hpo.phenotype_name": "phenotype_name",
+  "hpo.phenotype_master_table_hpo.definition": "xref_id",
+  "hpo.gene_phenotype_association_hpo.gene_phenotype_frequency": "xref_id",
+  "hpo.phenotype_synonym_hpo.synonym": "phenotype_name",
+  "hpo.gene_disease_association_hpo.ncbi_gene_id": "gene_xref_id",
+  "hpo.gene_disease_association_hpo.association_type": "interaction_type",
+  "hpo.gene_disease_association_hpo.source": "xref_source",
+  "hpo.disease_phenotype_annotation_hpo.qualifier": "xref_id",
+  "hpo.disease_phenotype_annotation_hpo.reference": "pubmed_id",
+  "hpo.disease_phenotype_annotation_hpo.evidence": "xref_id",
+  "hpo.disease_phenotype_annotation_hpo.onset": "phenotype_name",
+  "hpo.disease_phenotype_annotation_hpo.disease_phenotype_frequency": "xref_id",
+  "hpo.disease_phenotype_annotation_hpo.sex": "xref_id",
+  "hpo.disease_phenotype_annotation_hpo.modifier": "phenotype_name",
+  "hpo.disease_phenotype_annotation_hpo.aspect": "xref_id"
+}

@@ -1,0 +1,91 @@
+{
+  "hcdt": {
+    "drug_master_table_hcdt": {
+      "drug_id": "internal HCDT drug identifier (PubChem CID) — join key only",
+      "drug_name": "name of the drug, compound, or medication; used to find which drug you are asking about — returns the drug's INN/trivial name or full IUPAC chemical name (e.g. Imatinib, Gefitinib, Erlotinib, Crizotinib); trade/brand names (Gleevec, Iressa, Tarceva, Herceptin) live in drug_synonyms, not here; the entry point when the user asks for a drug name or compound name",
+      "drug_synonyms": "alternate names, brand names, trade names, and synonyms for the drug; pipe-delimited multi-value string (e.g. 'Gleevec(TM)|STI571' for imatinib, 'Xalkori' for crizotinib); not ANN-indexed (queryable=false) — synonym matching is handled by the synonym expansion service, not by ANN routing on this column; use drug_synonyms_association_hcdt for exact synonym lookup",
+      "drug_mw": "molecular weight or molecular mass of the drug in Daltons; used when asking for molecular weight or mass; stored as STRING (dtype=object) — cast to float before numeric comparison; e.g. 493.6 Da",
+      "drug_formula": "chemical molecular formula of the drug, e.g. C29H31N7O; used when asking for formula or elemental composition",
+      "drug_inchi": "full InChI structural string for the chemical structure; used when asking for InChI, full structure string, or exact structural identifier",
+      "drug_smiles_iso": "isomeric SMILES structure of the drug preserving stereochemistry; used when asking for SMILES or SMILES structure without an explicit canonical qualifier — this is the default SMILES form",
+      "drug_smiles_canon": "canonical SMILES structure of the drug; used only when the user explicitly asks for canonical SMILES or canonicalized structure — not the default SMILES form",
+      "drug_inchikey": "InChIKey structural hash for the drug; used when asking for InChIKey or structure key; 27-character uppercase hash (e.g. AAKJLRGGTJKAMG-UHFFFAOYSA-N for erlotinib) identifying molecular structure — distinct from drug name; stored as string — literal 'NA' sentinel marks unknown (~6.5% of rows); filter out 'NA' before use",
+      "drug_iupac": "IUPAC systematic name or chemical name of the drug; used when asking for IUPAC name, systematic chemical name, or chemical nomenclature; gives the full standardised chemical name (e.g. 'N-(3-ethynylphenyl)-6,7-bis(2-methoxyethoxy)quinazolin-4-amine' for erlotinib) — distinct from the trivial drug name; stored as string — literal 'NA' sentinel marks unknown (~8.5% of rows); filter out 'NA' before use"
+    },
+    "drug_synonyms_association_hcdt": {
+      "drug_id": "HCDT drug identifier (PubChem CID) — FK to drug_master_table_hcdt.drug_id",
+      "synonym": "alternate name, brand name, or trade name for the drug; e.g. 'Gleevec(TM)' or 'STI571' for imatinib, 'Xalkori' for crizotinib; use for exact synonym-to-drug lookup to resolve a brand name to its canonical drug_id and drug_name"
+    },
+    "drug_gene_association_hcdt": {
+      "drug_id": "FK to drug_master_table.drug_id",
+      "gene_id": "FK to gene_master_table.gene_id — internal join key (= gene_symbol value); use gene_master_table for gene display name and xref IDs",
+      "datasource": "comma-and-space-delimited (`, `) list of source databases confirming this drug-gene pair (e.g. \"BindingDB, TTD\" or \"ChemBL, DGidb, DrugBank, TTD\") — source for computing source_count and ttd_confirmed at load time; not directly queryable",
+      "source_count": "number of distinct source databases confirming this drug-gene pair (computed at load time from datasource); use for ORDER BY source_count DESC to rank primary targets above resistance/transporter noise — not a user-facing output column",
+      "ttd_confirmed": "1 if TTD (Therapeutic Target Database) is among the datasources for this drug-gene pair else 0 (computed at load time); ORDER BY ttd_confirmed DESC first to surface curated primary targets — not a user-facing output column",
+      "drug_name": "denormalized drug name — join drug_master_table on drug_id for the canonical name",
+      "uniprot_id": "UniProt accession — denormalized from gene; join gene_master_table for canonical uniprot column",
+      "hgnc_id": "HGNC ID — denormalized; join gene_master_table for canonical hgnc column",
+      "ensembl_id": "Ensembl gene ID — denormalized; join gene_master_table for canonical ensembl column",
+      "entrez_id": "Entrez gene ID — denormalized; join gene_master_table for canonical entrez column"
+    },
+    "drug_disease_association_hcdt": {
+      "drug_id": "FK to drug_master_table.drug_id",
+      "disease_id": "FK to disease_master_table.disease_id"
+    },
+    "drug_pathway_association_hcdt": {
+      "drug_id": "FK to drug_master_table.drug_id",
+      "pathway_id": "FK to pathway_master_table.pathway_id"
+    },
+    "disease_master_table_hcdt": {
+      "disease_id": "internal HCDT disease identifier (derived as coalesce of MeSH D-code, NCI/UMLS C-code, icd11, disease_name — in that priority order) — 37.5% of rows (682 of 1,818) are D+digit MeSH descriptors (e.g. D009369); 1.1% (20 rows) use NCI/UMLS C-prefix codes (e.g. C536109); 0.3% (6 rows) use bare OMIM numeric IDs as PK; 61.1% (1,110 rows) fall back to disease_name as PK (no MeSH/NCI/ICD-11 available) — join key only; omim_xref is stored as output attribute only and is never used as the PK",
+      "disease_name": "name of the disease, condition, or indication that a drug treats; used when asking for disease name, condition, indication, or OMIM disease cross-reference — disease_name is the correct filter column even when the user asks for an OMIM ID (omim_xref is sparse and non-queryable; always filter on disease_name first); e.g. Non-small cell lung cancer, Chronic myeloid leukemia, Type 2 diabetes mellitus, Breast cancer, Hypertension, Acute myeloid leukemia, HIV infection, Tuberculosis (values are Title-Case as curated by HCDT — match case-insensitively)",
+      "icd11": "ICD-11 classification code for the disease or condition; output attribute only — not ANN-indexed (queryable=false); do not use as a filter column — use disease_name for disease lookups",
+      "omim_xref": "OMIM disease identifier cross-reference; output attribute only — not directly filterable due to sparsity (~12.4% of disease rows, 226 of 1,818 populated); unknown rows are stored as empty strings (not NULL) in the parquet; some cells carry SPACE-DELIMITED multi-value strings (e.g. '603933 612624 612634') — split on space before lookup; display value for OMIM ID e.g. 143100 (Huntington disease)"
+    },
+    "gene_master_table_hcdt": {
+      "gene_id": "PK of gene_master_table (= HGNC symbol value, e.g. EGFR, TP53); FK join key in drug_gene_association, drug_target_negative, and pathway_gene_association; not directly user-queryable — internal join key only; gene_symbol is the user-facing alias of gene_id. Explicit role:pk: gene_id is the sole _id PK; the 4 xref outputs use non-_id logical names (uniprot/hgnc/ensembl/entrez via parquet_name) so they stay exec-visible without tripping the single-pk-per-master rule (C1)",
+      "gene_symbol": "display alias for gene_id — same HGNC symbol value (e.g. EGFR, BRAF, TP53, KRAS, ABL1, PIK3CA, ERBB2); the user-facing filter and output column for gene queries — always filter on gene_symbol, not gene_id; exists in gene_master_table only (not in association tables); not directly queryable in association tables — join to gene_master_table on gene_id to retrieve gene_symbol",
+      "uniprot": "UniProt protein accession for the encoded protein product; e.g. P00533 for EGFR, P15056 for BRAF; used when asking for UniProt ID or protein accession number",
+      "hgnc": "HGNC identifier of the gene; e.g. HGNC:3236; used when asking for HGNC ID",
+      "ensembl": "Ensembl gene identifier; e.g. ENSG00000146648; used when asking for Ensembl ID",
+      "entrez": "NCBI Entrez gene ID — a numeric integer gene identifier (e.g. 1956 for EGFR, 7157 for TP53, 673 for BRAF); used when asking for Entrez ID, Entrez gene number, NCBI gene ID, or NCBI gene number — distinct from the Ensembl gene identifier and HGNC ID",
+      "gene_name": "full descriptive gene/protein name — verbose form of gene_symbol (e.g. \"Epidermal Growth Factor Receptor\" for EGFR); not ANN-indexed; use gene_symbol for filtering"
+    },
+    "pathway_master_table_hcdt": {
+      "pathway_id": "internal HCDT pathway identifier (derived as coalesce of Reactome R-HSA-/R-ALL- ID, kegg_hsa_xref, smpdb_xref, kegg_xref, pathway_name — in that priority order; Reactome source column is a temp variable dropped after coalescing and does not appear as a separate column in the final parquet) — ~79.2% of rows (1,667 of 2,106) are R-HSA-/R-ALL- prefixed Reactome IDs — join key only",
+      "pathway_name": "name of the biological signaling or metabolic pathway that a drug affects; e.g. Wnt signaling pathway, mTOR signaling pathway, NF-kappa B signaling pathway, Regulation of Apoptosis, PI3K Cascade; used when asking which pathway or signaling cascade",
+      "kegg_hsa_xref": "KEGG human pathway identifier cross-reference; e.g. hsa04514; direct column on pathway_master_table — also unpivoted into pathway_xref at load time as xref_id where xref_source='kegg_hsa'; not ANN-indexed (queryable=false); returned as co-output when pathway_name is queried with a KEGG cross-reference request",
+      "smpdb_xref": "Small Molecule Pathway Database identifier cross-reference; e.g. SMP0000563; direct column on pathway_master_table — also unpivoted into pathway_xref at load time as xref_id where xref_source='smpdb'; not ANN-indexed (queryable=false); returned as co-output when pathway_name is queried with an SMPDB cross-reference request",
+      "chebi_xref": "ChEBI compound identifier cross-reference for pathway; stored as bare numeric string (e.g. '64317', '16108') — NOT prefixed with 'CHEBI:'; populated for ~17.2% of pathway rows (363 of 2,106); unknown rows are stored as empty string (1,736 rows) — 7 rows hold the literal string 'NA' — filter on != '' AND != 'NA' before use; direct column on pathway_master_table — also unpivoted into pathway_xref at load time as xref_id where xref_source='chebi'; not ANN-indexed (queryable=false)",
+      "kegg_xref": "KEGG pathway identifier cross-reference (general, non-species-specific); e.g. map00190; distinct from kegg_hsa_xref (hsa-prefixed, species-specific); direct column on pathway_master_table — also unpivoted into pathway_xref at load time as xref_id where xref_source='kegg'; not ANN-indexed (queryable=false)"
+    },
+    "rna_master_table_hcdt": {
+      "rna_id": "RNA identifier (PK) — format depends on rna_type: MIMAT-prefixed for miRBase mature miRNA (e.g. MIMAT0000459), MI0-prefixed for miRBase precursor miRNA (e.g. MI0003144), ENSG-prefixed for lncRNA (e.g. ENSG00000260565), hsa_circ_* or hsa-circRNA-* pattern for circRNA (e.g. hsa_circ_0000199, hsa-circRNA-007874), 4-character lowercase PDB accession for RNA catch-all (e.g. 8g5z) — PK of rna_master_table; FK target for drug_rna_association.rna_id; not directly queryable — join key only",
+      "rna_name": "name or symbol of a specific RNA molecule that a drug interacts with or regulates; used when asking about drug effects on a named miRNA, lncRNA, circRNA, or non-coding RNA, or when the user gives the name or identifier of a specific RNA molecule (e.g. miR-21, miR-125a-5p for miRNA; HOTAIR, MALAT1 for lncRNA; circPVT1, hsa_circ_0000199, hsa_circ_0004015 for circRNA; 8g5z for RNA catch-all) — NAME/IDENTIFIER lookup column; for RNA class filtering (lncRNA vs miRNA vs circRNA) use rna_type instead",
+      "rna_type": "RNA class or category filter; used when filtering or grouping by RNA molecule class — enum, exactly one of: lncRNA, miRNA, RNA, circRNA (listed by frequency: lncRNA ~63%, miRNA ~36%, RNA <1%, circRNA <1%); use this when the user asks for an RNA class, RNA category, or RNA type filter — NOT for retrieving specific RNA molecule names or identifiers (use rna_name for that)"
+    },
+    "drug_rna_association_hcdt": {
+      "drug_id": "FK to drug_master_table.drug_id",
+      "rna_id": "FK to rna_master_table.rna_id",
+      "drug_name": "denormalized drug name — join drug_master_table on drug_id for the canonical name",
+      "datasource": "source database provenance for this drug-RNA association",
+      "rna_name": "denormalized RNA name — join rna_master_table on rna_id for the canonical name",
+      "rna_type": "RNA type classifier (lncRNA, miRNA, circRNA, etc.) — denormalized; join rna_master_table for the canonical rna_type column"
+    },
+    "drug_target_negative_hcdt": {
+      "drug_id": "PubChem CID compound identifier in the drug-target negative assay table — an IDENTIFIER column for looking up a specific compound by its PubChem CID number; used when the user asks to query or retrieve data for a compound BY PubChem CID; NOT a numeric affinity value (Ki, IC50, or Kd are separate columns); ~48% of rows are raw PubChem assay CIDs absent from drug_master but intentionally retained",
+      "gene_id": "FK to gene_master_table.gene_id — internal join key (= gene_symbol value); FK enforced at build time (87 unique orphan gene_id values, 568 FK rows dropped; 1 additional duplicate removed by dedup); not directly queryable; join to gene_master_table for gene display name and xref IDs",
+      "ki_nm": "Ki in nanomolar — numeric inhibition constant for a drug-target interaction; used when asking specifically for the Ki value or inhibition constant Ki in a drug-target assay (e.g. 0.5 nM) — NOT for gene or protein name lookup (use gene_symbol) and NOT the same as IC50 or Kd; stored as string, 'NA' where not measured; pipe-delimited when multiple measurements exist (e.g. '160000|158489.32') — split on '|' and drop NA tokens before numeric comparison",
+      "ic50_nm": "IC50 in nanomolar — concentration required to inhibit 50 percent of target activity; used when asking for IC50, half-maximal inhibitory concentration, or potency, e.g. 10 nM; stored as string, 'NA' where not measured; pipe-delimited when multiple measurements exist — split on '|' and drop NA tokens before numeric comparison",
+      "kd_nm": "dissociation constant Kd in nanomolar — equilibrium binding affinity; used when asking for Kd value, dissociation constant Kd, or binding affinity Kd, e.g. 1.2 nM — distinct from Ki (inhibition constant) and IC50; stored as string, 'NA' where not measured; pipe-delimited when multiple measurements exist — split on '|' and drop NA tokens before numeric comparison",
+      "drug_name": "denormalized drug name — join drug_master_table on drug_id for the canonical name",
+      "hgnc_id": "HGNC ID — denormalized from gene_master_table; join gene_master_table for canonical hgnc column",
+      "uniprot_id": "UniProt accession — denormalized from gene_master_table; join gene_master_table for canonical uniprot column"
+    },
+    "pathway_gene_association_hcdt": {
+      "gene_id": "FK to gene_master_table.gene_id — internal join key (= gene_symbol value); use gene_master_table for gene display name and xref IDs",
+      "pathway_id": "FK to pathway_master_table.pathway_id",
+      "pathway_name": "denormalized pathway name — join pathway_master_table on pathway_id for the canonical name"
+    }
+  }
+}

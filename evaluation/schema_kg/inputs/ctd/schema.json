@@ -1,0 +1,148 @@
+{
+  "ctd": {
+    "chemical_gene_association_ctd": {
+      "drug_id": "CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id",
+      "gene_id": "NCBI Entrez gene ID — FK to gene_master_table_ctd.gene_id",
+      "interaction_text": "free-text description of the gene interaction mechanism",
+      "chemical_gene_interaction_actions": "pipe-separated CTD action codes for the chemical-GENE interaction; e.g. increases^expression|decreases^activity. Search with LIKE '%expression%'.",
+      "pubmed_count": "number of distinct PubMed publications supporting this chemical-gene pair; computed at load time by collapsing multi-row pairs; use for evidence-strength ranking",
+      "gene_forms": "gene form involved in interaction (protein, mRNA, etc.)",
+      "chemical_gene_organism": "organism in which the interaction was observed; predominant value is 'Homo sapiens'; ~1.1% of collapsed pairs have NULL organism_id",
+      "chem_gene_pubmed_ids": "pipe-separated PubMed IDs supporting this interaction"
+    },
+    "gene_pathway_association_ctd": {
+      "gene_id": "FK to gene_master_table_ctd.gene_id",
+      "pathway_id": "FK to pathway_master_table_ctd.pathway_id"
+    },
+    "gene_disease_association_ctd": {
+      "gene_id": "NCBI Entrez gene ID — FK to gene_master_table_ctd.gene_id",
+      "disease_id": "CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id",
+      "gene_disease_direct_evidence": "type of curated direct evidence for the gene-disease link; observed values 'marker/mechanism' (31",
+      "evidence_rank": "integer encoding of gene_disease_direct_evidence (0=therapeutic",
+      "pubmed_count": "count of supporting PubMed IDs (study depth); computed at load time from gene_disease_pubmed_ids — higher = better-studied; used as a within-tier ORDER BY pubmed_count DESC sort key",
+      "omim_ids": "pipe-separated OMIM identifiers for the associated disease; e.g. '309610', '616469'; ~84.5% NULL (28,668 of 33,943 rows)",
+      "gene_disease_pubmed_ids": "pipe-separated PubMed IDs supporting the gene-disease association; ~13% of rows are NULL (4"
+    },
+    "chemical_disease_association_ctd": {
+      "drug_id": "CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id",
+      "disease_id": "CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id",
+      "chem_disease_direct_evidence": "type of curated direct evidence (e.g. marker/mechanism, therapeutic); null if only inferred",
+      "evidence_rank": "integer encoding of chem_disease_direct_evidence (0=therapeutic",
+      "pubmed_count": "count of supporting PubMed IDs (study depth); computed at load time from chem_disease_pubmed_ids — higher = better-studied; used as a within-tier ORDER BY pubmed_count DESC sort key",
+      "inference_gene": "gene symbol mediating the inferred chemical-disease association",
+      "inference_score": "confidence score for inferred associations; higher means stronger evidence",
+      "chem_disease_pubmed_ids": "pipe-separated PubMed IDs supporting the chemical-disease association"
+    },
+    "disease_pathway_association_ctd": {
+      "disease_id": "CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id",
+      "pathway_id": "KEGG or Reactome pathway identifier — FK to pathway_master_table_ctd.pathway_id",
+      "disease_pathway_inference_gene": "gene symbol whose participation in the pathway underlies this inferred disease-pathway link; e.g. HRAS, KRAS, VCP; not NULL"
+    },
+    "chemical_master_table_ctd": {
+      "drug_id": "CTD/MeSH chemical identifier — join key only",
+      "drug_name": "canonical name of the chemical or drug; e.g. Cisplatin, bisphenol A, irsogladine",
+      "cas_rn": "CAS Registry Number for the chemical; e.g. 15663-27-1 for cisplatin",
+      "pubchem_cid": "PubChem Compound ID cross-reference, bare digits with no 'CID:' prefix; e.g. 2244 for aspirin",
+      "inchikey": "InChIKey structural hash for the chemical; used for structure-based lookups",
+      "chemical_definition": "textual definition or description of the chemical from CTD"
+    },
+    "chemical_synonyms_association_ctd": {
+      "drug_id": "CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id",
+      "chemical_synonym": "alternate name or synonym for the chemical/drug; e.g. 'Gleevec' for imatinib, 'Aspirin' for acetylsalicylic acid; use for exact synonym lookup to resolve a synonym to its canonical drug_id and drug_name"
+    },
+    "gene_synonyms_association_ctd": {
+      "gene_id": "NCBI Entrez gene ID — FK to gene_master_table_ctd.gene_id",
+      "gene_synonym": "alternate symbol or alias for the gene; e.g. 'p53' for TP53, 'HER2' for ERBB2; use for exact alias lookup to resolve an alias to its canonical gene_id and gene_symbol"
+    },
+    "disease_synonyms_association_ctd": {
+      "disease_id": "CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id",
+      "disease_synonym": "alternate name or synonym for the disease; e.g. 'Hyperesthesia', 'Tactile Hyperesthesia'; use for exact synonym lookup to resolve a synonym to its canonical disease_id and disease_name"
+    },
+    "pathway_master_table_ctd": {
+      "pathway_id": "KEGG or Reactome pathway identifier — join key only",
+      "pathway_name": "name of the KEGG or Reactome biological pathway; e.g. MAPK signaling pathway, Apoptosis, Cell cycle"
+    },
+    "gene_master_table_ctd": {
+      "gene_id": "NCBI Entrez gene ID (numeric string, e.g. '3642', '10111') — join key only",
+      "gene_symbol": "official HGNC gene symbol; e.g. BRCA1, EGFR, TP53, TNF, VEGFA (CTD is multi-organism, so non-human/locus-style symbols also occur); 1 row NULL",
+      "gene_name": "full descriptive gene/protein name; e.g. 'Gamma-aminobutyric acid receptor subunit delta', 'tRNA-Arg'; ~0.4% of rows are NULL",
+      "uniprot_ids": "pipe-separated UniProt protein accessions for the gene's protein products; e.g. 'A0A075A1F1', 'A8X7P0'; ~55% of rows are NULL"
+    },
+    "disease_master_table_ctd": {
+      "disease_id": "CTD/MeSH disease identifier (e.g. MeSH D-code D003920) — join key only",
+      "disease_name": "canonical disease name from CTD; e.g. Carcinoma, Non-Small-Cell Lung; Diabetes Mellitus; Alzheimer Disease; Glomerulonephritis; Stroke",
+      "disease_definition": "free-text definition of the disease from CTD/MeSH; e.g. 'Infections with bacteria of the family MORAXELLACEAE.'; ~61% of rows are NULL",
+      "slim_mappings": "pipe-separated high-level CTD MEDIC disease-slim categories; e.g. 'Mental disorder|Metabolic disease|Nervous system disease'; near-complete (0.1% NULL)"
+    },
+    "chemical_pathway_enriched_ctd": {
+      "drug_id": "CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id",
+      "pathway_id": "pathway identifier — FK to pathway_master_table_ctd.pathway_id",
+      "p_value": "p-value for pathway enrichment by this chemical",
+      "corrected_p_value": "FDR-corrected p-value for the enrichment",
+      "target_match": "number of matching target genes in this pathway",
+      "target_total": "total number of genes in this pathway"
+    },
+    "chemical_phenotype_ixn_ctd": {
+      "drug_id": "CTD/MeSH chemical identifier — FK to chemical_master_table_ctd.drug_id",
+      "phenotype_id": "GO phenotype term ID — join key only",
+      "chemical_phenotype_organism_id": "NCBI taxonomy ID — join key only",
+      "chemical_phenotype_interaction_text": "free-text describing the chemical-phenotype interaction",
+      "interaction_actions": "pipe-separated CTD action codes for the chemical-PHENOTYPE interaction; e.g. increases^abnormal morphology. Distinct from chemical_gene_interaction_actions (chemical-gene). Search with LIKE '%<fragment>%'.",
+      "anatomy_terms": "pipe-joined anatomy terms in internal 'rank^name^MeSH_ID' format (e.g. '1^Lung^D008168|2^Cell Line, Tumor^D045744'); substring-match the name segment with ILIKE — do NOT expect bare names",
+      "inference_genes": "pipe-joined gene mediators in 'gene_symbol^entrez_id^GENE' format (e.g. 'KCNQ2^3785^GENE'); substring-match the symbol segment with ILIKE",
+      "chemical_phenotype_name": "name of the GO biological process phenotype; e.g. apoptotic process, cell population proliferation",
+      "co_mentioned_terms": "pipe-joined co-mentioned CTD terms in 'name^id^source' format (e.g. 'mancozeb^C013099^MESH'); substring-match the name segment with ILIKE",
+      "chemical_phenotype_organism": "organism in which the phenotype interaction was observed",
+      "chem_phenotype_pubmed_ids": "pipe-separated PubMed IDs supporting the interaction"
+    },
+    "exposure_studies_ctd": {
+      "study_reference": "PubMed ID of the source study publication (e.g. '31639604'); not NULL",
+      "study_factors": "free-text study design factors/covariates (e.g. 'tobacco', 'genetics'); ~66% NULL",
+      "exposure_stressors": "pipe-joined chemical stressors in 'name^id^source' format (e.g. 'Nitrates^D009566^MESH|perchlorate^C494474^MESH'); substring-match the name segment with ILIKE — do NOT expect bare names; not NULL",
+      "study_receptors": "study population type in internal '^^^^value' caret-padded format (e.g. '^^^^Study subjects', '^^^^Pregnant females'); substring-match the trailing value with ILIKE; ~5% NULL",
+      "exposure_study_countries": "country/countries where the study was conducted (e.g. 'United States', 'Norway'); ~0.2% NULL",
+      "mediums": "exposure media (e.g. 'urine', 'plasma', 'air', 'water'); ~19% NULL",
+      "exposure_markers": "pipe-joined biomarkers in 'name^id^source' format (e.g. 'perfluorohexanesulfonic acid^C...^MESH'); substring-match the name segment with ILIKE; ~14% NULL",
+      "diseases": "pipe-joined diseases in 'name^MeSH_ID^MESH' format (e.g. 'Obesity^D009765^MESH'); substring-match the name segment with ILIKE; ~54% NULL",
+      "phenotypes": "pipe-joined GO phenotypes in 'name^GO:ID^GO' format (e.g. 'methylation^GO:0032259^GO'); substring-match the name segment with ILIKE; ~71% NULL",
+      "author_summary": "free-text author-provided summary of the exposure study; not NULL"
+    },
+    "exposure_events_ctd": {
+      "stressor_name": "name of the chemical stressor/exposure agent; e.g. Manganese, 'Diethylhexyl Phthalate', Arsenic; not NULL",
+      "stressor_id": "CTD/MeSH stressor chemical identifier; e.g. C005563, D004051 — join key only",
+      "disease_id": "CTD/MeSH disease identifier for the measured chemical-exposure outcome — join key only; bare MeSH D-codes only (no OMIM); 0% NULL in the served v2 table (disease-bearing event subset). NOTE: this is the OUTCOME disease of a stressor→outcome event, NOT the study's disease scope",
+      "event_phenotype_name": "GO biological-process phenotype outcome; e.g. growth, 'DNA methylation on cytosine within a CG sequence'; ~98% NULL",
+      "phenotype_id": "GO term identifier for the phenotype outcome — join key only",
+      "phenotype_action_type": "action/direction qualifier for phenotype outcome; e.g. 'increases', 'decreases', 'affects'; ~98% NULL",
+      "exposure_marker": "biomarker chemical used to measure exposure; e.g. 'mono(2-ethyl-5-oxohexyl)phthalate', Manganese; ~63% NULL (4,757 of 7,534 rows)",
+      "exposure_marker_id": "CTD/MeSH identifier for the exposure biomarker — join key only",
+      "outcome_relationship": "direction of the exposure-outcome relationship; observed values: 'positive correlation', 'negative correlation', 'no correlation', 'prediction/hypothesis'; ~1% NULL",
+      "event_reference": "PubMed ID of the source publication; e.g. 32353757; not NULL",
+      "sex": "sex of the exposed study population; e.g. 'Both Males and Females', 'Females', 'Males'; ~18.6% NULL",
+      "age": "age value or range of the study cohort; e.g. '18-65', '6', '0-10'; ~40.6% NULL (3,056 of 7,534 rows)",
+      "age_units": "units for the age field; e.g. 'years', 'months', 'weeks'; ~40.6% NULL (3,056 of 7,534 rows)",
+      "race": "race/ethnicity of the study cohort; e.g. 'White', 'Black', 'Hispanic', 'Asian', 'Mixed'; ~75% NULL",
+      "smoking_status": "smoking status of the cohort; e.g. 'Nonsmokers', 'Smokers', 'Mixed'; ~71.8% NULL",
+      "medium": "biological/environmental matrix in which exposure was measured; e.g. urine, blood, air, water; ~65.3% NULL",
+      "event_study_countries": "country/countries where the exposure study was conducted; e.g. Germany, Denmark, 'United States'; ~1% NULL",
+      "anatomy": "anatomical site of the exposure effect; e.g. 'blood', 'liver', 'brain'; ~98.3% NULL",
+      "enrollment_start_year": "year enrollment in the study began; e.g. 2005; ~12.5% NULL",
+      "enrollment_end_year": "year enrollment in the study ended; e.g. 2012; ~12.5% NULL (943 of 7",
+      "stressor_source_category": "category of exposure source; e.g. 'industrial', 'dietary', 'occupational', 'environmental'; ~0.9% NULL",
+      "event_receptors": "study population type; e.g. 'General population', 'Children', 'Workers', 'Pregnant women'; ~2.1% NULL",
+      "age_qualifier": "statistical qualifier for the age value; e.g. 'minimum', 'maximum', 'mean', 'median', 'range'; ~45% NULL",
+      "detection_frequency": "proportion of samples in which the chemical was detected; numeric 0.0–1.0; ~97.3% NULL (7",
+      "marker_level": "measured level of the exposure biomarker; numeric; ~91% NULL",
+      "marker_units": "units for the marker_level value; e.g. 'ug/L', 'ng/mL', 'nmol/L'; ~91% NULL",
+      "marker_stat": "statistical summary type for marker_level; e.g. 'mean', 'median', 'geometric mean'; ~91% NULL"
+    },
+    "exposure_study_disease_association_ctd": {
+      "reference": "PubMed ID of the source exposure study — FK to exposure_studies_ctd.study_reference",
+      "disease_id": "CTD/MeSH disease identifier — FK to disease_master_table_ctd.disease_id"
+    },
+    "exposure_study_stressor_association_ctd": {
+      "reference": "PubMed ID of the source exposure study — FK to exposure_studies_ctd.study_reference",
+      "drug_id": "CTD/MeSH chemical identifier for the stressor — FK to chemical_master_table_ctd.drug_id"
+    }
+  }
+}

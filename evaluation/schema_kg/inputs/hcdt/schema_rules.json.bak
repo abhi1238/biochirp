@@ -1,0 +1,532 @@
+{
+  "_comment": "Schema rules for hcdt. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/hcdt/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "db_name": "hcdt",
+  "db_display_name": "HCDT",
+  "db_description": "High-Confidence Drug-Target database (HCDT) — drug/gene/disease/pathway/RNA associations with bioactivity data",
+  "_few_shot_comment": "Optional concrete few-shot examples injected into the mapper prompt. Absent → neutral DB-agnostic examples are used. parsed_value follows the filter=[value] / output='requested' / omit convention.",
+  "few_shot_examples": [
+    {
+      "question": "gefitinib IC50 against EGFR",
+      "parsed_value": {
+        "drug_name": [
+          "gefitinib"
+        ],
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "ic50_nm": "requested"
+      },
+      "note": "both entities explicit -> filters; the IC50 value is requested output; ki_nm/kd_nm OMITTED (not asked)"
+    },
+    {
+      "question": "which drugs treat Parkinson disease?",
+      "parsed_value": {
+        "disease_name": [
+          "Parkinson disease"
+        ],
+        "drug_name": "requested"
+      },
+      "note": "disease-indication query: disease_name is the filter; drug_name is the ONLY output. ki_nm/ic50_nm/kd_nm OMITTED (user did not ask for binding affinities). gene_symbol OMITTED (user did not ask for gene targets). drug_synonyms OMITTED (user did not ask for synonyms)."
+    },
+    {
+      "question": "what diseases are treated by gefitinib?",
+      "parsed_value": {
+        "drug_name": [
+          "gefitinib"
+        ],
+        "disease_name": "requested"
+      },
+      "note": "disease is the asked-for output, NOT a hallucinated filter value"
+    },
+    {
+      "question": "which lncRNAs are associated with imatinib?",
+      "parsed_value": {
+        "drug_name": [
+          "imatinib"
+        ],
+        "rna_type": [
+          "lncRNA"
+        ],
+        "rna_name": "requested"
+      },
+      "note": "rna_type extracted verbatim from the enum; rna_name is the requested output"
+    },
+    {
+      "question": "what are the protein targets of crizotinib?",
+      "parsed_value": {
+        "drug_name": [
+          "crizotinib"
+        ],
+        "gene_symbol": "requested"
+      },
+      "note": "drug-target query: drug_name is the filter, gene_symbol is the ONLY output. HCDT has no datasource column. disease_name OMITTED — diseases were not asked. pathway_name OMITTED. ic50_nm/ki_nm/kd_nm OMITTED (no affinity asked)."
+    },
+    {
+      "question": "which diseases are associated with BRAF?",
+      "parsed_value": {
+        "gene_symbol": [
+          "BRAF"
+        ],
+        "disease_name": "requested"
+      },
+      "note": "gene-disease query: gene_symbol is the filter, disease_name is the ONLY output. drug_name OMITTED — no drug was mentioned. pathway_name OMITTED. ic50_nm/ki_nm/kd_nm OMITTED."
+    },
+    {
+      "question": "which genes are associated with breast cancer?",
+      "parsed_value": {
+        "disease_name": [
+          "breast cancer"
+        ],
+        "gene_symbol": "requested"
+      },
+      "note": "disease-gene query: disease_name is the filter, gene_symbol is the ONLY output. drug_name OMITTED — no drug was mentioned."
+    },
+    {
+      "question": "which diseases are associated with TP53?",
+      "parsed_value": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "disease_name": "requested"
+      },
+      "note": "gene-disease query: gene_symbol is the filter, disease_name is the ONLY output. drug_name OMITTED even though TP53-targeting drugs exist — they were not asked for. pathway_name OMITTED."
+    },
+    {
+      "question": "which pathways is JAK2 involved in?",
+      "parsed_value": {
+        "gene_symbol": [
+          "JAK2"
+        ],
+        "pathway_name": "requested"
+      },
+      "note": "gene-pathway query: gene_symbol is the filter, pathway_name is the ONLY output. drug_name OMITTED — use pathway_gene_association, NOT drug_pathway_association. disease_name OMITTED."
+    },
+    {
+      "question": "which pathways does VEGFA participate in?",
+      "parsed_value": {
+        "gene_symbol": [
+          "VEGFA"
+        ],
+        "pathway_name": "requested"
+      },
+      "note": "gene-pathway query: pathway_name ONLY output. drug_name OMITTED — even though VEGFA is a major drug target, drug_name must NOT appear in gene-pathway results."
+    },
+    {
+      "question": "which genes are associated with type 2 diabetes?",
+      "parsed_value": {
+        "disease_name": [
+          "type 2 diabetes"
+        ],
+        "gene_symbol": "requested"
+      },
+      "note": "disease-gene query: gene_symbol ONLY output. drug_name OMITTED — join path passes through drug tables internally but drug_name is a join key, NOT output. pathway_name OMITTED."
+    }
+  ],
+  "_orchestrator_examples_comment": "Few-shot examples for the orchestrator (disagreement resolver). Show correct output when one mapper hallucinates extra columns the question never requested.",
+  "orchestrator_examples": [
+    {
+      "question": "which diseases are associated with BRAF?",
+      "mapper_1": {
+        "gene_symbol": [
+          "BRAF"
+        ],
+        "disease_name": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "BRAF"
+        ],
+        "disease_name": "requested",
+        "drug_name": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "BRAF"
+        ],
+        "disease_name": "requested"
+      },
+      "reasoning": "drug_name not in query — mapper_2 hallucinated it. Reject the extra column, use mapper_1."
+    },
+    {
+      "question": "which genes are associated with breast cancer?",
+      "mapper_1": {
+        "disease_name": [
+          "breast cancer"
+        ],
+        "gene_symbol": "requested"
+      },
+      "mapper_2": {
+        "disease_name": [
+          "breast cancer"
+        ],
+        "gene_symbol": "requested",
+        "drug_name": "requested"
+      },
+      "correct": {
+        "disease_name": [
+          "breast cancer"
+        ],
+        "gene_symbol": "requested"
+      },
+      "reasoning": "No drug mentioned. drug_name is a hallucinated co-output — omit it."
+    },
+    {
+      "question": "which pathways does MTOR participate in?",
+      "mapper_1": {
+        "gene_symbol": [
+          "MTOR"
+        ],
+        "pathway_name": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "MTOR"
+        ],
+        "drug_name": "requested",
+        "pathway_name": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "MTOR"
+        ],
+        "pathway_name": "requested"
+      },
+      "reasoning": "Gene-pathway query. MTOR is a heavily-drugged target but the user asked for pathways. drug_name hallucinated by mapper_2 — pathway_gene_association is the correct table, drug_name must not appear."
+    },
+    {
+      "question": "which genes are associated with type 2 diabetes?",
+      "mapper_1": {
+        "disease_name": [
+          "type 2 diabetes"
+        ],
+        "gene_symbol": "requested"
+      },
+      "mapper_2": {
+        "disease_name": [
+          "type 2 diabetes"
+        ],
+        "gene_symbol": "requested",
+        "drug_name": "requested"
+      },
+      "correct": {
+        "disease_name": [
+          "type 2 diabetes"
+        ],
+        "gene_symbol": "requested"
+      },
+      "reasoning": "Disease-gene query. Many diabetes drugs exist but user asked for genes only. drug_name is a join-key intermediate only — it must NOT appear as output. Reject mapper_2."
+    },
+    {
+      "question": "what drugs target EGFR and what are their IC50 values?",
+      "mapper_1": {
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "drug_name": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "drug_name": "requested",
+        "ic50_nm": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "drug_name": "requested",
+        "ic50_nm": "requested"
+      },
+      "reasoning": "ic50 explicitly in query — mapper_2 is correct, keep ic50_nm."
+    }
+  ],
+  "mandatory_entity_columns": {
+    "drug": [
+      "drug_name"
+    ],
+    "disease": [
+      "disease_name"
+    ],
+    "gene": [
+      "gene_symbol"
+    ],
+    "pathway": [
+      "pathway_name"
+    ],
+    "rna": [
+      "rna_name"
+    ]
+  },
+  "xref_id_columns": [
+    "omim_xref",
+    "icd11",
+    "hgnc_id",
+    "uniprot_id",
+    "ensembl_id",
+    "entrez_id",
+    "kegg_hsa_xref",
+    "smpdb_xref",
+    "chebi_xref",
+    "kegg_xref",
+    "xref_id"
+  ],
+  "gene_xref_id_columns": [
+    "uniprot_id",
+    "hgnc_id",
+    "ensembl_id",
+    "entrez_id"
+  ],
+  "disease_xref_id_columns": [
+    "omim_xref",
+    "icd11"
+  ],
+  "paired_enum_columns": [
+    {
+      "name_col": "rna_name",
+      "type_col": "rna_type",
+      "verbatim_extraction": true
+    }
+  ],
+  "schema_grounding_notes": [
+    "pathway vs disease MUTUAL EXCLUSION: pathway_name and disease_name must NEVER both be 'requested' in the same parsed_value — they are separate relationships via separate tables. If the query asks for pathways → pathway_name: 'requested', omit disease_name entirely. If the query asks for diseases → disease_name: 'requested', omit pathway_name entirely. Mixing both causes a cross-join explosion. The words 'pathway', 'pathways', 'signaling', 'KEGG', 'gene set', 'biological process' → pathway_name. The words 'disease', 'diseases', 'indication', 'disorder', 'condition', 'treat', 'therapy' → disease_name.",
+    "ki_nm / ic50_nm / kd_nm (binding affinity columns) belong ONLY to explicit binding-potency questions where the user says 'Ki', 'IC50', 'Kd', 'affinity', or 'potency'. NEVER include them for disease-indication queries ('which drugs treat X?') or general drug-target queries ('which drugs target EGFR?') — those use drug_disease_association or drug_gene_association WITHOUT drug_target_negative. drug_gene_association and drug_target_negative are MUTUALLY EXCLUSIVE in the same parsed_value.",
+    "gene_symbol: use HGNC official symbol only. Apply these common aliases: PD-1→PDCD1, PD-L1→CD274, p53→TP53. Never emit an alias or synonym as the gene_symbol filter value.",
+    "drug CLASS queries (TKI, kinase inhibitor, checkpoint inhibitor, CDK inhibitor, mAb, etc.): HCDT has no mechanism-of-action column. Rule: (a) the class term itself (e.g. 'TKI', 'kinase inhibitor') is NOT a valid drug_name filter — omit it; (b) emit drug_name: 'requested' as output; (c) if the query ALSO names a specific gene/target (e.g. 'Which kinase inhibitors target EGFR?'), KEEP gene_symbol: ['EGFR'] as a filter — the gene filter is valid even though the class term is not. Example CORRECT: q='Which CDK inhibitors target CDK4?' → {gene_symbol: ['CDK4'], drug_name: 'requested'}. Example WRONG: {drug_name: ['CDK inhibitor'], gene_symbol: ['CDK4']} — class term as drug filter is invalid.",
+    "brand/trade name lookup (Glivec→imatinib, Herceptin→trastuzumab, Keytruda→pembrolizumab, Avastin→bevacizumab, etc.) is resolved via trade_name_map → drug_name before querying; emit the INN name as the filter, not the brand name.",
+    "drug_name FORBIDDEN as output in disease-gene and gene-pathway queries: if the query asks ONLY for (gene + disease) or ONLY (gene + pathway), drug_name must be ABSENT from parsed_value — it is a join-key intermediate, never an output. Correct: {disease_name: ['X'], gene_symbol: 'requested'}. Wrong: {disease_name: ['X'], gene_symbol: 'requested', drug_name: 'requested'}."
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "drug_smiles_iso",
+        "drug_smiles_canon",
+        "drug_inchi",
+        "drug_inchikey",
+        "drug_formula",
+        "drug_iupac"
+      ],
+      "require_columns": [
+        "drug_name"
+      ],
+      "require_behavior": "requested",
+      "reason": "structural properties are not interpretable without a drug name"
+    },
+    {
+      "trigger_columns": [
+        "rna_name"
+      ],
+      "require_columns": [
+        "rna_type"
+      ],
+      "require_behavior": "infer_from_question",
+      "trigger_keywords": [
+        "lncRNA",
+        "miRNA",
+        "circRNA",
+        "microRNA",
+        "circular RNA",
+        "circular rna",
+        "non-coding",
+        "noncoding",
+        "long non-coding"
+      ],
+      "reason": "RNA type filter (lncRNA/miRNA/circRNA/RNA) is only relevant when the user's question specifies an RNA class"
+    },
+    {
+      "trigger_columns": [
+        "drug_name"
+      ],
+      "require_columns": [
+        "synonym"
+      ],
+      "require_behavior": "infer_from_question",
+      "trigger_keywords": [
+        "synonym",
+        "synonyms",
+        "also known as",
+        "alias",
+        "brand name",
+        "brand names",
+        "trade name",
+        "trade names",
+        "alternative name",
+        "alternate name"
+      ],
+      "reason": "synonym column from drug_synonyms_association_hcdt surfaces alongside drug_name when user asks for synonyms or trade names"
+    },
+    {
+      "trigger_columns": [
+        "gene_symbol"
+      ],
+      "require_columns": [
+        "uniprot_id",
+        "hgnc_id",
+        "ensembl_id",
+        "entrez_id"
+      ],
+      "require_behavior": "infer_from_question",
+      "trigger_keywords": [
+        "uniprot",
+        "hgnc",
+        "ensembl",
+        "entrez",
+        "identifier",
+        "accession",
+        "gene id",
+        "xref",
+        "cross-reference",
+        "cross reference"
+      ],
+      "reason": "gene xref IDs surface alongside gene_symbol only when user asks for identifiers"
+    },
+    {
+      "trigger_columns": [
+        "disease_name"
+      ],
+      "require_columns": [
+        "omim_xref",
+        "icd11"
+      ],
+      "require_behavior": "infer_from_question",
+      "trigger_keywords": [
+        "omim",
+        "icd",
+        "icd11",
+        "icd-11",
+        "code",
+        "identifier",
+        "disease id",
+        "xref",
+        "cross-reference",
+        "cross reference"
+      ],
+      "reason": "disease xref IDs surface alongside disease_name only when user explicitly requests a cross-reference code"
+    },
+    {
+      "trigger_columns": [
+        "pathway_name"
+      ],
+      "require_columns": [
+        "kegg_hsa_xref",
+        "smpdb_xref",
+        "chebi_xref",
+        "kegg_xref",
+        "xref_source",
+        "xref_id"
+      ],
+      "require_behavior": "infer_from_question",
+      "trigger_keywords": [
+        "kegg",
+        "smpdb",
+        "chebi",
+        "xref",
+        "identifier",
+        "pathway id",
+        "cross-reference",
+        "cross reference",
+        "external id"
+      ],
+      "reason": "pathway xref IDs surface alongside pathway_name only when user requests an external pathway identifier (KEGG, SMPDB, ChEBI, or general xref)"
+    },
+    {
+      "trigger_columns": [
+        "drug_name",
+        "gene_symbol"
+      ],
+      "require_columns": [
+        "ki_nm",
+        "ic50_nm",
+        "kd_nm"
+      ],
+      "require_behavior": "infer_from_question",
+      "trigger_keywords": [
+        "ki",
+        "ic50",
+        "kd",
+        "potency",
+        "affinity",
+        "binding constant",
+        "inhibition constant",
+        "dissociation constant",
+        "binding affinity",
+        "binding potency"
+      ],
+      "reason": "binding affinity values (ki_nm, ic50_nm, kd_nm) exist ONLY in drug_target_negative — not in drug_gene_association; surface only when user asks about potency, affinity, Ki, IC50, or Kd"
+    },
+    {
+      "trigger_columns": [
+        "omim_xref",
+        "icd11"
+      ],
+      "require_columns": [
+        "disease_name"
+      ],
+      "require_behavior": "requested",
+      "reason": "disease cross-reference IDs (OMIM, ICD-11) are not interpretable without the accompanying disease_name"
+    },
+    {
+      "trigger_columns": [
+        "kegg_hsa_xref",
+        "kegg_xref",
+        "smpdb_xref",
+        "chebi_xref",
+        "xref_id",
+        "xref_source"
+      ],
+      "require_columns": [
+        "pathway_name"
+      ],
+      "require_behavior": "requested",
+      "reason": "pathway cross-reference IDs are not interpretable without the accompanying pathway_name"
+    }
+  ],
+  "expander_clean_query_examples": [
+    "ROLE RULE: 'Which drugs treat X?' → X is [disease_name:filter], drugs is [drug_name:output]. 'Which diseases are treated by Y?' → Y is [drug_name:filter], diseases is [disease_name:output].",
+    "Which [drug_name:output] treat Alzheimer disease [disease_name:filter]?",
+    "Which [drug_name:output] treat AD [disease_name:filter]?",
+    "Which [drug_name:output] are used for Parkinson disease [disease_name:filter]?",
+    "Which [drug_name:output] are used for PD [disease_name:filter]?",
+    "Which [drug_name:output] target EGFR [gene_symbol:filter]?",
+    "Which [gene_symbol:output] are associated with breast cancer [disease_name:filter]?",
+    "Which [disease_name:output] are treated by imatinib [drug_name:filter]?"
+  ],
+  "abbreviation_map": {
+    "AD": "Alzheimer disease",
+    "CML": "chronic myeloid leukemia",
+    "AML": "acute myeloid leukemia",
+    "CLL": "chronic lymphocytic leukemia",
+    "GBM": "glioblastoma multiforme",
+    "TNBC": "triple-negative breast cancer",
+    "RCC": "renal cell carcinoma",
+    "HCC": "hepatocellular carcinoma",
+    "MDS": "myelodysplastic syndrome"
+  },
+  "class_entity_rules": [
+    "\"TKI\" expands to \"tyrosine kinase inhibitor\" — do NOT replace with a specific drug like imatinib",
+    "\"checkpoint inhibitor\" stays as-is — do NOT replace with pembrolizumab or nivolumab",
+    "\"mAb\" expands to \"monoclonal antibody\" — do NOT replace with a specific antibody"
+  ],
+  "class_column": "drug_name",
+  "pathway_alias_map": {
+    "MAPK": "MAPK signaling pathway",
+    "PI3K/AKT": "PI3K-Akt signaling pathway",
+    "NF-kB": "NF-kappa B signaling pathway",
+    "Wnt": "Wnt signaling pathway",
+    "mTOR pathway": "mTOR signaling pathway",
+    "JAK-STAT": "JAK-STAT signaling pathway"
+  },
+  "enum_columns": {
+    "rna_type": [
+      "lncRNA",
+      "miRNA",
+      "RNA",
+      "circRNA"
+    ]
+  },
+  "column_notes_override": {
+    "drug_mw": "molecular weight in Daltons — stored as STRING (dtype=object); cast to float before numeric comparison; range approximately 1.01–8272 Da; use numeric comparators (greater than, less than, between) after casting, not string matching",
+    "gene_symbol": "HGNC official symbol — map aliases before filtering: PD-1→PDCD1, PD-L1→CD274, p53→TP53",
+    "rna_type": "enum — MUST be one of: lncRNA | miRNA | RNA | circRNA (not 'microRNA', 'snoRNA', 'siRNA', 'long non-coding RNA')"
+  }
+}

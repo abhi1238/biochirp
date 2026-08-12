@@ -1,0 +1,99 @@
+[
+  {
+    "label": "gene+pathway",
+    "question": "which pathways involve EGFR?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "which pathways involve MYC?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "which pathways involve BRAF?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "which pathways involve TP53?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "what biological processes include TP53?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "what biological processes include MYC?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "what biological processes include EGFR?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "gene+pathway",
+    "question": "what biological processes include BRAF?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "pathway_membership",
+    "question": "Which pathways does EGFR participate in?",
+    "required": [
+      "gene_symbol",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "hierarchy",
+    "question": "What are sub-pathways of Apoptosis?",
+    "required": [
+      "parent_pathway_name",
+      "child_pathway_name"
+    ]
+  },
+  {
+    "label": "chebi_pathway",
+    "question": "Which chemicals are involved in the TCA cycle?",
+    "required": [
+      "chebi_id",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "evidence_filter",
+    "question": "Which pathways is TP53 annotated to with TAS evidence?",
+    "required": [
+      "gene_symbol",
+      "pathway_name",
+      "gene_pathway_evidence"
+    ]
+  }
+]

@@ -1,0 +1,396 @@
+[
+  {
+    "label": "chemical+gene",
+    "question": "what genes does arsenic interact with?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "what genes does cadmium upregulate?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "chemical_gene_interaction_actions"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "which genes does TCDD interact with in humans?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "what is the effect of bisphenol A on AHR expression?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "chemical_gene_interaction_actions"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "which genes does mercury decrease the activity of?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "chemical_gene_interaction_actions"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "what genes does benzene affect?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "which genes does aflatoxin B1 interact with?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "what genes does lead interact with?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "which genes does formaldehyde increase the expression of?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "chemical_gene_interaction_actions"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "what genes does paraquat interact with?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "which genes does acrylamide interact with?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "chemical+gene",
+    "question": "what genes does sodium arsenite affect?",
+    "required": [
+      "drug_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "what diseases are linked to bisphenol A?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "what cancers are associated with benzene exposure?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "which diseases are associated with arsenic exposure?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "what diseases does cadmium cause?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "which neurological diseases are associated with mercury?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "what diseases are linked to TCDD exposure?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "which diseases are associated with polychlorinated biphenyls?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "what liver diseases are associated with aflatoxin B1?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "what diseases does lead exposure cause?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "which diseases are linked to vinyl chloride exposure?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "what diseases are associated with toluene exposure?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+disease",
+    "question": "which diseases are associated with methylmercury?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+chemical",
+    "question": "what chemicals interact with TP53?",
+    "required": [
+      "gene_symbol",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+chemical",
+    "question": "which chemicals upregulate SOD1?",
+    "required": [
+      "gene_symbol",
+      "drug_name",
+      "chemical_gene_interaction_actions"
+    ]
+  },
+  {
+    "label": "gene+chemical",
+    "question": "what chemicals interact with AHR?",
+    "required": [
+      "gene_symbol",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+chemical",
+    "question": "which chemicals increase the expression of CYP1A1?",
+    "required": [
+      "gene_symbol",
+      "drug_name",
+      "chemical_gene_interaction_actions"
+    ]
+  },
+  {
+    "label": "gene+chemical",
+    "question": "what chemicals affect HMOX1?",
+    "required": [
+      "gene_symbol",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+chemical",
+    "question": "which chemicals interact with NFE2L2?",
+    "required": [
+      "gene_symbol",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+chemical",
+    "question": "what chemicals interact with TNF?",
+    "required": [
+      "gene_symbol",
+      "drug_name"
+    ]
+  },
+  {
+    "label": "gene+chemical",
+    "question": "which chemicals decrease the activity of CASP3?",
+    "required": [
+      "gene_symbol",
+      "drug_name",
+      "chemical_gene_interaction_actions"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with TREM2?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which diseases involve AHR?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with NFE2L2?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which diseases are linked to HMOX1?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with IL6?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which diseases involve BRCA1?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+pathway",
+    "question": "what pathways does mercury affect?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "chemical+pathway",
+    "question": "what pathways does TCDD disrupt?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "chemical+pathway",
+    "question": "which biological pathways are enriched for arsenic?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "chemical+pathway",
+    "question": "what signaling pathways does cadmium affect?",
+    "required": [
+      "drug_name",
+      "pathway_name"
+    ]
+  },
+  {
+    "label": "exposure+study",
+    "question": "what exposure studies involve arsenic?",
+    "required": [
+      "exposure_stressors",
+      "study_receptors"
+    ]
+  },
+  {
+    "label": "exposure+study",
+    "question": "what organism exposures involve cadmium and are linked to kidney disease?",
+    "required": [
+      "exposure_stressors",
+      "diseases"
+    ]
+  },
+  {
+    "label": "exposure+events",
+    "question": "what diseases have a positive correlation with arsenic exposure in children?",
+    "required": [
+      "stressor_name",
+      "disease_name",
+      "outcome_relationship"
+    ]
+  },
+  {
+    "label": "chemical+disease+gene",
+    "question": "what chemicals cause both cancer and neurological disease?",
+    "required": [
+      "drug_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+gene+disease",
+    "question": "what chemicals interact with TP53 and are associated with lung cancer?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "chemical+gene+pathway",
+    "question": "what chemicals affect CYP1A1 and which pathways does CYP1A1 belong to?",
+    "required": [
+      "drug_name",
+      "gene_symbol",
+      "pathway_name"
+    ]
+  }
+]

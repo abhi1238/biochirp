@@ -1,0 +1,428 @@
+[
+  {
+    "label": "find_interactors",
+    "question": "What proteins interact with EGFR in STRING?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors",
+    "question": "List all known protein interaction partners of TP53.",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors",
+    "question": "Which proteins interact with BRCA1 according to STRING?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "high_confidence_interactions",
+    "question": "Show me high-confidence interactions (score above 900) for KRAS.",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "high_confidence_interactions",
+    "question": "What are the highest confidence STRING interactions for MYC (combined score >= 900)?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "high_confidence_interactions",
+    "question": "Find interaction partners of PIK3CA with a combined score above 900.",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "physical_interactions",
+    "question": "What are the physical binding partners of EGFR in STRING?",
+    "required": [
+      "gene_symbol",
+      "physical_score"
+    ]
+  },
+  {
+    "label": "physical_interactions",
+    "question": "Show physical protein-protein interactions for AKT1.",
+    "required": [
+      "gene_symbol",
+      "physical_score"
+    ]
+  },
+  {
+    "label": "physical_interactions",
+    "question": "Which proteins physically bind to ERBB2 based on STRING physical interaction data?",
+    "required": [
+      "gene_symbol",
+      "physical_score"
+    ]
+  },
+  {
+    "label": "experimental_evidence",
+    "question": "Find interaction partners of TNF supported by experimental evidence in STRING.",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "experimental_evidence",
+    "question": "Which proteins interact with MTOR with high experimental score in STRING?",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "coexpression_channel",
+    "question": "What proteins are co-expressed with VEGFA according to STRING?",
+    "required": [
+      "gene_symbol",
+      "coexpression",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "coexpression_channel",
+    "question": "List interaction partners of CDK4 with a high co-expression score.",
+    "required": [
+      "gene_symbol",
+      "coexpression",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "database_channel",
+    "question": "Which proteins interact with PTEN based on curated database evidence in STRING?",
+    "required": [
+      "gene_symbol",
+      "database",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "textmining_channel",
+    "question": "Find proteins that co-mention with RB1 in PubMed literature according to STRING text-mining scores.",
+    "required": [
+      "gene_symbol",
+      "textmining",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "interaction_between_two_genes",
+    "question": "Does EGFR interact with ERBB2 in STRING, and what is their combined score?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "interaction_between_two_genes",
+    "question": "What is the STRING interaction score between TP53 and MDM2?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "interaction_between_two_genes",
+    "question": "Is there a STRING interaction between MYC and CDK2, and what evidence channels support it?",
+    "required": [
+      "gene_symbol",
+      "channel_combined_score",
+      "experimental",
+      "database",
+      "textmining"
+    ]
+  },
+  {
+    "label": "top_interactors",
+    "question": "What are the top 10 interaction partners of KRAS ranked by combined score in STRING?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "top_interactors",
+    "question": "Give me the top interactors of BCL2 by STRING confidence score.",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "multi_channel_evidence",
+    "question": "Show all per-channel scores (experimental, database, coexpression, textmining) for the interactions of TP63.",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "database",
+      "coexpression",
+      "textmining",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "multi_channel_evidence",
+    "question": "What are the neighborhood and fusion scores for BRCA1 interaction partners in STRING?",
+    "required": [
+      "gene_symbol",
+      "neighborhood",
+      "fusion",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "cooccurence_channel",
+    "question": "Which proteins show high phylogenetic co-occurrence with CDK2 in STRING?",
+    "required": [
+      "gene_symbol",
+      "cooccurence",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "protein_annotation",
+    "question": "What is the functional annotation of EGFR in the STRING protein master table?",
+    "required": [
+      "gene_symbol",
+      "annotation"
+    ]
+  },
+  {
+    "label": "protein_alias",
+    "question": "What are the alternate identifiers for KRAS in the STRING database, and which source databases are they from?",
+    "required": [
+      "gene_symbol",
+      "alias",
+      "source"
+    ]
+  },
+  {
+    "label": "hub_proteins",
+    "question": "What are the most highly connected proteins (hubs) in the STRING network by number of interaction partners?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "shared_interactors",
+    "question": "Which proteins interact with both EGFR and MET in STRING?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "protein_size",
+    "question": "What is the amino acid length of the BRCA2 protein in STRING?",
+    "required": [
+      "gene_symbol",
+      "protein_size"
+    ]
+  },
+  {
+    "label": "neighborhood_score",
+    "question": "Which interaction partners of ABL1 have a non-zero genomic neighbourhood score in STRING?",
+    "required": [
+      "gene_symbol",
+      "neighborhood",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "fusion_evidence",
+    "question": "Are there any gene-fusion supported interactions for ALK in the STRING database?",
+    "required": [
+      "gene_symbol",
+      "fusion",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "alias_lookup_uniprot",
+    "question": "What STRING protein ID corresponds to UniProt accession P00533?",
+    "required": [
+      "alias",
+      "source"
+    ]
+  },
+  {
+    "label": "experimental_only",
+    "question": "Show interaction partners of PTEN that have experimental evidence score above 500 in STRING.",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "database_only",
+    "question": "Which proteins interact with APC based only on curated database evidence in STRING?",
+    "required": [
+      "gene_symbol",
+      "database",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "isolated_check",
+    "question": "Does PCSK9 have any STRING interaction partners above the confidence threshold?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "annotation_lookup",
+    "question": "What is the STRING functional annotation for the MDM2 protein?",
+    "required": [
+      "gene_symbol",
+      "annotation"
+    ]
+  },
+  {
+    "label": "cross_alias",
+    "question": "Find the gene symbol for the protein with Ensembl ID ENSP00000275493 in STRING.",
+    "required": [
+      "alias",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "physical_vs_all",
+    "question": "Which physical binding partners of CDKN1A also appear in the full STRING functional association network?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "experimental_only",
+    "question": "Which proteins interact with EGFR with experimental evidence only?",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "experimental_only",
+    "question": "Show experimental evidence interactions for HER2 in STRING.",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "experimental_only",
+    "question": "What proteins bind to BRCA1 based on experimental biochemical evidence in STRING?",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "experimental_only",
+    "question": "Find TP53 interaction partners supported only by experimental evidence, not text mining.",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "experimental_only",
+    "question": "List proteins that physically associate with AKT1 with high experimental evidence score in STRING.",
+    "required": [
+      "gene_symbol",
+      "experimental",
+      "channel_combined_score"
+    ]
+  },
+  {
+    "label": "find_interactors_pathway_context",
+    "question": "What proteins interact with SMAD4 in TGF-beta signaling?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors_pathway_context",
+    "question": "Which proteins interact with HER2 according to STRING?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors_pathway_context",
+    "question": "What are the high-confidence interactors of HER2 in STRING?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors_pathway_context",
+    "question": "List protein interactors of HER2 with high confidence.",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors_pathway_context",
+    "question": "Which proteins does SMAD3 interact with in TGF-beta pathway?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors_pathway_context",
+    "question": "What are the STRING interactors of CTNNB1 in Wnt signaling?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors_pathway_context",
+    "question": "Which proteins interact with p53 in DNA damage response?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  },
+  {
+    "label": "find_interactors_pathway_context",
+    "question": "What are the interaction partners of Bcl-2 in apoptosis signaling?",
+    "required": [
+      "gene_symbol",
+      "association_score"
+    ]
+  }
+]

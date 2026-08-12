@@ -1,0 +1,5 @@
+{
+  "_comment": "Maps queryable.json logical field names → physical parquet column names for Orphanet. Needed because database_loader.py / schema.yaml parquet_name aliases rename columns at load time. HAND-MAINTAINED — do not overwrite with gen_schema.py --write.",
+  "natural_history_disease_name": "disease_name",
+  "classification_disease_name": "disease_name"
+}

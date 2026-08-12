@@ -1,0 +1,25 @@
+{
+  "_comment": "Maps logical field names (as used in schema_kg / schema.yaml) → physical parquet column names for UniProt. Needed because database_loader.py renames columns at load time. HAND-MAINTAINED — do not overwrite with gen_schema.py --write.",
+
+  "_section_protein_master_table": "protein_master_table_uniprot_v2 — parquet already uses protein_id/ensembl_accession/entrez; only hgnc_id→hgnc rename survives",
+  "hgnc": "hgnc_id",
+
+  "_section_gene_protein_association": "gene_protein_xwalk_uniprot — same accession/ensembl_id/entrez_id renames plus gene_symbol renamed to avoid cross-table collision",
+  "gene_protein_gene_symbol": "gene_symbol",
+
+  "_section_gene_ontology": "gene_ontology_uniprot — gene_symbol renamed to avoid collision with protein_master_table",
+  "ontology_gene_symbol": "gene_symbol",
+
+  "_section_subcell_location": "subcell_location_uniprot — keyword column renamed to keyword_id for FK join; description/synonyms/hierarchy/entry_type prefixed with subcell_",
+  "keyword_id": "keyword",
+  "subcell_description": "description",
+  "subcell_synonyms": "synonyms",
+  "subcell_hierarchy": "hierarchy",
+  "subcell_entry_type": "entry_type",
+
+  "_section_keyword_master": "keyword_master_uniprot — description/synonyms/hierarchy/entry_type prefixed with keyword_",
+  "keyword_description": "description",
+  "keyword_synonyms": "synonyms",
+  "keyword_hierarchy": "hierarchy",
+  "keyword_entry_type": "entry_type"
+}

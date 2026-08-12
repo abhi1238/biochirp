@@ -1,0 +1,21 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/ctd/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "chemical_gene_association_ctd": "_loader_derived_:chemical_gene_interaction_v2.parquet",
+  "gene_pathway_association_ctd": "_loader_derived_:genes_pathways_v2.parquet",
+  "gene_disease_association_ctd": "_loader_derived_:gene_disease_association_v2.parquet",
+  "chemical_disease_association_ctd": "_loader_derived_:chemical_disease_association_v2.parquet",
+  "disease_pathway_association_ctd": "_loader_derived_:disease_pathway_association_v2.parquet",
+  "chemical_master_table_ctd": "chemical_master_v2.parquet",
+  "chemical_synonyms_association_ctd": "chemical_synonyms_association_ctd_v2.parquet",
+  "gene_synonyms_association_ctd": "gene_synonyms_association_ctd_v2.parquet",
+  "disease_synonyms_association_ctd": "disease_synonyms_association_ctd_v2.parquet",
+  "pathway_master_table_ctd": "pathway_master_v2.parquet",
+  "gene_master_table_ctd": "gene_master_v2.parquet",
+  "disease_master_table_ctd": "disease_master_v2.parquet",
+  "chemical_pathway_enriched_ctd": "_loader_derived_:chemical_pathway_enriched_v2.parquet",
+  "chemical_phenotype_ixn_ctd": "_loader_derived_:chemical_phenotype_ixn_v2.parquet",
+  "exposure_studies_ctd": "exposure_studies_v2.parquet",
+  "exposure_events_ctd": "_loader_derived_:exposure_events_v2.parquet",
+  "exposure_study_disease_association_ctd": "exposure_study_disease_association_v2.parquet",
+  "exposure_study_stressor_association_ctd": "exposure_study_stressor_association_v2.parquet"
+}

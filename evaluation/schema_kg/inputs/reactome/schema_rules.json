@@ -1,0 +1,286 @@
+{
+  "mandatory_entity_columns": {
+    "gene": [
+      "gene_symbol"
+    ],
+    "pathway": [
+      "pathway_name"
+    ]
+  },
+  "xref_id_columns": [
+    "pathway_id",
+    "gene_id",
+    "uniprot_accession",
+    "chebi_id",
+    "ensembl_id",
+    "ncbi_gene_id",
+    "parent_id",
+    "child_id"
+  ],
+  "schema_grounding_notes": [
+    "pathway_id: Reactome stable IDs follow the format R-HSA-<integer> for human (e.g. R-HSA-109581). Always emit pathway_name alongside pathway_id in output — never return an ID without the human-readable name.",
+    "gene_symbol: HGNC official symbol only — p53→TP53.",
+    "chebi_id: stored as a CHEBI:-prefixed string in the served parquet (e.g. 'CHEBI:15377', 'CHEBI:140352'); do NOT strip the 'CHEBI:' prefix when filtering — match the full prefixed value.",
+    "pathway_hierarchy_reactome is SELF-CONTAINED for hierarchy questions via denormalized, queryable parent_pathway_name and child_pathway_name columns — DO NOT join pathway_master_table and DO NOT use pathway_master_table.pathway_name for hierarchy. For 'children / sub-pathways / sub-processes of X' → filter parent_pathway_name=[X] and OUTPUT child_pathway_name. For 'parent / super-pathway of X' or 'what is X part of' → filter child_pathway_name=[X] and OUTPUT parent_pathway_name. The named pathway is always the filter on the OPPOSITE column from the one requested. parent_id/child_id remain opaque join-key IDs (non-queryable).",
+    "uniprot_pathway_reactome, chebi_pathway_reactome, ensembl_pathway_reactome, and ncbi_pathway_reactome are xref-specific membership tables. Use them when the user provides a UniProt accession, ChEBI ID, Ensembl ID, or NCBI Entrez ID respectively. They are normalized: each stores only pathway_id (NOT pathway_name) — join pathway_master_table on pathway_id to surface the human-readable pathway_name.",
+    "COVERAGE ASYMMETRY: the xref tables (uniprot/chebi/ensembl/ncbi) annotate SPECIFIC LEAF / sub-pathways, NOT top-level umbrella pathways. A broad umbrella like 'Signaling by WNT' (R-HSA-195721) has 0 direct chebi/ensembl/uniprot rows even though its sub-pathways (e.g. 'TCF dependent signaling in response to WNT') carry hundreds. gene_pathway_association is the exception — it DOES annotate umbrella pathways. So an Ensembl/ChEBI/UniProt query filtered on an umbrella pathway name may legitimately return 0 rows; this is real Reactome coverage, not an error — the entities live on the child sub-pathways.",
+    "gene_pathway_association is the primary gene–pathway membership table and is joined via gene_master_table on gene_id.",
+    "PATHWAY COUNT GAP: pathway_master_table_reactome contains 2870 pathways, but gene_pathway_association_reactome and ncbi_pathway_reactome each cover only 2841 of them (~80%). The 29 absent pathways are top-level root concepts (e.g. 'Disease', 'Drug ADME', 'Immunity') that appear only as PARENTS in the hierarchy and carry no direct gene annotations — their gene members annotate the child sub-pathways instead. uniprot_pathway_reactome covers 2854 pathways (13 more than gene/ncbi because some root pathways have protein-level but no gene-level annotations). This is expected behavior, not missing data.",
+    "ncbi_gene_id (ncbi_pathway_reactome) is stored as a BARE INTEGER string (e.g. '1956' for EGFR, '7157' for TP53) — no prefix. gene_master_table_reactome.gene_id uses the NCBIGene:N prefix format (e.g. 'NCBIGene:1956') and is an internal join key only. When a user supplies a bare Entrez integer for a pathway-lookup query, route to ncbi_pathway_reactome. For gene_symbol→pathway queries, use gene_master_table + gene_pathway_association (the preferred path)."
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "pathway_id"
+      ],
+      "require_column": "pathway_name",
+      "require_behavior": "requested",
+      "reason": "Reactome stable IDs (R-HSA-XXXX) are opaque; pathway_name must always accompany pathway_id in output"
+    },
+    {
+      "trigger_columns": [
+        "parent_pathway_name"
+      ],
+      "require_column": "child_pathway_name",
+      "require_behavior": "requested",
+      "reason": "hierarchy edges must show both sides — when parent_pathway_name is output, child_pathway_name must also appear so the direction of each edge is unambiguous; hierarchy table is self-contained"
+    },
+    {
+      "trigger_columns": [
+        "child_pathway_name"
+      ],
+      "require_column": "parent_pathway_name",
+      "require_behavior": "requested",
+      "reason": "hierarchy edges must show both sides — when child_pathway_name is output, parent_pathway_name must also appear so the direction of each edge is unambiguous; hierarchy table is self-contained"
+    },
+    {
+      "trigger_columns": [
+        "uniprot_accession"
+      ],
+      "require_column": "pathway_name",
+      "require_behavior": "requested",
+      "reason": "UniProt accession alone is not informative; xref tables store only pathway_id, so join pathway_master_table to surface pathway_name"
+    },
+    {
+      "trigger_columns": [
+        "chebi_id"
+      ],
+      "require_column": "pathway_name",
+      "require_behavior": "requested",
+      "reason": "ChEBI ID alone is not informative; xref tables store only pathway_id, so join pathway_master_table to surface pathway_name"
+    },
+    {
+      "trigger_columns": [
+        "ensembl_id"
+      ],
+      "require_column": "pathway_name",
+      "require_behavior": "requested",
+      "reason": "Ensembl ID alone is not informative; xref tables store only pathway_id, so join pathway_master_table to surface pathway_name"
+    },
+    {
+      "trigger_columns": [
+        "ncbi_gene_id"
+      ],
+      "require_column": "pathway_name",
+      "require_behavior": "requested",
+      "reason": "NCBI gene ID alone is not informative; xref tables store only pathway_id, so join pathway_master_table to surface pathway_name"
+    }
+  ],
+  "pathway_alias_map": {
+    "MAPK": "MAPK family signaling cascades",
+    "Wnt": "Signaling by WNT",
+    "WNT": "Signaling by WNT",
+    "mTOR": "MTOR signalling",
+    "mTOR pathway": "MTOR signalling",
+    "TCA cycle": "Citric acid cycle (TCA cycle)",
+    "Tricarboxylic acid cycle": "Citric acid cycle (TCA cycle)",
+    "tricarboxylic acid cycle": "Citric acid cycle (TCA cycle)",
+    "Citric acid cycle": "Citric acid cycle (TCA cycle)",
+    "Krebs cycle": "Citric acid cycle (TCA cycle)"
+  },
+  "few_shot_examples": [
+    {
+      "question": "Which pathways is BRCA1 involved in?",
+      "parsed_value": {
+        "gene_symbol": [
+          "BRCA1"
+        ],
+        "pathway_name": "requested"
+      },
+      "note": "gene→pathway query — gene_symbol is the filter, pathway_name is the ONLY output. Uses gene_pathway_association joined via gene_master_table. gene_pathway_evidence OMITTED (not asked)."
+    },
+    {
+      "question": "What genes are in the 'Signaling by WNT in cancer' pathway?",
+      "parsed_value": {
+        "pathway_name": [
+          "Signaling by WNT in cancer"
+        ],
+        "gene_symbol": "requested"
+      },
+      "note": "pathway→gene query — pathway_name is the FILTER (specific named pathway, not 'requested'). gene_symbol is the ONLY output. CRITICAL pathway_name must be a list value, NOT 'requested', when the pathway is explicitly named in the question."
+    },
+    {
+      "question": "Show me TAS-evidenced pathways for TP53",
+      "parsed_value": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "gene_pathway_evidence": [
+          "TAS"
+        ],
+        "pathway_name": "requested"
+      },
+      "note": "evidence-filtered gene→pathway query — gene_symbol + gene_pathway_evidence are both FILTERS, pathway_name is the output. TP53 has 116 TAS-annotated pathways in Reactome including 'Cell Cycle Checkpoints' (R-HSA-69620) and 'RNA Polymerase II Transcription' (R-HSA-73857)."
+    },
+    {
+      "question": "What ChEBI compounds are in the Citric acid cycle (TCA cycle)?",
+      "parsed_value": {
+        "pathway_name": [
+          "Citric acid cycle (TCA cycle)"
+        ],
+        "chebi_id": "requested"
+      },
+      "note": "ChEBI→pathway query — use chebi_pathway_reactome table; pathway_name is the FILTER (R-HSA-71403 has 52 ChEBI entries). chebi_id is the output. co_output_rules automatically adds pathway_name to output. Do NOT use gene_pathway_association for ChEBI questions."
+    },
+    {
+      "question": "What are the sub-pathways of 'Cell Cycle'?",
+      "parsed_value": {
+        "parent_pathway_name": [
+          "Cell Cycle"
+        ],
+        "child_pathway_name": "requested"
+      },
+      "note": "hierarchy query — use pathway_hierarchy_reactome (SELF-CONTAINED, no join needed). Filter parent_pathway_name=[Cell Cycle], output child_pathway_name. co_output_rules adds parent_pathway_name to output automatically. Examples of children include 'Cell Cycle Checkpoints' and 'Cell Cycle, Mitotic'. Never use pathway_master_table for hierarchy."
+    }
+  ],
+  "orchestrator_examples": [
+    {
+      "question": "Which pathways is BRCA1 involved in?",
+      "mapper_1": {
+        "gene_symbol": [
+          "BRCA1"
+        ],
+        "pathway_name": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "BRCA1"
+        ],
+        "pathway_name": "requested",
+        "gene_pathway_evidence": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "BRCA1"
+        ],
+        "pathway_name": "requested"
+      },
+      "reasoning": "gene_pathway_evidence was not asked — mapper_2 hallucinated it. Omit evidence when the user only asked for pathway membership, not evidence type."
+    },
+    {
+      "question": "What genes are in the Signaling by WNT pathway?",
+      "mapper_1": {
+        "pathway_name": [
+          "Signaling by WNT"
+        ],
+        "gene_symbol": "requested"
+      },
+      "mapper_2": {
+        "pathway_name": "requested",
+        "gene_symbol": "requested"
+      },
+      "correct": {
+        "pathway_name": [
+          "Signaling by WNT"
+        ],
+        "gene_symbol": "requested"
+      },
+      "reasoning": "'Signaling by WNT' is explicitly named in the question → pathway_name must be a FILTER list, not 'requested'. mapper_2 incorrectly marked it 'requested'. The named entity is always a filter; the open-ended output is 'requested'."
+    },
+    {
+      "question": "Show me TAS-evidenced pathways for TP53",
+      "mapper_1": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "gene_pathway_evidence": [
+          "TAS"
+        ],
+        "pathway_name": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "pathway_name": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "gene_pathway_evidence": [
+          "TAS"
+        ],
+        "pathway_name": "requested"
+      },
+      "reasoning": "The question explicitly asks for TAS-evidenced pathways — gene_pathway_evidence must be a filter with value [TAS]. mapper_2 silently dropped the evidence filter, which would return both TAS and IEA rows incorrectly."
+    },
+    {
+      "question": "What are the sub-pathways of Cell Cycle?",
+      "mapper_1": {
+        "parent_pathway_name": [
+          "Cell Cycle"
+        ],
+        "child_pathway_name": "requested"
+      },
+      "mapper_2": {
+        "pathway_name": [
+          "Cell Cycle"
+        ],
+        "child_pathway_name": "requested"
+      },
+      "correct": {
+        "parent_pathway_name": [
+          "Cell Cycle"
+        ],
+        "child_pathway_name": "requested"
+      },
+      "reasoning": "hierarchy queries use pathway_hierarchy_reactome which has parent_pathway_name and child_pathway_name columns. mapper_2 used pathway_name (from pathway_master_table) which is the wrong table and wrong column for hierarchy. Always use parent_pathway_name as the filter for 'children of X' / 'sub-pathways of X' questions."
+    }
+  ],
+  "_comment": "Schema rules for reactome. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/reactome/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "db_name": "reactome",
+  "db_display_name": "Reactome",
+  "db_description": "Reactome — curated human biological pathway and reaction database; covers gene–pathway membership, UniProt/ChEBI/Ensembl/NCBI entity–pathway associations, and a multi-level pathway hierarchy",
+  "enum_columns": {
+    "gene_pathway_evidence": [
+      "TAS",
+      "IEA"
+    ],
+    "uniprot_pathway_evidence": [
+      "TAS",
+      "IEA"
+    ],
+    "chebi_pathway_evidence": [
+      "TAS",
+      "IEA"
+    ],
+    "ensembl_pathway_evidence": [
+      "TAS",
+      "IEA"
+    ],
+    "ncbi_pathway_evidence": [
+      "TAS",
+      "IEA"
+    ]
+  },
+  "column_notes_override": {
+    "pathway_id": "Reactome stable ID — R-HSA-<integer> for human. Always output alongside pathway_name, never alone.",
+    "gene_symbol": "HGNC official symbol — p53→TP53.",
+    "gene_pathway_evidence": "GO-style evidence code on the gene→pathway link; only TAS (traceable author statement, majority) and IEA (inferred from electronic annotation) occur.",
+    "uniprot_pathway_evidence": "GO-style evidence code on the UniProt→pathway link; only TAS (majority, ~80.1%) and IEA (~19.9%) occur.",
+    "chebi_pathway_evidence": "GO-style evidence code on the ChEBI→pathway link; only TAS (majority) and IEA occur.",
+    "ensembl_pathway_evidence": "GO-style evidence code on the Ensembl→pathway link; only TAS (majority) and IEA occur.",
+    "ncbi_pathway_evidence": "GO-style evidence code on the NCBI→pathway link; only TAS (majority) and IEA occur."
+  }
+}

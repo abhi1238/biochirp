@@ -1,0 +1,471 @@
+{
+  "mandatory_entity_columns": {
+    "gene": [
+      "gene_symbol"
+    ],
+    "protein": [
+      "protein_id",
+      "protein_name"
+    ],
+    "go_term": [
+      "go_id",
+      "aspect"
+    ],
+    "variant": [
+      "swiss_prot_change",
+      "gene_symbol"
+    ],
+    "disease": [
+      "disease_name"
+    ]
+  },
+  "xref_id_columns": [
+    "protein_id",
+    "entrez",
+    "ensembl_accession",
+    "hgnc",
+    "go_id",
+    "db_reference",
+    "external_id",
+    "keyword_id",
+    "subcell_id",
+    "ftid",
+    "dbsnp",
+    "taxon_id",
+    "omim_id"
+  ],
+  "schema_grounding_notes": [
+    "protein_id: UniProt canonical accession (e.g. 'P04637'). Always emit protein_name alongside protein_id in output — never return a protein_id without the human-readable protein name.",
+    "gene_symbol: HGNC official symbol only — p53→TP53.",
+    "hgnc: stored WITH the 'HGNC:' prefix (e.g. 'HGNC:11998'). When a user provides a bare integer HGNC ID, prepend 'HGNC:' before filtering.",
+    "ensembl_accession: normalised to the bare ENSG form (e.g. 'ENSG00000141510'); the loader strips the version and isoform suffix. Match external Ensembl IDs on this bare form.",
+    "aspect: single-character code — 'F' = Molecular Function, 'P' = Biological Process, 'C' = Cellular Component. When the user says 'molecular function', filter aspect = 'F'; 'biological process' → 'P'; 'cellular component' or 'location' → 'C'.",
+    "qualifier: when the user asks what a protein 'does' or its 'function', filter qualifier = 'enables' (aspect F); for 'where is the protein located', DO NOT filter by qualifier — use aspect=['C'] only and include all qualifier values (located_in, is_active_in, part_of, colocalizes_with are all location-relevant; filtering to located_in/part_of alone drops ~15% of cellular component annotations).",
+    "evidence: IEA = computationally inferred; TAS = traceable author statement; IDA/IPI/IBA/ISS/HDA/IC/HMP = experimental or curator evidence. When the user asks for 'experimental evidence', include IDA, IPI, HDA, IMP, IEP; exclude IEA.",
+    "variant_type: 'LP/P' means the variant is clinically significant (pathogenic); 'LB/B' means benign; 'US' means uncertain. When the user asks for 'pathogenic variants', filter variant_type = 'LP/P'.",
+    "swiss_prot_change: HGVS protein notation (e.g. 'p.Arg175His'). Accepts standard HGVS p. format from users.",
+    "dbsnp: stored with 'rs' prefix (e.g. 'rs28934578'). Users may omit the 'rs' prefix — prepend it before filtering.",
+    "disease_name: free-text string often including MIM number in brackets. Use LIKE/contains matching rather than exact match for disease lookups.",
+    "omim_id: bare OMIM disease integer (e.g. '151623'), no 'OMIM:'/'MIM:' prefix; extracted from disease_name's '[MIM:NNNNNN]' tag. Null for ~54% of variant_disease rows. disease_id is always null — use omim_id or disease_name instead.",
+    "protein_master_table_uniprot: all 20,431 rows are Swiss-Prot reviewed human proteins (organism = 'Homo sapiens (Human)', reviewed = 'true'). No need to filter by reviewed status.",
+    "gene_symbol lookups: use protein_master_table_uniprot.gene_symbol as the canonical filter (it is the sole queryable gene_symbol column). For multi-gene proteins or secondary gene mappings, reach gene_protein_association_uniprot via protein_id FK from protein_master_table. (runtime table name: gene_protein_association_uniprot)",
+    "id_mapping_uniprot: use when the user provides an Ensembl, RefSeq, GeneID, HGNC, or other external ID and needs the UniProt accession. Filter by db column to select the database type (valid values: Ensembl, Ensembl_PRO, Ensembl_TRS, GeneID, Gene_Name, Gene_Synonym, HGNC, RefSeq, RefSeq_NT, UniProtKB-ID).",
+    "keyword_master_uniprot: 1,201 rows defining UniProt's controlled keyword vocabulary. Query this table to look up keyword definitions, synonyms, or hierarchies.",
+    "subcell_location_uniprot: 566 rows defining UniProt's subcellular location vocabulary. Query this for location definitions, GO cross-references, or location hierarchies.",
+    "variant_disease_uniprot: 84,476 natural variant records from Swiss-Prot; disease_id is always null — use omim_id (bare OMIM integer, ~46% populated) or disease_name for disease-based filtering."
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "protein_id"
+      ],
+      "require_column": "protein_name",
+      "require_behavior": "requested",
+      "reason": "UniProt accessions (e.g. P04637) are opaque; protein_name must always accompany protein_id in output"
+    },
+    {
+      "trigger_columns": [
+        "protein_id"
+      ],
+      "require_column": "gene_symbol",
+      "require_behavior": "requested",
+      "reason": "Always show gene_symbol alongside protein_id so users can relate protein to gene"
+    },
+    {
+      "trigger_columns": [
+        "go_id"
+      ],
+      "require_column": "aspect",
+      "require_behavior": "requested",
+      "reason": "GO IDs are opaque; aspect (F/P/C) and qualifier provide essential context for any GO annotation"
+    },
+    {
+      "trigger_columns": [
+        "ftid"
+      ],
+      "require_column": "swiss_prot_change",
+      "require_behavior": "requested",
+      "reason": "VAR_ feature IDs are internal; always show the protein change notation alongside"
+    },
+    {
+      "trigger_columns": [
+        "subcell_id"
+      ],
+      "require_column": "subcell_name",
+      "require_behavior": "requested",
+      "reason": "SL- subcellular IDs are opaque; always show subcell_name"
+    },
+    {
+      "trigger_columns": [
+        "keyword_id"
+      ],
+      "require_column": "keyword_name",
+      "require_behavior": "requested",
+      "reason": "KW- keyword IDs are opaque; always show keyword_name"
+    }
+  ],
+  "gene_alias_map": {
+    "p53": "TP53",
+    "PDL1": "CD274",
+    "HER2": "ERBB2",
+    "ErbB2": "ERBB2",
+    "PD-1": "PDCD1",
+    "erb-b2": "ERBB2"
+  },
+  "few_shot_examples": [
+    {
+      "question": "What are the molecular functions of EGFR?",
+      "parsed_value": {
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "aspect": [
+          "F"
+        ],
+        "qualifier": [
+          "enables"
+        ],
+        "go_id": "requested"
+      },
+      "note": "gene→GO molecular function query — gene_symbol is the FILTER. aspect=['F'] and qualifier=['enables'] are BOTH required filters for molecular function. EGFR (P00533) has GO:0004672 (protein kinase activity, IEA), GO:0004709 (MAP kinase kinase kinase activity, evidence=NAS). go_id is the output."
+    },
+    {
+      "question": "Where is TP53 located in the cell?",
+      "parsed_value": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "aspect": [
+          "C"
+        ],
+        "go_id": "requested"
+      },
+      "note": "gene→cellular component GO query — gene_symbol is the FILTER. aspect=['C'] is a required filter. Returns GO cellular component terms for TP53, e.g. GO:0005634 (nucleus), GO:0016604 (nuclear body, PML), GO:0005829 (cytosol). Do NOT filter qualifier — include all aspect=C rows (located_in, is_active_in, part_of, colocalizes_with). TP53 has 37 GO aspect=C annotations. Note: for curated SL-location names (e.g. 'Nucleus', 'Cytoplasm') use protein_subcell_uniprot instead."
+    },
+    {
+      "question": "Which pathogenic variants of BRCA1 are in UniProt?",
+      "parsed_value": {
+        "gene_symbol": [
+          "BRCA1"
+        ],
+        "variant_type": [
+          "LP/P"
+        ],
+        "swiss_prot_change": "requested",
+        "disease_name": "requested"
+      },
+      "note": "gene→variant query with pathogenicity filter — gene_symbol + variant_type=['LP/P'] are BOTH filters. BRCA1 (P38398) LP/P variants include p.Leu22Ser (rs80357438, Breast cancer), p.Cys61Gly (rs28897672). swiss_prot_change and disease_name are outputs. variant_type='LP/P' means Likely Pathogenic/Pathogenic."
+    },
+    {
+      "question": "What GO annotations does TP53 have with IDA experimental evidence?",
+      "parsed_value": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "evidence": [
+          "IDA"
+        ],
+        "go_id": "requested",
+        "aspect": "requested"
+      },
+      "note": "evidence-filtered GO query — gene_symbol + evidence=['IDA'] are BOTH filters. IDA = Inferred from Direct Assay (experimental). TP53 (P04637) has multiple IDA-evidenced GO annotations. aspect should be 'requested' (not a filter) since no specific aspect was specified."
+    },
+    {
+      "question": "What UniProt keywords are annotated for EGFR?",
+      "parsed_value": {
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "keyword_name": "requested"
+      },
+      "note": "gene→keyword query — gene_symbol is the FILTER. keyword_name is the output. EGFR (P00533) keywords include Kinase, Transferase, Secreted, Golgi apparatus, Disease variant. Uses protein_keyword_uniprot joined to keyword_master_uniprot on keyword_id."
+    }
+  ],
+  "filter_few_shot_examples": [
+    {
+      "question": "What are the GO terms for TP53?",
+      "keep": [
+        "gene_symbol",
+        "go_id",
+        "aspect",
+        "qualifier"
+      ],
+      "drop": [
+        "disease_name",
+        "swiss_prot_change",
+        "variant_type",
+        "keyword_name",
+        "subcell_name"
+      ],
+      "note": "GO annotation query: gene_symbol (WHERE filter on TP53), go_id (SELECT output), aspect and qualifier (GO context co-outputs). disease_name, variant_type, subcell_name, and keyword_name are IRRELEVANT — this is a GO term question, not a disease, variant, or keyword question."
+    },
+    {
+      "question": "What diseases are associated with BRCA1?",
+      "keep": [
+        "gene_symbol",
+        "disease_name"
+      ],
+      "drop": [
+        "go_id",
+        "aspect",
+        "qualifier",
+        "keyword_name",
+        "subcell_name",
+        "swiss_prot_change",
+        "variant_type"
+      ],
+      "note": "Disease association query: gene_symbol (WHERE filter on BRCA1), disease_name (SELECT output). GO columns (go_id, aspect, qualifier), keyword_name, and subcell_name are IRRELEVANT. Note: variant-level disease associations live in variant_disease_uniprot — if the question asks only for disease names without variant details, disease_name alone is sufficient."
+    },
+    {
+      "question": "What domains does EGFR have?",
+      "keep": [
+        "gene_symbol",
+        "keyword_name"
+      ],
+      "drop": [
+        "go_id",
+        "aspect",
+        "qualifier",
+        "disease_name",
+        "swiss_prot_change",
+        "variant_type",
+        "subcell_name"
+      ],
+      "note": "Protein domain/keyword query: gene_symbol (WHERE filter on EGFR), keyword_name (SELECT output — UniProt encodes domain membership via functional keywords such as 'Kinase', 'Receptor', 'Transmembrane', 'EGF-like domain'). GO columns, disease_name, and subcell_name are IRRELEVANT to a domain question."
+    },
+    {
+      "question": "Where in the cell is TP53 located?",
+      "keep": [
+        "gene_symbol",
+        "subcell_name"
+      ],
+      "drop": [
+        "go_id",
+        "aspect",
+        "qualifier",
+        "disease_name",
+        "keyword_name",
+        "swiss_prot_change",
+        "variant_type"
+      ],
+      "note": "Subcellular localisation query: gene_symbol (WHERE filter on TP53), subcell_name (SELECT output from subcell_location_uniprot via protein_subcell_uniprot). GO columns (go_id, aspect, qualifier), disease_name, keyword_name, and variant columns are IRRELEVANT — the question is about cellular location only."
+    },
+    {
+      "question": "What variants in BRCA1 cause disease?",
+      "keep": [
+        "gene_symbol",
+        "swiss_prot_change",
+        "variant_type",
+        "disease_name"
+      ],
+      "drop": [
+        "go_id",
+        "aspect",
+        "qualifier",
+        "keyword_name",
+        "subcell_name"
+      ],
+      "note": "Variant-disease query: gene_symbol (WHERE filter on BRCA1), swiss_prot_change + variant_type (SELECT outputs — the variant details), disease_name (SELECT output — associated disease). GO columns (go_id, aspect, qualifier), keyword_name, and subcell_name are IRRELEVANT to a variant-disease question."
+    }
+  ],
+  "orchestrator_examples": [
+    {
+      "question": "What are the molecular functions of EGFR?",
+      "mapper_1": {
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "aspect": [
+          "F"
+        ],
+        "qualifier": [
+          "enables"
+        ],
+        "go_id": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "aspect": [
+          "F"
+        ],
+        "go_id": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "aspect": [
+          "F"
+        ],
+        "qualifier": [
+          "enables"
+        ],
+        "go_id": "requested"
+      },
+      "reasoning": "For molecular function queries, aspect=['F'] alone is insufficient — qualifier=['enables'] must also be a filter because GO aspect F includes 'contributes_to' and other non-enabling relations. mapper_2 omitted qualifier, which would include non-function relations. EGFR has both 'enables' (e.g. GO:0004672) and 'contributes_to' (e.g. GO:0005006) in aspect F."
+    },
+    {
+      "question": "Which pathogenic variants of BRCA1 are in UniProt?",
+      "mapper_1": {
+        "gene_symbol": [
+          "BRCA1"
+        ],
+        "variant_type": [
+          "LP/P"
+        ],
+        "swiss_prot_change": "requested",
+        "disease_name": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "BRCA1"
+        ],
+        "swiss_prot_change": "requested",
+        "disease_name": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "BRCA1"
+        ],
+        "variant_type": [
+          "LP/P"
+        ],
+        "swiss_prot_change": "requested",
+        "disease_name": "requested"
+      },
+      "reasoning": "The user asked for 'pathogenic' variants → variant_type=['LP/P'] is a mandatory filter. mapper_2 dropped the pathogenicity filter, returning all 3 variant_type categories (LP/P, LB/B, US) mixed together. variant_type enum — LP/P = pathogenic, LB/B = benign, US = uncertain significance."
+    },
+    {
+      "question": "What GO annotations does TP53 have?",
+      "mapper_1": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "go_id": "requested",
+        "aspect": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "go_id": "requested",
+        "aspect": "requested",
+        "qualifier": "requested",
+        "evidence": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "go_id": "requested",
+        "aspect": "requested"
+      },
+      "reasoning": "The question asks for GO annotations with no qualifier or evidence filter specified — do not add qualifier or evidence unless explicitly requested. mapper_2 hallucinated unrequested qualifier and evidence columns. aspect='requested' is correct since the question asks for all GO annotations regardless of aspect (F/P/C)."
+    },
+    {
+      "question": "What is the UniProt entry for TP53?",
+      "mapper_1": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "protein_id": "requested",
+        "protein_name": "requested",
+        "entry_name": "requested"
+      },
+      "mapper_2": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "protein_id": "requested"
+      },
+      "correct": {
+        "gene_symbol": [
+          "TP53"
+        ],
+        "protein_id": "requested",
+        "protein_name": "requested",
+        "entry_name": "requested"
+      },
+      "reasoning": "A protein lookup question should return protein_id (P04637), protein_name ('Cellular tumor antigen p53'), and entry_name ('P53_HUMAN'). mapper_2 omitted protein_name and entry_name. co_output_rules automatically adds protein_name and gene_symbol when protein_id is requested, but entry_name must be explicit."
+    }
+  ],
+  "_substring_match_columns": [
+    "function_text",
+    "description",
+    "enzymes"
+  ],
+  "_comment": "Schema rules for uniprot. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/uniprot/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "db_name": "uniprot",
+  "db_display_name": "UniProt",
+  "db_description": "UniProt — Swiss-Prot manually reviewed protein knowledgebase for Homo sapiens (20,431 proteins); covers protein identity, Gene Ontology annotations, subcellular locations, functional keywords, natural variant–disease associations, and cross-database ID mappings. Also provides: free-text CC FUNCTION annotations via protein_function_uniprot (17K proteins), post-translational modification sites with position/modification/enzymes via ptm_sites_uniprot (56K sites), and protein–protein interaction data (BINARY partners + SUBUNIT complex text) via protein_interaction_uniprot (192K rows).",
+  "enum_columns": {
+    "qualifier": [
+      "enables",
+      "involved_in",
+      "located_in",
+      "part_of",
+      "is_active_in",
+      "acts_upstream_of",
+      "acts_upstream_of_or_within",
+      "acts_upstream_of_positive_effect",
+      "acts_upstream_of_negative_effect",
+      "acts_upstream_of_or_within_positive_effect",
+      "acts_upstream_of_or_within_negative_effect",
+      "contributes_to",
+      "colocalizes_with",
+      "NOT|enables",
+      "NOT|involved_in",
+      "NOT|located_in",
+      "NOT|part_of",
+      "NOT|is_active_in",
+      "NOT|contributes_to",
+      "NOT|colocalizes_with",
+      "NOT|acts_upstream_of_or_within",
+      "NOT|acts_upstream_of_or_within_negative_effect"
+    ],
+    "evidence": [
+      "IEA",
+      "IDA",
+      "IBA",
+      "TAS",
+      "ISS",
+      "IMP",
+      "IPI",
+      "NAS",
+      "EXP",
+      "HDA",
+      "IGI",
+      "ISA",
+      "IC",
+      "HTP",
+      "IEP",
+      "ND",
+      "RCA",
+      "HMP",
+      "HEP",
+      "IKR",
+      "ISO",
+      "ISM"
+    ],
+    "aspect": [
+      "F",
+      "P",
+      "C"
+    ],
+    "variant_type": [
+      "US",
+      "LP/P",
+      "LB/B"
+    ]
+  },
+  "column_notes_override": {
+    "protein_id": "UniProt canonical accession (e.g. 'P04637'). Always output alongside protein_name and gene_symbol, never alone.",
+    "gene_symbol": "HGNC official symbol — p53→TP53.",
+    "hgnc": "Stored WITH 'HGNC:' prefix (e.g. 'HGNC:11998'). Prepend prefix to bare integer user input.",
+    "evidence": "GO evidence code: IEA = electronic inference; TAS = author statement; IDA/IPI/IBA = experimental.",
+    "aspect": "GO namespace: 'F' = Molecular Function, 'P' = Biological Process, 'C' = Cellular Component.",
+    "variant_type": "Clinical significance: 'LP/P' = pathogenic, 'LB/B' = benign, 'US' = uncertain significance."
+  }
+}

@@ -1,0 +1,274 @@
+[
+  {
+    "label": "gene+xref",
+    "question": "Entrez gene ID for MYC",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "diseases associated with the phenotype seizures",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "what is the NCBI gene ID for EGFR?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with BRAF?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "what is the NCBI gene ID for MYC?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "diseases associated with the phenotype muscle weakness",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "which diseases present with short stature?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with MYC?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "Entrez gene ID for TP53",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "what genes are associated with muscle weakness?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "which diseases present with muscle weakness?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "which genes cause the phenotype muscle weakness?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which conditions involve mutations in BRAF?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "what genes are associated with seizures?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which conditions involve mutations in TP53?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "what genes are associated with short stature?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "what is the NCBI gene ID for BRAF?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "which diseases present with intellectual disability?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "what is the NCBI gene ID for TP53?",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "Entrez gene ID for BRAF",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "what genes are associated with intellectual disability?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "which diseases present with seizures?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "which genes cause the phenotype intellectual disability?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which conditions involve mutations in MYC?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which conditions involve mutations in EGFR?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "diseases associated with the phenotype intellectual disability",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+xref",
+    "question": "Entrez gene ID for EGFR",
+    "required": [
+      "gene_symbol",
+      "ncbi_gene_id"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "which genes cause the phenotype seizures?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "phenotype+gene",
+    "question": "which genes cause the phenotype short stature?",
+    "required": [
+      "phenotype_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with EGFR?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "diseases associated with the phenotype short stature",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with TP53?",
+    "required": [
+      "gene_symbol",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "phenotype+disease",
+    "question": "Which diseases present with seizures?",
+    "required": [
+      "phenotype_name",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+phenotype",
+    "question": "What phenotypes are associated with BRCA1 mutations?",
+    "required": [
+      "gene_symbol",
+      "phenotype_name"
+    ]
+  }
+]

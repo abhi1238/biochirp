@@ -1,0 +1,260 @@
+{
+  "_comment": "Schema rules for ctd. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/ctd/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "db_name": "ctd",
+  "db_display_name": "CTD",
+  "db_description": "Comparative Toxicogenomics Database — chemical/drug interactions with genes, diseases, and pathways across multiple organisms; includes curated direct evidence and inferred associations",
+  "mandatory_entity_columns": {
+    "drug": [
+      "drug_name"
+    ],
+    "gene": [
+      "gene_symbol"
+    ],
+    "disease": [
+      "disease_name"
+    ],
+    "pathway": [
+      "pathway_name"
+    ]
+  },
+  "xref_id_columns": [
+    "drug_id",
+    "gene_id",
+    "disease_id",
+    "pathway_id",
+    "chemical_gene_organism_id",
+    "chemical_phenotype_organism_id",
+    "phenotype_id",
+    "stressor_id",
+    "cas_rn",
+    "pubchem_cid",
+    "inchikey",
+    "omim_ids"
+  ],
+  "schema_grounding_notes": [
+    "chem_disease_direct_evidence (chemical_disease_association_ctd): valid values 'marker/mechanism' and 'therapeutic'; gene_disease_direct_evidence (gene_disease_association_ctd): valid values 'marker/mechanism' (31,993 rows) and 'therapeutic' (1,950 rows); null = inferred-only in both",
+    "chemical_gene_interaction_actions (chemical_gene_association_ctd) / interaction_actions (chemical_phenotype_ixn_ctd): pipe-separated compound codes, e.g. 'increases^expression' or 'decreases^activity'; use LIKE '%expression%' for text search",
+    "pubmed_ids columns (chem_gene_pubmed_ids, gene_disease_pubmed_ids, chem_disease_pubmed_ids, chem_phenotype_pubmed_ids): pipe-separated string of PMIDs; for single-PMID lookup use LIKE '%<pmid>%'",
+    "inference_score: numeric; higher scores indicate stronger inferred associations"
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "chemical_gene_interaction_actions",
+        "interaction_actions",
+        "interaction_text"
+      ],
+      "require_column": "drug_name",
+      "require_behavior": "requested",
+      "reason": "interaction details are not interpretable without identifying the chemical"
+    },
+    {
+      "trigger_columns": [
+        "chemical_gene_interaction_actions",
+        "interaction_text"
+      ],
+      "require_column": "gene_symbol",
+      "require_behavior": "requested",
+      "reason": "interaction details are not interpretable without identifying the target gene"
+    },
+    {
+      "trigger_columns": [
+        "gene_disease_direct_evidence",
+        "chem_disease_direct_evidence",
+        "inference_score"
+      ],
+      "require_column": "disease_name",
+      "require_behavior": "requested",
+      "reason": "evidence fields require disease context"
+    },
+    {
+      "trigger_columns": [
+        "corrected_p_value",
+        "p_value",
+        "target_match"
+      ],
+      "require_column": "pathway_name",
+      "require_behavior": "requested",
+      "reason": "enrichment statistics require pathway context"
+    }
+  ],
+  "stressor_class_map": {
+    "PCB": "stressor_name ILIKE '%biphenyl%'",
+    "polychlorinated biphenyl": "stressor_name ILIKE '%biphenyl%'",
+    "dioxin": "stressor_name ILIKE '%dioxin%'",
+    "furan": "stressor_name ILIKE '%furan%'",
+    "phthalate": "stressor_name ILIKE '%phthalate%'",
+    "PAH": "stressor_name ILIKE '%pyrene%' OR stressor_name ILIKE '%fluorene%' OR stressor_name ILIKE '%phenanthrene%' OR stressor_name ILIKE '%anthracene%'",
+    "polycyclic aromatic hydrocarbon": "stressor_name ILIKE '%pyrene%' OR stressor_name ILIKE '%fluorene%' OR stressor_name ILIKE '%phenanthrene%'",
+    "PBDE": "stressor_name ILIKE '%diphenyl ether%'",
+    "brominated flame retardant": "stressor_name ILIKE '%diphenyl ether%' OR stressor_name ILIKE '%bromo%'",
+    "organophosphate": "stressor_name ILIKE '%phosphate%' OR stressor_name ILIKE '%phosphorus%'",
+    "heavy metal": "stressor_name ILIKE 'Lead' OR stressor_name ILIKE 'Arsenic' OR stressor_name ILIKE 'Mercury' OR stressor_name ILIKE 'Cadmium' OR stressor_name ILIKE 'Chromium' OR stressor_name ILIKE 'Nickel' OR stressor_name ILIKE 'Manganese'",
+    "organotin": "stressor_name ILIKE '%tributyltin%' OR stressor_name ILIKE '%triphenyltin%' OR stressor_name ILIKE 'organotin%'",
+    "pesticide": "stressor_name ILIKE '%chlordane%' OR stressor_name ILIKE '%aldrin%' OR stressor_name ILIKE '%dieldrin%' OR stressor_name ILIKE '%DDT%' OR stressor_name ILIKE '%endrin%'",
+    "PFAS": "stressor_name ILIKE '%perfluoro%' OR stressor_name ILIKE '%PFOA%' OR stressor_name ILIKE '%PFOS%'",
+    "per- and polyfluoroalkyl": "stressor_name ILIKE '%perfluoro%'"
+  },
+  "action_synonym_map": {
+    "upregulates": "increases^expression",
+    "upregulate": "increases^expression",
+    "overexpresses": "increases^expression",
+    "overexpress": "increases^expression",
+    "induces expression": "increases^expression",
+    "downregulates": "decreases^expression",
+    "downregulate": "decreases^expression",
+    "silences": "decreases^expression",
+    "suppresses": "decreases^expression",
+    "activates": "increases^activity",
+    "stimulates": "increases^activity",
+    "inhibits": "decreases^activity",
+    "blocks": "decreases^activity",
+    "binds": "affects^binding",
+    "methylates": "affects^methylation",
+    "phosphorylates": "increases^phosphorylation",
+    "ubiquitinates": "affects^ubiquitination",
+    "stabilizes": "increases^stability",
+    "degrades": "decreases^abundance"
+  },
+  "abbreviation_map": {
+    "AD": "Alzheimer Disease"
+  },
+  "trade_name_map": {
+    "Glivec": "imatinib",
+    "Herceptin": "trastuzumab",
+    "Keytruda": "pembrolizumab",
+    "Avastin": "bevacizumab"
+  },
+  "gene_alias_map": {
+    "p53": "TP53",
+    "PD-1": "PDCD1"
+  },
+  "class_entity_rules": [
+    "\"TKI\" expands to \"tyrosine kinase inhibitor\" — do NOT replace with a specific drug like imatinib",
+    "\"checkpoint inhibitor\" stays as-is — do NOT replace with pembrolizumab or nivolumab",
+    "\"mAb\" expands to \"monoclonal antibody\" — do NOT replace with a specific antibody"
+  ],
+  "class_column": "drug_name",
+  "pathway_alias_map": {
+    "MAPK": "MAPK signaling pathway",
+    "PI3K/AKT": "PI3K-Akt signaling pathway",
+    "NF-kB": "NF-kappa B signaling pathway",
+    "Wnt": "Wnt signaling pathway",
+    "mTOR pathway": "mTOR signaling pathway"
+  },
+  "enum_columns": {
+    "gene_disease_direct_evidence": [
+      "marker/mechanism",
+      "therapeutic"
+    ],
+    "chem_disease_direct_evidence": [
+      "marker/mechanism",
+      "therapeutic"
+    ]
+  },
+  "column_notes_override": {
+    "chemical_gene_interaction_actions": "chemical-GENE action codes (chemical_gene_association_ctd), pipe-joined like increases^expression, decreases^activity; search with LIKE '%<fragment>%'. Common verb mappings: upregulate/overexpress → increases^expression; downregulate/silence/suppress → decreases^expression; activate/stimulate → increases^activity; inhibit/block/suppress → decreases^activity; bind → affects^binding; methylate → affects^methylation; phosphorylate → affects^phosphorylation or increases^phosphorylation; ubiquitinate → affects^ubiquitination; stabilize → increases^stability; degrade → decreases^stability or decreases^abundance. IMPORTANT — generic/direction-less verbs (modulate, affect, interact with, alter, influence, impact, regulate, change) do NOT map to one specific code (the real data spans 137 distinct increases^/decreases^/affects^<property> combinations across expression, activity, binding, methylation, phosphorylation, stability, and ~30 other properties) — for these, output \"requested\" (no filter) rather than guessing a single code, so gene_symbol alone still returns the full, correct chemical-gene interaction set instead of zero rows from an arbitrary wrong guess.",
+    "chemical_gene_organism": "full organism name — predominant value 'Homo sapiens'; ~1.1% of collapsed pairs have NULL organism — NOT taxonomy ID",
+    "drug_name": "chemical or drug name — may include environmental compounds (BPA, dioxin, arsenic) not just approved drugs",
+    "gene_symbol": "HGNC official symbol — p53→TP53",
+    "interaction_actions": "chemical-PHENOTYPE action codes (chemical_phenotype_ixn_ctd), pipe-joined like increases^abnormal morphology; search with LIKE '%<fragment>%'. Distinct from chemical_gene_interaction_actions (chemical-gene).",
+    "chemical_phenotype_organism": "full organism name — served interaction tables are human-only, sole value 'Homo sapiens' — NOT taxonomy ID",
+    "exposure_stressors": "exposure_studies column: pipe-joined chemicals in 'name^id^source' caret format (e.g. 'Nitrates^D009566^MESH|perchlorate^C494474^MESH'). NEVER match the whole value — use ILIKE '%<chemical>%' on the name segment.",
+    "study_receptors": "study population type stored as free text; e.g. 'General population', 'Children', 'Workers', 'Pregnant women', 'Patients'. Use ILIKE '%children%' for pediatric studies. ~5% NULL.",
+    "exposure_markers": "exposure_studies column: pipe-joined biomarkers in 'name^id^source' caret format. Use ILIKE '%<marker>%' on the name segment.",
+    "diseases": "exposure_studies column: pipe-joined diseases in 'name^MeSH_ID^MESH' caret format (e.g. 'Obesity^D009765^MESH'). Use ILIKE '%<disease>%' on the name segment.",
+    "phenotypes": "exposure_studies column: pipe-joined GO phenotypes in 'name^GO:ID^GO' caret format (e.g. 'methylation^GO:0032259^GO'). Use ILIKE '%<phenotype>%' on the name segment.",
+    "stressor_name": "environmental chemical or agent name in exposure_events. Individual congener names (e.g. '2,2',3,3',4,4',5-heptachlorobiphenyl') are stored verbatim. For chemical CLASS queries use LIKE on the class fragment — see stressor_class_map. For specific named chemicals use exact ILIKE match.",
+    "phenotype_action_type": "direction of the phenotype outcome; observed values: 'increases', 'decreases', 'affects'. Use = for exact match. ~98% NULL — only filter when phenotype_name is also in the query.",
+    "outcome_relationship": "pipe from exposure to outcome; four exact values (case-sensitive): 'positive correlation', 'negative correlation', 'no correlation', 'prediction/hypothesis'. Use = for exact match. 'positive' or 'associated' → 'positive correlation'; 'no association'/'null' → 'no correlation'.",
+    "anatomy": "anatomical site stored as free text; e.g. 'blood', 'liver', 'brain', 'urine', 'placenta'. Use ILIKE for substring match. ~98.3% NULL.",
+    "stressor_source_category": "categorical source type; common observed values: 'industrial', 'dietary', 'occupational', 'environmental', 'pharmaceutical', 'personal care product'. ~0.9% NULL — filter only when user explicitly asks for a source type.",
+    "event_receptors": "study population type stored as free text; e.g. 'General population', 'Children', 'Workers', 'Pregnant women', 'Patients'. Use ILIKE '%children%' for pediatric studies. ~2.1% NULL."
+  },
+  "filter_few_shot_examples": [
+    {
+      "question": "Which genes does cisplatin interact with?",
+      "keep": [
+        "drug_name",
+        "gene_symbol",
+        "chemical_gene_interaction_actions"
+      ],
+      "drop": [
+        "disease_name",
+        "pathway_name",
+        "anatomy_terms",
+        "inference_score",
+        "exposure_stressors"
+      ],
+      "note": "chemical+gene query: drug_name (WHERE filter on cisplatin), gene_symbol (SELECT output), chemical_gene_interaction_actions (co-output describing the interaction type). disease_name, pathway_name, and exposure columns are IRRELEVANT — this is a chemical-gene interaction question, not a disease or pathway question."
+    },
+    {
+      "question": "What diseases are associated with bisphenol A?",
+      "keep": [
+        "drug_name",
+        "disease_name",
+        "inference_score",
+        "chem_disease_direct_evidence"
+      ],
+      "drop": [
+        "gene_symbol",
+        "pathway_name",
+        "anatomy_terms",
+        "exposure_stressors",
+        "study_factors"
+      ],
+      "note": "chemical+disease query: drug_name (WHERE filter on bisphenol A), disease_name (SELECT output), inference_score + chem_disease_direct_evidence (evidence-strength co-outputs). gene_symbol and pathway_name are JOIN-key intermediates NOT answer columns — MUST be dropped even if they appear in candidates."
+    },
+    {
+      "question": "Which diseases are linked to the BRCA1 gene?",
+      "keep": [
+        "gene_symbol",
+        "disease_name",
+        "gene_disease_direct_evidence"
+      ],
+      "drop": [
+        "drug_name",
+        "pathway_name",
+        "anatomy_terms",
+        "exposure_stressors",
+        "chemical_gene_interaction_actions"
+      ],
+      "note": "gene+disease query: gene_symbol (WHERE filter on BRCA1), disease_name (SELECT output), gene_disease_direct_evidence (evidence co-output). drug_name is a JOIN-key intermediate that MUST be dropped — even if chemical-gene columns appear in ANN candidates, this is a gene-disease question with no drug context."
+    },
+    {
+      "question": "Which pathways are enriched by treatment with arsenic?",
+      "keep": [
+        "drug_name",
+        "pathway_name",
+        "corrected_p_value",
+        "target_match"
+      ],
+      "drop": [
+        "disease_name",
+        "gene_symbol",
+        "anatomy_terms",
+        "exposure_stressors",
+        "study_factors"
+      ],
+      "note": "chemical+pathway enrichment query: drug_name (WHERE filter on arsenic), pathway_name (SELECT output), corrected_p_value + target_match (enrichment statistic co-outputs). disease_name and gene_symbol are IRRELEVANT to the pathway enrichment table — do NOT include them."
+    },
+    {
+      "question": "What exposure studies involve lead and children?",
+      "keep": [
+        "exposure_stressors",
+        "study_factors",
+        "study_receptors",
+        "diseases",
+        "author_summary"
+      ],
+      "drop": [
+        "gene_symbol",
+        "disease_name",
+        "pathway_name",
+        "chemical_gene_interaction_actions",
+        "inference_score"
+      ],
+      "note": "exposure study query: exposure_stressors (WHERE filter on lead via ILIKE), study_receptors (WHERE filter on children via ILIKE), study_factors + diseases + author_summary (SELECT outputs). gene_symbol, disease_name (from chemical_disease_association_ctd), pathway_name, and chemical-gene interaction columns are IRRELEVANT — this is an epidemiological exposure study question, not a curated chemical-gene or chemical-disease query."
+    }
+  ]
+}

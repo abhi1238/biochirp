@@ -1,0 +1,7 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/msigdb/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "geneset_master_table_msigdb": "geneset_master_table_msigdb_v2.parquet",
+  "gene_geneset_association_msigdb": "gene_geneset_association_msigdb_v2.parquet",
+  "gene_master_table_msigdb": "gene_master_table_msigdb_v2.parquet",
+  "geneset_metadata_msigdb": "geneset_metadata_msigdb_v2.parquet"
+}

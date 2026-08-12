@@ -1,0 +1,16 @@
+{
+  "_comment": "Maps each queryable column to a concept type from the closed vocabulary (only queryable columns appear). GENERATED from dbs/reactome/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "reactome.pathway_master_table_reactome.pathway_name": "pathway_name",
+  "reactome.gene_master_table_reactome.gene_symbol": "gene_symbol",
+  "reactome.gene_pathway_association_reactome.gene_pathway_evidence": "xref_source",
+  "reactome.pathway_hierarchy_reactome.parent_pathway_name": "pathway_name",
+  "reactome.pathway_hierarchy_reactome.child_pathway_name": "pathway_name",
+  "reactome.uniprot_pathway_reactome.uniprot_accession": "protein_id",
+  "reactome.uniprot_pathway_reactome.uniprot_pathway_evidence": "xref_source",
+  "reactome.chebi_pathway_reactome.chebi_id": "xref_id",
+  "reactome.chebi_pathway_reactome.chebi_pathway_evidence": "xref_source",
+  "reactome.ensembl_pathway_reactome.ensembl_id": "gene_xref_id",
+  "reactome.ensembl_pathway_reactome.ensembl_pathway_evidence": "xref_source",
+  "reactome.ncbi_pathway_reactome.ncbi_gene_id": "gene_xref_id",
+  "reactome.ncbi_pathway_reactome.ncbi_pathway_evidence": "xref_source"
+}

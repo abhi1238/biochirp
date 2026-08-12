@@ -1,0 +1,60 @@
+{
+  "hpo": {
+    "gene_master_table_hpo": {
+      "gene_id": "internal HPO gene identifier (NCBIGene:XXXXXXXX) — PK; sole home of gene identity, join key only",
+      "gene_symbol": "official HGNC gene symbol — the ONLY table that stores gene_symbol; e.g. BRCA1, TP53, CFTR, FGFR3, LMNA"
+    },
+    "disease_master_table_hpo": {
+      "disease_id": "disease identifier in OMIM:XXXXXX / ORPHA:XXXXXX / DECIPHER: format — PK; join key only",
+      "disease_name": "name of the disease or syndrome — the ONLY table that stores disease_name; e.g. Marfan syndrome, Down syndrome, Neurofibromatosis type 1, Phenylketonuria. 215 of 14,868 rows (1.4%) have NULL disease_name (all OMIM IDs for which no name is available); exclude these rows in disease-name-filtered queries."
+    },
+    "phenotype_master_table_hpo": {
+      "phenotype_id": "HPO term identifier in HP:XXXXXXX format — PK; sole home of phenotype identity (all 19,389 terms), join key only; e.g. HP:0001250",
+      "phenotype_name": "canonical HPO term name — the ONLY table that stores phenotype_name; e.g. Seizure, Intellectual disability, Ataxia, Microcephaly, Short stature",
+      "definition": "2,484 of 19,389 rows (12.8%) have NULL definition — filter with col.is_not_null() before displaying. Non-null definitions describe the clinical meaning of the HPO phenotype term. Users may ask for 'definition' or 'meaning' of a phenotype term."
+    },
+    "gene_phenotype_association_hpo": {
+      "gene_id": "FK to gene_master_table_hpo.gene_id",
+      "phenotype_id": "FK to phenotype_master_table_hpo.phenotype_id",
+      "gene_phenotype_frequency": "observed frequency of the phenotype in patients carrying this gene variant; expressed as fraction (e.g. 7/42) or HP frequency term",
+      "disease_id": "FK to disease_master_table_hpo.disease_id"
+    },
+    "disease_phenotype_association_hpo": {
+      "disease_id": "FK to disease_master_table_hpo.disease_id",
+      "phenotype_id": "FK to phenotype_master_table_hpo.phenotype_id"
+    },
+    "phenotype_hierarchy_hpo": {
+      "phenotype_id": "FK to phenotype_master_table_hpo.phenotype_id — the child term",
+      "parent_id": "FK to phenotype_master_table_hpo.phenotype_id — the parent term one level up in the HPO hierarchy"
+    },
+    "phenotype_synonym_hpo": {
+      "phenotype_id": "FK to phenotype_master_table_hpo.phenotype_id",
+      "synonym": "alternate name or synonym for the HPO phenotype term; used for synonym-based lookups"
+    },
+    "phenotype_gene_association_hpo": {
+      "phenotype_id": "FK to phenotype_master_table_hpo.phenotype_id; e.g. HP:6000526",
+      "gene_id": "FK to gene_master_table_hpo.gene_id",
+      "disease_id": "FK to disease_master_table_hpo.disease_id"
+    },
+    "gene_disease_association_hpo": {
+      "gene_id": "FK to gene_master_table_hpo.gene_id",
+      "ncbi_gene_id": "NCBI Entrez Gene ID as a bare integer string; e.g. 121278; the prefix-stripped form of gene_id; used when asking for NCBI gene ID",
+      "association_type": "type of gene-disease association; observed values: UNKNOWN (Orphanet-sourced, 8290 rows), MENDELIAN (7043 rows), POLYGENIC (581 rows)",
+      "disease_id": "FK to disease_master_table_hpo.disease_id",
+      "source": "Source URL for the gene-disease association. Only two values appear on disk: 'http://www.orphadata.org/data/xml/en_product6.xml' (8,290 rows, UNKNOWN association type) and 'ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/mim2gene_medgen' (7,624 rows, MENDELIAN+POLYGENIC). Filter by URL substring to distinguish Orphanet vs OMIM-derived associations."
+    },
+    "disease_phenotype_annotation_hpo": {
+      "disease_id": "FK to disease_master_table_hpo.disease_id",
+      "qualifier": "qualifier for the phenotype annotation; reserved for 'NOT' to mark an explicitly-absent phenotype, but in this snapshot the column is null in 100% of served rows (no 'NOT' values present)",
+      "phenotype_id": "FK to phenotype_master_table_hpo.phenotype_id",
+      "reference": "literature or database reference supporting the annotation; e.g. PMID:12345678, OMIM:123456",
+      "evidence": "evidence code for the annotation; e.g. IEA (inferred from electronic annotation), PCS (published clinical study)",
+      "onset": "age of onset HP term; e.g. HP:0003593 (Infantile onset), HP:0003577 (Congenital onset)",
+      "disease_phenotype_frequency": "frequency of the phenotype in affected patients; expressed as fraction (e.g. 7/42) or HP frequency term (HP:0040282)",
+      "sex": "sex-specific restriction of the phenotype annotation; e.g. MALE, FEMALE; null when not sex-specific",
+      "modifier": "clinical modifier HP term for the annotation; e.g. HP:0012832 (Bilateral), HP:0012834 (Right)",
+      "aspect": "HPO annotation aspect: P=Phenotypic abnormality (264207 rows), C=Clinical course (8444 rows), I=Inheritance/Mode of inheritance (9104 rows), H=Past medical history (124 rows), M=Clinical modifier (78 rows)",
+      "biocuration": "biocuration metadata including curator identifier and date; e.g. HPO:probinson[2021-06-21]"
+    }
+  }
+}

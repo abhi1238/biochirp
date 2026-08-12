@@ -1,0 +1,395 @@
+[
+  {
+    "label": "gene+go",
+    "question": "What are the GO terms annotated to TP53?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+go",
+    "question": "What GO annotations does EGFR have?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+go",
+    "question": "What GO terms are associated with BRCA1?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+go",
+    "question": "Which GO terms are annotated to MYC?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+go",
+    "question": "List all GO terms for KRAS.",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+function",
+    "question": "What is the molecular function of EGFR?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect",
+      "qualifier"
+    ]
+  },
+  {
+    "label": "gene+function",
+    "question": "What molecular functions does TP53 enable?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "qualifier"
+    ]
+  },
+  {
+    "label": "gene+function",
+    "question": "What biological processes is BRCA2 involved in?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+function",
+    "question": "What biological processes involve PTEN?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+function",
+    "question": "What does the KRAS protein do according to UniProt?",
+    "required": [
+      "gene_symbol",
+      "protein_name",
+      "go_id"
+    ]
+  },
+  {
+    "label": "gene+subcell_location",
+    "question": "Where is TP53 located in the cell?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+subcell_location",
+    "question": "What is the subcellular location of EGFR?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+subcell_location",
+    "question": "Which cellular compartment does BRCA1 reside in?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+subcell_location",
+    "question": "Where in the cell is MYC localised?",
+    "required": [
+      "gene_symbol",
+      "aspect",
+      "qualifier"
+    ]
+  },
+  {
+    "label": "gene+subcell_location",
+    "question": "Is PTEN found in the cytoplasm or nucleus?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "gene+variant",
+    "question": "What natural variants are annotated in TP53 in UniProt?",
+    "required": [
+      "gene_symbol",
+      "swiss_prot_change",
+      "variant_type"
+    ]
+  },
+  {
+    "label": "gene+variant",
+    "question": "Which pathogenic variants of BRCA1 are in UniProt?",
+    "required": [
+      "gene_symbol",
+      "swiss_prot_change",
+      "variant_type",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+variant",
+    "question": "List variants in EGFR annotated as uncertain significance.",
+    "required": [
+      "gene_symbol",
+      "swiss_prot_change",
+      "variant_type"
+    ]
+  },
+  {
+    "label": "gene+variant",
+    "question": "What amino acid changes in KRAS are associated with disease?",
+    "required": [
+      "gene_symbol",
+      "swiss_prot_change",
+      "disease_name"
+    ]
+  },
+  {
+    "label": "gene+variant",
+    "question": "Which variants of PTEN have a dbSNP ID?",
+    "required": [
+      "gene_symbol",
+      "swiss_prot_change",
+      "dbsnp"
+    ]
+  },
+  {
+    "label": "protein+go",
+    "question": "What GO terms are associated with UniProt entry P04637?",
+    "required": [
+      "protein_id",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "protein+go",
+    "question": "What are the GO annotations for P00533 (EGFR)?",
+    "required": [
+      "protein_id",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "protein+go",
+    "question": "Which biological processes is P38398 involved in?",
+    "required": [
+      "protein_id",
+      "go_id",
+      "aspect"
+    ]
+  },
+  {
+    "label": "protein+keyword",
+    "question": "What UniProt keywords are associated with TP53?",
+    "required": [
+      "gene_symbol",
+      "keyword_name"
+    ]
+  },
+  {
+    "label": "protein+keyword",
+    "question": "What keywords describe EGFR in UniProt?",
+    "required": [
+      "gene_symbol",
+      "keyword_name"
+    ]
+  },
+  {
+    "label": "protein+keyword",
+    "question": "Which UniProt keywords are in the 'Disease' category?",
+    "required": [
+      "keyword_name",
+      "category"
+    ]
+  },
+  {
+    "label": "protein+keyword",
+    "question": "What is the definition of the UniProt keyword 'Kinase'?",
+    "required": [
+      "keyword_name",
+      "keyword_description"
+    ]
+  },
+  {
+    "label": "disease+variant",
+    "question": "Which proteins have variants associated with Li-Fraumeni syndrome?",
+    "required": [
+      "disease_name",
+      "gene_symbol",
+      "swiss_prot_change"
+    ]
+  },
+  {
+    "label": "disease+variant",
+    "question": "What variants are linked to Lynch syndrome in UniProt?",
+    "required": [
+      "disease_name",
+      "swiss_prot_change",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+variant",
+    "question": "Which genes have pathogenic variants for Fanconi anemia?",
+    "required": [
+      "disease_name",
+      "gene_symbol",
+      "variant_type"
+    ]
+  },
+  {
+    "label": "disease+variant",
+    "question": "List all UniProt variants associated with Marfan syndrome.",
+    "required": [
+      "disease_name",
+      "gene_symbol",
+      "swiss_prot_change",
+      "variant_type"
+    ]
+  },
+  {
+    "label": "disease+protein",
+    "question": "Which proteins are associated with Alzheimer disease in UniProt?",
+    "required": [
+      "disease_name",
+      "gene_symbol",
+      "protein_id"
+    ]
+  },
+  {
+    "label": "disease+protein",
+    "question": "What UniProt proteins are linked to Parkinson disease?",
+    "required": [
+      "disease_name",
+      "protein_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "go+gene",
+    "question": "Which genes are annotated to GO:0005515 (protein binding)?",
+    "required": [
+      "go_id",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "go+gene",
+    "question": "Which proteins are annotated to the GO term for apoptosis?",
+    "required": [
+      "go_id",
+      "gene_symbol",
+      "aspect"
+    ]
+  },
+  {
+    "label": "go+gene",
+    "question": "What genes are annotated to the nucleus GO term in UniProt?",
+    "required": [
+      "go_id",
+      "gene_symbol",
+      "aspect"
+    ]
+  },
+  {
+    "label": "evidence_filter",
+    "question": "Which GO terms for TP53 are supported by experimental evidence (IDA)?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "evidence"
+    ]
+  },
+  {
+    "label": "evidence_filter",
+    "question": "Which EGFR GO annotations have TAS evidence?",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "evidence"
+    ]
+  },
+  {
+    "label": "evidence_filter",
+    "question": "List GO terms for BRCA1 excluding electronically inferred (IEA) annotations.",
+    "required": [
+      "gene_symbol",
+      "go_id",
+      "evidence"
+    ]
+  },
+  {
+    "label": "protein_lookup",
+    "question": "What is the UniProt entry for TP53?",
+    "required": [
+      "gene_symbol",
+      "protein_id",
+      "protein_name",
+      "entry_name"
+    ]
+  },
+  {
+    "label": "protein_lookup",
+    "question": "Give me the UniProt accession and protein name for BRCA2.",
+    "required": [
+      "gene_symbol",
+      "protein_id",
+      "protein_name"
+    ]
+  },
+  {
+    "label": "protein_lookup",
+    "question": "What is the entry name of the human EGFR protein in UniProt?",
+    "required": [
+      "gene_symbol",
+      "entry_name",
+      "protein_id"
+    ]
+  },
+  {
+    "label": "subcell_lookup",
+    "question": "What is the definition of the subcellular location 'A band' in UniProt?",
+    "required": [
+      "subcell_name",
+      "subcell_description"
+    ]
+  },
+  {
+    "label": "subcell_lookup",
+    "question": "Which GO term corresponds to the UniProt location 'Nucleus'?",
+    "required": [
+      "subcell_name",
+      "go"
+    ]
+  }
+]

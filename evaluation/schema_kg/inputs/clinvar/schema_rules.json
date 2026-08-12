@@ -1,0 +1,305 @@
+{
+  "mandatory_entity_columns": {
+    "gene": [
+      "gene_symbol"
+    ],
+    "disease": [
+      "variant_disease_name"
+    ]
+  },
+  "xref_id_columns": [
+    "variant_id",
+    "gene_id",
+    "disease_id",
+    "citation_allele_id",
+    "genomic_allele_id",
+    "rsid",
+    "nsv",
+    "scv",
+    "citation_id",
+    "clnsig",
+    "clnrevstat",
+    "clndisdb",
+    "gene_info",
+    "organization_ids",
+    "origin_counts"
+  ],
+  "schema_grounding_notes": [
+    "aggregate_clinical_significance / disease_clinical_significance: core values are 'benign', 'likely benign', 'uncertain significance', 'likely pathogenic', 'pathogenic', 'conflicting classifications of pathogenicity', 'risk factor', 'drug response' — all lowercase on disk; do NOT use abbreviations like VUS, LP, LB, P, B. High-count compound/extra values also present on disk: 'benign/likely benign' (64,981 rows), 'pathogenic/likely pathogenic' (39,700 rows), 'other' (1,526 rows), 'no classification for the single variant' (691 rows). submission_clinical_significance: same core set EXCEPT 'conflicting classifications of pathogenicity' does NOT appear — use 'conflicting data from submitters' instead; also includes 'other' (2,338 rows) and 'affects' (321 rows). Use aggregate_clinical_significance for variant-level queries, disease_clinical_significance for variant-disease pair queries, submission_clinical_significance for submitter-level queries",
+    "disease_master_table_clinvar exists on disk (29,648 rows) but is KG-only (exec_schema:false on all columns) — disease_name and disease_id are denormalised onto variant_disease_association_clinvar; route all exec disease queries to variant_disease_association_clinvar.variant_disease_name instead",
+    "variant_name stores HGVS notation; bare gene symbols (CFTR, BRCA1) should be routed to gene_symbol, NOT variant_name",
+    "rsid lives in variant_citation_clinvar; stored as bare numeric string WITHOUT 'rs' prefix (e.g. '28897696', not 'rs28897696'); strip 'rs' prefix from user input before matching",
+    "review_status values use full phrases with commas — do NOT abbreviate; 'reviewed by expert panel' is the highest-confidence tier (equivalent to 4 stars)"
+  ],
+  "co_output_rules": [
+    {
+      "trigger_columns": [
+        "variant_name",
+        "variant_type",
+        "molecular_consequence"
+      ],
+      "require_column": "gene_symbol",
+      "require_behavior": "requested",
+      "reason": "variant details are most useful when the gene context is shown"
+    },
+    {
+      "trigger_columns": [
+        "aggregate_clinical_significance",
+        "disease_clinical_significance",
+        "submission_clinical_significance"
+      ],
+      "require_column": "variant_disease_name",
+      "require_behavior": "requested",
+      "reason": "clinical significance is always paired with a disease/condition context"
+    },
+    {
+      "trigger_columns": [
+        "pos",
+        "chrom",
+        "ref",
+        "alt"
+      ],
+      "require_column": "assembly",
+      "require_behavior": "requested",
+      "reason": "genomic coordinates require a genome assembly version for interpretation"
+    },
+    {
+      "trigger_columns": [
+        "rsid"
+      ],
+      "require_column": "variant_name",
+      "require_behavior": "requested",
+      "reason": "rsID needs the HGVS name for full variant identification"
+    }
+  ],
+  "abbreviation_map": {
+    "AML": "acute myeloid leukemia",
+    "GBM": "glioblastoma multiforme"
+  },
+  "filter_few_shot_examples": [
+    {
+      "question": "Is the variant rs397704705 pathogenic?",
+      "keep": [
+        "rsid",
+        "variant_name",
+        "aggregate_clinical_significance",
+        "aggregate_review_status",
+        "gene_symbol",
+        "variant_disease_name"
+      ],
+      "drop": [
+        "chromosome",
+        "start",
+        "stop",
+        "origin_simple",
+        "variant_type",
+        "chrom",
+        "pos",
+        "assembly"
+      ],
+      "note": "variant pathogenicity query: rsid (WHERE filter on rs397704705), variant_name (co-output for full HGVS ID), aggregate_clinical_significance + aggregate_review_status (the answer — pathogenic/tier), gene_symbol + variant_disease_name (context). Genomic coordinates (chromosome/start/stop/chrom/pos/assembly) and origin_simple are IRRELEVANT — the user is asking about clinical interpretation, not genomic location."
+    },
+    {
+      "question": "What pathogenic variants are in BRCA1?",
+      "keep": [
+        "gene_symbol",
+        "variant_name",
+        "aggregate_clinical_significance",
+        "aggregate_review_status",
+        "variant_disease_name"
+      ],
+      "drop": [
+        "chromosome",
+        "start",
+        "stop",
+        "origin_simple",
+        "variant_type",
+        "chrom",
+        "pos",
+        "assembly",
+        "submission_clinical_significance",
+        "submitter"
+      ],
+      "note": "gene→variant pathogenicity query: gene_symbol (WHERE filter on BRCA1), aggregate_clinical_significance (WHERE filter on 'pathogenic'), variant_name + aggregate_review_status + variant_disease_name (SELECT outputs showing which variants and their disease context). Chromosomal coordinates and submission-level detail are IRRELEVANT — this is a gene-level pathogenicity question."
+    },
+    {
+      "question": "What ClinVar variants are associated with hereditary breast and ovarian cancer syndrome?",
+      "keep": [
+        "variant_disease_name",
+        "variant_name",
+        "disease_clinical_significance",
+        "gene_symbol",
+        "aggregate_review_status"
+      ],
+      "drop": [
+        "chromosome",
+        "start",
+        "stop",
+        "origin_simple",
+        "variant_type",
+        "chrom",
+        "pos",
+        "assembly",
+        "submission_clinical_significance",
+        "submitter",
+        "rsid"
+      ],
+      "note": "disease→variant query: variant_disease_name (WHERE filter on disease), variant_name + disease_clinical_significance + gene_symbol + aggregate_review_status (SELECT outputs showing variants, their significance for this disease, and gene context). Chromosomal coordinates, origin, variant_type, and submission details are IRRELEVANT — the focus is disease association and clinical interpretation."
+    },
+    {
+      "question": "What variants are on chromosome 17 between positions 43000000 and 44000000?",
+      "keep": [
+        "chromosome",
+        "chrom",
+        "pos",
+        "assembly",
+        "gene_symbol",
+        "variant_name"
+      ],
+      "drop": [
+        "aggregate_clinical_significance",
+        "origin_simple",
+        "variant_disease_name",
+        "disease_clinical_significance",
+        "submission_clinical_significance",
+        "submitter",
+        "collection_method"
+      ],
+      "note": "chromosomal location query: chromosome/chrom (WHERE filter on 17), pos (WHERE range filter), assembly (co-output — coordinates require genome assembly for interpretation), gene_symbol + variant_name (SELECT outputs identifying which variants are present). Clinical significance, disease associations, and submission details are NOT the focus — the user is asking about what variants exist at a locus."
+    },
+    {
+      "question": "What germline variants in TP53 are in ClinVar?",
+      "keep": [
+        "gene_symbol",
+        "origin_simple",
+        "variant_name",
+        "aggregate_clinical_significance",
+        "variant_disease_name"
+      ],
+      "drop": [
+        "chromosome",
+        "start",
+        "stop",
+        "chrom",
+        "pos",
+        "assembly",
+        "variant_type",
+        "submission_clinical_significance",
+        "submitter",
+        "rsid"
+      ],
+      "note": "variant origin query: gene_symbol (WHERE filter on TP53), origin_simple (WHERE filter on 'germline'), variant_name + aggregate_clinical_significance + variant_disease_name (SELECT outputs showing the variants, their significance, and disease context). Chromosomal coordinates and submission detail are IRRELEVANT — the focus is origin-filtered gene variants and their clinical interpretation."
+    }
+  ],
+  "_comment": "Schema rules for clinvar. Injected into expander/filter/mapper prompts at runtime. GENERATED from dbs/clinvar/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "db_name": "clinvar",
+  "db_display_name": "ClinVar",
+  "db_description": "ClinVar — NCBI archive of interpretations of human genomic variants with clinical significance assertions submitted by expert laboratories",
+  "enum_columns": {
+    "variant_type": [
+      "single nucleotide variant",
+      "Indel",
+      "Deletion",
+      "Duplication",
+      "Insertion",
+      "Microsatellite",
+      "copy number gain",
+      "copy number loss",
+      "Variation",
+      "Inversion",
+      "Translocation",
+      "Complex"
+    ],
+    "aggregate_clinical_significance": [
+      "benign",
+      "likely benign",
+      "uncertain significance",
+      "likely pathogenic",
+      "pathogenic",
+      "conflicting classifications of pathogenicity",
+      "risk factor",
+      "drug response",
+      "benign/likely benign",
+      "pathogenic/likely pathogenic",
+      "other",
+      "affects",
+      "no classification for the single variant"
+    ],
+    "aggregate_review_status": [
+      "reviewed by expert panel",
+      "criteria provided, multiple submitters, no conflicts",
+      "criteria provided, conflicting classifications",
+      "criteria provided, single submitter",
+      "no assertion criteria provided",
+      "no classification provided",
+      "no classification for the single variant",
+      "no classifications from unflagged records",
+      "practice guideline",
+      "flagged submission"
+    ],
+    "disease_clinical_significance": [
+      "benign",
+      "likely benign",
+      "uncertain significance",
+      "likely pathogenic",
+      "pathogenic",
+      "conflicting classifications of pathogenicity",
+      "risk factor",
+      "drug response",
+      "benign/likely benign",
+      "pathogenic/likely pathogenic",
+      "other",
+      "affects",
+      "no classification for the single variant"
+    ],
+    "submission_clinical_significance": [
+      "benign",
+      "likely benign",
+      "uncertain significance",
+      "likely pathogenic",
+      "pathogenic",
+      "conflicting data from submitters",
+      "risk factor",
+      "drug response",
+      "other",
+      "affects"
+    ],
+    "submission_review_status": [
+      "reviewed by expert panel",
+      "criteria provided, multiple submitters, no conflicts",
+      "criteria provided, conflicting classifications",
+      "criteria provided, single submitter",
+      "no assertion criteria provided",
+      "no classification provided",
+      "no classification for the single variant",
+      "no classifications from unflagged records",
+      "practice guideline",
+      "flagged submission"
+    ],
+    "collection_method": [
+      "clinical testing",
+      "research",
+      "literature only",
+      "curation",
+      "provider interpretation",
+      "in vitro",
+      "in vivo",
+      "phenotyping only",
+      "case-control",
+      "reference population"
+    ],
+    "assembly": [
+      "GRCh38",
+      "GRCh37"
+    ]
+  },
+  "column_notes_override": {
+    "variant_name": "HGVS notation only; e.g. NM_007294.4(BRCA1):c.5266dupC — do NOT route bare gene symbols here",
+    "aggregate_clinical_significance": "enum — MUST be exact ClinVar phrase; 'uncertain significance' not 'VUS', 'pathogenic' not 'P'; see enum_columns for full list",
+    "aggregate_review_status": "star-equivalent review tier; 'reviewed by expert panel' = 4 stars (highest confidence)",
+    "gene_symbol": "HGNC official symbol — p53→TP53; bare gene symbols in queries should go here, NOT to variant_name",
+    "disease_clinical_significance": "enum — MUST be exact ClinVar phrase; 'uncertain significance' not 'VUS', 'pathogenic' not 'P'; see enum_columns for full list",
+    "submission_clinical_significance": "enum — MUST be exact ClinVar phrase; 'uncertain significance' not 'VUS', 'pathogenic' not 'P'; use 'conflicting data from submitters' (not 'conflicting classifications of pathogenicity') for submission-level conflicts; see enum_columns for full list",
+    "submission_review_status": "star-equivalent review tier; 'reviewed by expert panel' = 4 stars (highest confidence)"
+  }
+}

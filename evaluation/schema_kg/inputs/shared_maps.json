@@ -1,0 +1,14 @@
+{
+  "_comment": "Shared normalization maps merged into every DB's schema_rules at load time. Per-DB schema_rules.json entries for the same key extend (not replace) these defaults.",
+  "trade_name_map": {
+    "Glivec":     "imatinib",
+    "Herceptin":  "trastuzumab",
+    "Keytruda":   "pembrolizumab",
+    "Avastin":    "bevacizumab"
+  },
+  "gene_alias_map": {
+    "p53":     "TP53",
+    "PD-1":    "PDCD1",
+    "PD-L1":   "CD274"
+  }
+}

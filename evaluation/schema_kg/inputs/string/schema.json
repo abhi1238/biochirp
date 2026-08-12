@@ -1,0 +1,46 @@
+{
+  "string": {
+    "protein_master_table_string": {
+      "protein_id": "STRING protein identifier (e.g. '9606.ENSP00000275493') — join key only; disk column already named protein_id; loader rename is a no-op (canonical name since v2)",
+      "gene_symbol": "HGNC short gene symbol of the protein (e.g. 'EGFR', 'TP53', 'KRAS'); used to find which protein you are asking about",
+      "protein_size": "Protein length in amino acids (integer, e.g. 1210 for EGFR) of THIS protein. When this table is joined to a PPI edge it is the QUERY/anchor protein's size; for a PARTNER's size use the PPI table's association_partner_protein_size / physical_partner_protein_size / channels_partner_protein_size column instead (table-prefixed to avoid spurious FK cross-joins)",
+      "annotation": "Free-text functional protein description from STRING (e.g. 'Receptor tyrosine kinase'); used when asking for protein function or annotation"
+    },
+    "ppi_association_string": {
+      "protein_id": "STRING protein ID for the query-side protein (non-queryable FK → protein_master_table_string.protein_id)",
+      "association_gene_symbol": "HGNC gene symbol of the query-side protein in the functional association table — use this to find all functional interaction partners of a named gene (edges are stored bidirectionally so a single filter returns ALL partners)",
+      "protein_partner_id": "STRING protein ID for the partner-side protein (non-queryable FK → protein_master_table_string.protein_id)",
+      "association_partner_gene_symbol": "HGNC gene symbol of the partner-side protein in the functional association table — this is the interacting partner returned to the user",
+      "association_score": "STRING overall confidence score across all seven evidence channels (integer 0–1000; this snapshot pre-filtered to ≥ 700; 900+ = highest confidence). Users may ask for 'combined score', 'STRING score', or 'interaction confidence'",
+      "association_partner_protein_size": "Amino-acid length of the PARTNER protein on this edge (integer, e.g. 393), denormalized from protein_master_table via protein_partner_id. Use THIS column for any question about the SIZE / LENGTH / amino-acid count of a gene's interaction PARTNERS (e.g. 'partners larger than 1000 aa', 'average partner protein size'). NOTE: the master-table protein_size column is the QUERY/anchor protein's size, not the partner's"
+    },
+    "ppi_physical_string": {
+      "protein_id": "STRING protein ID for the query-side protein (non-queryable FK → protein_master_table_string.protein_id)",
+      "physical_gene_symbol": "HGNC gene symbol of the query-side protein in the physical-binding table — use this to find proteins that physically bind a named gene (direct binding / complex evidence only; subset of ppi_association)",
+      "protein_partner_id": "STRING protein ID for the physical-binding partner (non-queryable FK → protein_master_table_string.protein_id)",
+      "physical_partner_gene_symbol": "HGNC gene symbol of the physical-binding partner — the partner gene that has direct physical / binding evidence with the query gene",
+      "physical_score": "STRING physical-interaction confidence score from binding and complex evidence only (integer 700–999). Users may ask for 'physical interaction', 'binding evidence', or 'physical PPI'",
+      "physical_partner_protein_size": "Amino-acid length of the PARTNER protein on this edge (integer, e.g. 393), denormalized from protein_master_table via protein_partner_id. Use THIS column for any question about the SIZE / LENGTH / amino-acid count of a gene's physical-binding PARTNERS. NOTE: the master-table protein_size column is the QUERY/anchor protein's size, not the partner's"
+    },
+    "ppi_detailed_channels_string": {
+      "protein_id": "STRING protein ID for the query-side protein (non-queryable FK → protein_master_table_string.protein_id)",
+      "channel_gene_symbol": "HGNC gene symbol of the query-side protein in the per-channel evidence table — use this to retrieve per-channel evidence scores for a named gene's interaction partners",
+      "protein_partner_id": "STRING protein ID for the partner-side protein (non-queryable FK → protein_master_table_string.protein_id)",
+      "channel_partner_gene_symbol": "HGNC gene symbol of the partner-side protein in the per-channel evidence table — returned alongside per-channel scores",
+      "neighborhood": "Per-channel score: genomic neighbourhood co-location evidence (integer 0–357 in this snapshot; STRING protocol range 0–1000). Users may ask for 'neighborhood score' or 'genomic neighbourhood'",
+      "fusion": "Per-channel score: gene-fusion evidence from organism comparisons (integer 0–900 in this snapshot; STRING protocol range 0–1000). Users may ask for 'fusion score'",
+      "cooccurence": "Per-channel score: phylogenetic co-occurrence / profile evidence (integer 0–537 in this snapshot; STRING protocol range 0–1000; note schema spelling). Users may ask for 'co-occurrence score' or 'phylogenetic profile'",
+      "coexpression": "Per-channel score: gene co-expression evidence across organisms (integer 0–1000). Users may ask for 'co-expression score'",
+      "experimental": "Per-channel score: experimental/biochemical evidence from BioGRID, IntAct etc. (integer 0–1000). Users may ask for 'experimental score' or 'experimental evidence'",
+      "database": "Per-channel score: curated-database evidence from Reactome, KEGG etc. (integer 0–984 in this snapshot; STRING protocol range 0–1000). Users may ask for 'database score' or 'curated evidence'",
+      "textmining": "Per-channel score: text-mining evidence from co-mentions in PubMed (integer 0–1000). Users may ask for 'text-mining score' or 'literature evidence'",
+      "channel_combined_score": "STRING combined confidence score across all channels for this edge (integer 700–999 in this pre-filtered snapshot) — returned alongside per-channel scores for context",
+      "channels_partner_protein_size": "Amino-acid length of the PARTNER protein on this edge (integer, e.g. 393), denormalized from protein_master_table via protein_partner_id. Use THIS column for any question about the SIZE / LENGTH / amino-acid count of a gene's interaction PARTNERS. NOTE: the master-table protein_size column is the QUERY/anchor protein's size, not the partner's"
+    },
+    "protein_alias_string": {
+      "protein_id": "STRING protein identifier (join key to protein_master_table_string.protein_id) — non-queryable FK; disk column already named protein_id; loader rename is a no-op (canonical name since v2)",
+      "alias": "Alternate identifier or synonym for the protein (e.g. RefSeq accession, Ensembl ID, gene symbol). Users may ask for 'alias', 'synonym', or 'alternate ID'",
+      "source": "Source database for the alias (e.g. 'Ensembl_EMBL', 'UniProt_AC', 'Ensembl_HGNC'). Users may ask for 'alias source' or 'source database'"
+    }
+  }
+}

@@ -1,0 +1,211 @@
+[
+  {
+    "label": "variant+clinical",
+    "question": "Is rs397704705 pathogenic?",
+    "required": [
+      "rsid",
+      "aggregate_clinical_significance"
+    ]
+  },
+  {
+    "label": "variant+clinical",
+    "question": "What is the clinical significance of variant rs80357906?",
+    "required": [
+      "rsid",
+      "aggregate_clinical_significance"
+    ]
+  },
+  {
+    "label": "variant+clinical",
+    "question": "Is the variant NM_007294.4(BRCA1):c.5266dupC pathogenic?",
+    "required": [
+      "variant_name",
+      "aggregate_clinical_significance"
+    ]
+  },
+  {
+    "label": "variant+clinical",
+    "question": "What is the review status of rs28897696?",
+    "required": [
+      "rsid",
+      "aggregate_review_status"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "What diseases are associated with pathogenic variants in BRCA1?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name",
+      "disease_clinical_significance"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with TP53?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with BRAF?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which conditions involve mutations in MYC?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with EGFR?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which conditions involve mutations in BRAF?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which conditions involve mutations in EGFR?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "which conditions involve mutations in TP53?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name"
+    ]
+  },
+  {
+    "label": "gene+disease",
+    "question": "what diseases are associated with MYC?",
+    "required": [
+      "gene_symbol",
+      "variant_disease_name"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Which gene causes Netherton syndrome?",
+    "required": [
+      "variant_disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "What is the genetic basis of CADASIL?",
+    "required": [
+      "variant_disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "disease+gene",
+    "question": "Mutations in which gene cause 16p13.11 microdeletion syndrome?",
+    "required": [
+      "variant_disease_name",
+      "gene_symbol"
+    ]
+  },
+  {
+    "label": "gene+clinical",
+    "question": "what is the clinical significance of variants in EGFR?",
+    "required": [
+      "gene_symbol",
+      "disease_clinical_significance"
+    ]
+  },
+  {
+    "label": "gene+clinical",
+    "question": "pathogenic variants in EGFR",
+    "required": [
+      "gene_symbol",
+      "aggregate_clinical_significance"
+    ]
+  },
+  {
+    "label": "gene+clinical",
+    "question": "pathogenic variants in BRAF",
+    "required": [
+      "gene_symbol",
+      "aggregate_clinical_significance"
+    ]
+  },
+  {
+    "label": "gene+clinical",
+    "question": "what is the clinical significance of variants in MYC?",
+    "required": [
+      "gene_symbol",
+      "disease_clinical_significance"
+    ]
+  },
+  {
+    "label": "gene+clinical",
+    "question": "what is the clinical significance of variants in TP53?",
+    "required": [
+      "gene_symbol",
+      "disease_clinical_significance"
+    ]
+  },
+  {
+    "label": "gene+clinical",
+    "question": "pathogenic variants in TP53",
+    "required": [
+      "gene_symbol",
+      "aggregate_clinical_significance"
+    ]
+  },
+  {
+    "label": "gene+clinical",
+    "question": "pathogenic variants in MYC",
+    "required": [
+      "gene_symbol",
+      "aggregate_clinical_significance"
+    ]
+  },
+  {
+    "label": "gene+clinical",
+    "question": "what is the clinical significance of variants in BRAF?",
+    "required": [
+      "gene_symbol",
+      "disease_clinical_significance"
+    ]
+  },
+  {
+    "label": "somatic+clinical",
+    "question": "what is the oncogenicity classification for somatic variants in KRAS?",
+    "required": [
+      "gene_symbol",
+      "oncogenicity"
+    ]
+  },
+  {
+    "label": "somatic+clinical",
+    "question": "what somatic variants in EGFR are classified as oncogenic?",
+    "required": [
+      "gene_symbol",
+      "oncogenicity"
+    ]
+  }
+]

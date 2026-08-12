@@ -1,0 +1,17 @@
+{
+  "_comment": "Logical schema table -> physical parquet filename. GENERATED from dbs/ttd/schema.yaml by scripts/gen_schema.py — DO NOT EDIT.",
+  "biomarker_disease_association_ttd": "P1-08-Biomarker_disease_v2.parquet",
+  "biomarker_master_table_ttd": "biomarker_master_table_ttd_v2.parquet",
+  "disease_master_table_ttd": "disease_master_table_ttd_v2.parquet",
+  "drug_crossmatching_association_ttd": "drug_crossmatching_association_ttd_v2.parquet",
+  "drug_disease_association_ttd": "P1-05-Drug_disease_v2.parquet",
+  "drug_master_table_ttd": "drug_master_table_ttd_v2.parquet",
+  "drug_synonyms_association_ttd": "drug_synonyms_association_ttd_v2.parquet",
+  "drug_target_association_ttd": "P1-07-Drug-TargetMapping_v2.parquet",
+  "pathway_master_table_ttd": "pathway_master_table_ttd_v2.parquet",
+  "target_compound_activity_association_ttd": "target_compound_activity_association_ttd_v2.parquet",
+  "target_disease_association_ttd": "P1-06-Target_disease_v2.parquet",
+  "target_master_table_ttd": "target_master_table_ttd_v2.parquet",
+  "target_pathway_association_ttd": "P4-01-Target-KEGGpathway_all_v2.parquet",
+  "target_uniprot_association_ttd": "target_uniprot_association_ttd_v2.parquet"
+}
