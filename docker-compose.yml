@@ -124,8 +124,8 @@ services:
     image: qdrant/qdrant:v1.17.1@sha256:94728574965d17c6485dd361aa3c0818b325b9016dac5ea6afec7b4b2700865f
     container_name: bioc_qdrant
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
     volumes:
       - ./qdrant_storage:/qdrant/storage
     networks:
@@ -156,7 +156,7 @@ services:
     image: biochirp_synonyms_expander:latest
     container_name: biochirp_synonyms_expander
     ports:
-      - "8014:8014"
+      - "127.0.0.1:8014:8014"
     environment:
       - DB_VALUE_PATH=/app/resources/values/concept_values_by_db_and_field.pkl
       - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
@@ -202,7 +202,7 @@ services:
     image: biochirp_synonyms_expander_unrestricted:latest
     container_name: biochirp_synonyms_expander_unrestricted
     ports:
-      - "8032:8032"
+      - "127.0.0.1:8032:8032"
     environment:
       - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
     healthcheck:
@@ -245,7 +245,7 @@ services:
     image: biochirp_fuzzy_tool:latest
     container_name: biochirp_fuzzy_tool
     ports:
-      - "8013:8013"
+      - "127.0.0.1:8013:8013"
     environment:
       - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
     volumes:
@@ -292,7 +292,7 @@ services:
     image: biochirp_tavily_tool:latest
     container_name: biochirp_tavily_tool
     ports:
-      - "8008:8008"
+      - "127.0.0.1:8008:8008"
     volumes:
       - *v-guardrail
       - *v-attributions
@@ -323,7 +323,7 @@ services:
     image: biochirp_readme_tool:latest
     container_name: biochirp_readme_tool
     ports:
-      - "8007:8007"
+      - "127.0.0.1:8007:8007"
     volumes:
       - *v-guardrail
       - *v-attributions
@@ -359,7 +359,7 @@ services:
     image: biochirp_share_tool:latest
     container_name: biochirp_share_tool
     ports:
-      - "8030:8030"
+      - "127.0.0.1:8030:8030"
     environment:
       REDIS_HOST: biochirp_redis_tool
       REDIS_PORT: "6379"
@@ -407,7 +407,7 @@ services:
     container_name: biochirp_semantic_tool
     image: biochirp_semantic_tool:latest
     ports:
-      - "8015:8015"
+      - "127.0.0.1:8015:8015"
     environment:
       - VALID_DATABASES=TTD,CTD,HCDT,HPO,CLINVAR,REACTOME,STRING,UNIPROT,ORPHANET,OPENTARGETS,MSIGDB
       # A/B flag: pipeline embedding-encode with Qdrant search. Benchmarked
@@ -464,7 +464,7 @@ services:
     image: biochirp_expand_and_match_db_tool:latest
     container_name: biochirp_expand_and_match_db_tool
     ports:
-      - "8009:8009"
+      - "127.0.0.1:8009:8009"
     environment:
       - EXPAND_HOST=biochirp_synonyms_expander
       - EXPAND_PORT=8014
@@ -530,7 +530,7 @@ services:
     image: biochirp_planner_tool:latest
     container_name: biochirp_planner_tool
     ports:
-      - "8011:8011"
+      - "127.0.0.1:8011:8011"
     volumes:
       - *v-schema
       - *v-guardrail
@@ -578,7 +578,7 @@ services:
       SERVICE_NAME: schema_mapper
       # SCHEMA_KG_EMBED_MODEL delivered via env_file: .env (single source of truth).
     ports:
-      - "8019:8019"
+      - "127.0.0.1:8019:8019"
     volumes:
       - *v-schema
       - ./config/schema_kg_dbs.py:/app/config/schema_kg_dbs.py:ro
@@ -621,7 +621,7 @@ services:
       <<: *db-tool-env
       SERVICE_NAME: schema_planner
     ports:
-      - "8020:8020"
+      - "127.0.0.1:8020:8020"
     volumes:
       - *v-schema
       - ./config/schema_kg_dbs.py:/app/config/schema_kg_dbs.py:ro
@@ -688,7 +688,7 @@ services:
       EXECUTE_HOST_UNIPROT: biochirp_uniprot_tool
       EXECUTE_PORT_UNIPROT: "8089"
     ports:
-      - "8021:8021"
+      - "127.0.0.1:8021:8021"
     volumes:
       - *v-guardrail
       - *v-utils
@@ -763,7 +763,7 @@ services:
       - semantic_net
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     # 2026-05-19: switch to litellm_config_bench.yaml when regenerating any
     # paper/eval table (the bench profile disables prompt caching so per-call
     # variance is preserved). Easiest via a compose override:
@@ -834,7 +834,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/ttd/app/main.py:/app/app/main.py:ro
     ports:
-      - "8012:8012"
+      - "127.0.0.1:8012:8012"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -891,7 +891,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/ctd/app/main.py:/app/app/main.py:ro
     ports:
-      - "8016:8016"
+      - "127.0.0.1:8016:8016"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -948,7 +948,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/hcdt/app/main.py:/app/app/main.py:ro
     ports:
-      - "8018:8018"
+      - "127.0.0.1:8018:8018"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -1005,7 +1005,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/hpo/app/main.py:/app/app/main.py:ro
     ports:
-      - "8054:8054"
+      - "127.0.0.1:8054:8054"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -1062,7 +1062,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/clinvar/app/main.py:/app/app/main.py:ro
     ports:
-      - "8062:8062"
+      - "127.0.0.1:8062:8062"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -1113,7 +1113,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/reactome/app/main.py:/app/app/main.py:ro
     ports:
-      - "8064:8064"
+      - "127.0.0.1:8064:8064"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -1164,7 +1164,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/msigdb/app/main.py:/app/app/main.py:ro
     ports:
-      - "8079:8079"
+      - "127.0.0.1:8079:8079"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -1221,7 +1221,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/orphanet/app/main.py:/app/app/main.py:ro
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -1272,7 +1272,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/string/app/main.py:/app/app/main.py:ro
     ports:
-      - "8087:8087"
+      - "127.0.0.1:8087:8087"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -1323,7 +1323,7 @@ services:
       - ./evaluation/schema_kg/inputs/:/app/schema_kg/inputs/:ro
       - ./app/tools/uniprot/app/main.py:/app/app/main.py:ro
     ports:
-      - "8089:8089"
+      - "127.0.0.1:8089:8089"
     healthcheck:
       <<: *healthcheck-http
       start_period: 60s
@@ -1361,7 +1361,7 @@ services:
       - REDIS_HOST=biochirp_redis_tool
       - REDIS_PORT=6379
     ports:
-      - "8026:8026"
+      - "127.0.0.1:8026:8026"
     env_file:
       - .env
     volumes:

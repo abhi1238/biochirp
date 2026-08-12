@@ -160,7 +160,10 @@ def render_tool_block(slug: str, tool: dict, defaults: dict) -> str:
         lines.append(f"      - ./app/tools/{slug}/app/main.py:/app/app/main.py:ro")
     lines += [
         f"    ports:",
-        f'      - "{port}:{port}"',
+        # Bound to 127.0.0.1, not 0.0.0.0: nginx (host process) reverse-proxies
+        # these via 127.0.0.1 already, so this only closes the direct,
+        # un-proxied path that bypasses nginx's rate limiting entirely.
+        f'      - "127.0.0.1:{port}:{port}"',
         f"    healthcheck:",
         f"      <<: *healthcheck-http",
         f"      start_period: {hc_start}",

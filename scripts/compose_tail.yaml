@@ -17,7 +17,7 @@
       - REDIS_HOST=biochirp_redis_tool
       - REDIS_PORT=6379
     ports:
-      - "8026:8026"
+      - "127.0.0.1:8026:8026"
     env_file:
       - .env
     volumes:
