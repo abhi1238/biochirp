@@ -106,10 +106,11 @@ normalises `_<db>` when resolving — `app/per_db_tool/schema_kg_planner.py`), s
 this is a consistency lint, not a correctness gate.
 
 > The suffix is applied **inconsistently** across the existing 11 DBs (hcdt and
-> ttd use bare names; chembl/clinvar/msigdb/reactome are partial). Those 49 tables
-> are GRANDFATHERED in `scripts/table_naming_baseline.json` — they are NOT renamed,
-> because the runtime tolerates them and a mass-rename would be risk for zero
-> functional gain. New tables must still follow the convention. Do **not** rename
+> ttd use bare names; clinvar/msigdb/reactome are partial). `scripts/table_naming_baseline.json`
+> is the intended grandfather list for exactly this kind of pre-existing
+> inconsistency, but it currently ships empty (`{}`) — the lint in
+> `scripts/check_table_naming.py` is not yet enforced against a populated
+> baseline. New tables must still follow the convention. Do **not** rename
 > an existing DB's tables without also updating `config/schema.py`, its
 > `parquet_map.json`, and rebuilding the graph — the join resolution depends on
 > those names lining up.
@@ -121,10 +122,10 @@ this is a consistency lint, not a correctness gate.
 After editing any file here, run:
 
 ```bash
-python schema_kg/src/build.py --inputs schema_kg/inputs/<db>   # rebuild graph/index
+python evaluation/schema_kg/src/build.py --inputs evaluation/schema_kg/inputs/<db>   # rebuild graph/index
 python scripts/schema_manifest_sync.py --db <db>               # schema.py ↔ manifest drift
 python scripts/preflight_schema_check.py --db <db>             # schema.py ↔ parquet
 ```
 
-See [`../../dbs/README.md`](../../dbs/README.md) for the full new-DB onboarding
+See [`../../../dbs/README.md`](../../../dbs/README.md) for the full new-DB onboarding
 procedure and `scripts/onboard_db.py --check <db>` for a one-shot status report.

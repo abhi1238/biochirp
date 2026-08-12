@@ -17,10 +17,9 @@ Everything described here is derived directly from [`docker-compose.yml`](docker
 │  • MCP server (mcp_server/) — direct tool calls from Claude/agents    │
 └────────────────────────────────┬──────────────────────────────────────┘
                                   ▼
-                biochirp_orchestrator_tool (8021)
-                per-DB router: router_tool / execute_tool /
-                expand_and_match_tool / planner_tool / schema_mapper_tool /
-                web_tool — HTTP client wrappers around the services below
+                    biochirp_<db>_tool  (one per offline DB, built on
+                    app/per_db_tool/ — see "Shared per-DB library" below)
+                    drives its own query end-to-end in-process:
                                   │
                 ┌─────────────────┴─────────────────┐
                 ▼                                     ▼
@@ -38,13 +37,13 @@ entity resolution, fans out to:             ANN retrieval over
                 │                     (lean, no embedding model)
                 └─────────────────┬───────────────────┘
                                   ▼
-                    biochirp_<db>_tool  (one per offline DB, built on
-                    app/per_db_tool/ — see "Shared per-DB library" below)
                     executes the plan against database/<db>/*.parquet
                                   │
                                   ▼
                     LLM summarization → answer + evidence table
 ```
+
+`biochirp_orchestrator_tool` (8021) — `router_tool` / `execute_tool` / `expand_and_match_tool` / `planner_tool` / `schema_mapper_tool` / `web_tool` HTTP client wrappers around the services above — is a centralized-routing alternative to the in-process path shown here. It's opt-in: `app/per_db_tool/schema_kg_worker.py`'s `_orchestrator_enabled_dbs()` reads `SCHEMA_KG_ORCHESTRATOR_DBS`, which is unset in both `.env.example` and `docker-compose.yml`, so it's off for every DB by default. See "Request lifecycle" below for the path that actually runs today.
 
 Open Targets does not go through this offline path at all — `opentarget_service/` (port 8026) is a standalone service that queries the live Open Targets GraphQL API directly, with its own resolver/entity-extraction/summarization pipeline. It's structurally different from the 10 `app/per_db_tool/`-based services, not a variant of them.
 
@@ -63,7 +62,7 @@ Open Targets does not go through this offline path at all — `opentarget_servic
 | `opentarget_service/` | Open Targets — standalone live-GraphQL service, not built on `app/per_db_tool/` |
 | `mcp_server/` | MCP server (`server.py` stdio, `http_server.py` HTTP/SSE) — runs independently of `docker compose`, deployed separately (see `deploy/`) |
 | `dbs/<slug>/manifest.yaml` | Per-DB authoring surface: description, schema, Docker service spec. See [`dbs/README.md`](dbs/README.md) |
-| `config/schema.py` | Authoritative joinable schema (planner reads this, not the manifests, for join logic) |
+| `config/schema.py` | Joinable schema read by the legacy `app/tools/planner/` service only — the live `schema_planner_tool` builds its FK graph from `evaluation/schema_kg/inputs/<db>/schema.json` instead |
 | `config/settings.py`, `guardrail.py`, `provenance.py`, `attributions.py` | Runtime config, request guardrails, provenance stamping, licensing metadata |
 | `evaluation/schema_kg/inputs/` | Per-DB schema/queryable/concept-type/rules JSON — the schema_mapper's ANN input and schema_planner's ground truth. Required at runtime (bind-mounted into every per-DB tool + both schema services) |
 | `evaluation/schema_kg/src/` | The `schema_kg.src.*` Python modules `schema_planner` imports directly (graph/query/build/rewriter/value_mapper) |

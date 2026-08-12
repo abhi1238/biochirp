@@ -48,7 +48,7 @@ $EDITOR dbs/<slug>/manifest.yaml          # fill the TODOs; see "Manifest format
 python scripts/schema_manifest_sync.py --emit <slug>
 
 # 3. Build the schema_kg planner inputs (schema/queryable/concept_type/rules/
-#    questions JSON). See schema_kg/inputs/README.md for the file contract and
+#    questions JSON). See evaluation/schema_kg/inputs/README.md for the file contract and
 #    schema_kg/src/build.py for the builder. Dropping
 #    schema_kg/inputs/<slug>/schema.json AUTO-REGISTERS the DB as schema_kg-
 #    enabled: config/schema_kg_dbs.py discovers it, so gen_compose.py (lean image
@@ -136,7 +136,7 @@ by-design.
 |---|---|
 | `dbs/<slug>/manifest.yaml` | Human-authored docs + Docker service spec |
 | `config/schema.py` `database_schemas[slug]` | Authoritative joinable schema (planner) |
-| `schema_kg/inputs/<slug>/` | Schema-KG planner inputs — see its [README](../schema_kg/inputs/README.md) |
+| `evaluation/schema_kg/inputs/<slug>/` | Schema-KG planner inputs — see its [README](../evaluation/schema_kg/inputs/README.md) |
 | `resources/prompts/db_notes.yaml` | Per-DB summarizer notes |
 | `resources/prompts/db_llm_rules.yaml` | Per-layer per-DB LLM nudges (SSOT) |
 | `app/tools/<slug>/` | The per-DB tool service (thin wrapper over `app/per_db_tool/`) |

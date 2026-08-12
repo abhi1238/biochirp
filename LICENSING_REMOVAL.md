@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-14
 **Action:** Permanent removal of DisGeNET, OncoKB, and COSMIC code paths from BioChirp.
-**Database count:** 28 → 26 → **25**.
+**Database count at the time:** 28 → 26 → **25**. (Historical snapshot — later decommissionings brought the count down further; see [README.md](README.md) for the current 11-database list.)
 **Status:** Removed from working tree. History scrubbed via `git filter-repo` for paths that had ever been tracked. Local backup retained as tag `pre-licensing-purge`, branch `backup/pre-licensing-purge`, and bundle `/tmp/biochirp-pre-licensing-purge.bundle`.
 
 > **No public exposure occurred.** Verified after the initial pass: none of the
@@ -80,10 +80,11 @@ written permission and (in most cases) a paid commercial license.
   Removing the code paths entirely eliminates the failure mode where
   someone accidentally launches with `--profile restricted` on a
   public host or publishes a Docker image with COSMIC tooling.
-- **Local data preserved:** the user's 24 GB of COSMIC parquets in
-  `database/cosmic/` are retained on local disk for personal academic
-  research (which the license permits). The directory is now
-  `.gitignore`'d so it cannot be accidentally committed or pushed.
+- **Local data preserved (at the time):** the user's 24 GB of COSMIC parquets in
+  `database/cosmic/` were retained on local disk for personal academic
+  research (which the license permits), with the directory `.gitignore`'d
+  so it couldn't be accidentally committed or pushed. `database/cosmic/`
+  is no longer present on local disk as of this repository's current state.
 
 ### What would have made hosting safe
 
@@ -109,9 +110,10 @@ BioChirp does neither, so the only correct action was full removal.
 - `database/disgenet/`, `database/oncokb/` — data directories (incl. the
   historical `gene_master_table_oncokb.parquet` data dump that was
   previously tracked in git and triggered the history‑rewrite step).
-- `database/cosmic/` — **NOT deleted from disk**; 24 GB of parquets are
-  retained locally for the user's academic research use. The directory
-  is `.gitignore`'d to prevent future commits or pushes.
+- `database/cosmic/` — **not deleted from disk at the time** (24 GB of
+  parquets were retained locally for the user's academic research use,
+  `.gitignore`'d to prevent future commits or pushes); the directory is
+  no longer present on local disk as of this repository's current state.
 - `orchestrator_service/app/disgenet_tool.py`, `oncokb_tool.py`, `cosmic_tool.py`.
 - `bio_chat_service/app/disgenet_tool.py`, `oncokb_tool.py`, `cosmic_tool.py`.
 

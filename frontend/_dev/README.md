@@ -15,7 +15,7 @@ location ^~ /_dev/ {
 }
 ```
 
-(See `docs/nginx_no_dev_assets.conf` for a drop-in snippet.)
+The snippet above is the whole rule — there is no separate drop-in file shipped in this repo.
 
 ## What's in here
 
@@ -29,4 +29,4 @@ dev-only pages.
 
 1. Drop the file here.
 2. Make sure it imports from `../assets/` if it shares chat assets.
-3. Confirm `docs/nginx_no_dev_assets.conf` is applied on the deploy host.
+3. Confirm the `location ^~ /_dev/ { return 404; }` rule above is applied on the deploy host.
