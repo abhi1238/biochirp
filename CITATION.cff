@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-title: "BioChirp: Federated Biomedical Retrieval with Provenance and MCP Integration"
-message: "If you use BioChirp in research, please cite this software and the accompanying paper."
+title: "BioChirp: Database-first Biomedical Retrieval with MCP Integration"
+message: "If you use BioChirp in research, please cite this software."
 type: software
 version: 0.1.0
 date-released: 2026-05-10
@@ -10,19 +10,16 @@ authors:
  affiliation: "Indraprastha Institute of Information Technology Delhi (IIIT-Delhi)"
  email: abhishekh@iiitd.ac.in
 license: MIT
-repository-code: "https://github.com/abhishekhgupta/biochirp"
+repository-code: "https://github.com/abhi1238/biochirp"
 url: "https://biochirp.iiitd.edu.in"
 abstract: >-
- BioChirp federates 26 curated biomedical databases (BioGRID, STRING,
- OmniPath, Orphanet, ChEMBL, ClinVar, HPO, Reactome,
- WikiPathways, MSigDB, DGIdb, DrugCentral, TTD, PharmGKB, HGNC, …) into a
- unified retrieval interface. Every row carries (db_version,
- db_snapshot_date) provenance. The system exposes 29 Model Context Protocol
- servers (1 federation + 28 per-database) totalling 72 tools, and includes a
- token-budget-aware retrieval planner formalised as a Multiple-Choice
- Knapsack with priorities (NP-hard; greedy empirical competitive ratio
- 0.9998). Distributed as a PyPI package, a Claude Desktop DXT bundle, and
- a hosted HTTP/SSE endpoint.
+ BioChirp is a database-first biomedical question-answering system covering
+ 11 curated databases (TTD, CTD, HCDT, HPO, ClinVar, Reactome, MSigDB,
+ Orphanet, STRING, UniProt, and Open Targets) through a shared
+ schema-grounded entity-resolution and query-planning pipeline, plus a
+ live web-search fallback. It exposes an MCP server (12 tools: one per
+ database plus web search) for direct use from Claude and other MCP
+ clients, alongside a hosted chat interface.
 keywords:
  - biomedical retrieval
  - knowledge graph
