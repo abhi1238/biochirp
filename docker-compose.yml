@@ -1366,7 +1366,6 @@ services:
       - .env
     volumes:
       - ./resources/prompts/opentarget_orchestrator.md:/app/resources/prompts/opentarget_orchestrator.md:ro
-      - ./resources/prompts/opentarget_resolver_summarizer.md:/app/resources/prompts/opentarget_resolver_summarizer.md:ro
       - *v-results
       - ./resources/prompts/opentarget_entity_extractor.md:/app/resources/prompts/opentarget_entity_extractor.md:ro
       - ./app/tools/fuzzy/app/fuzzy.py:/app/fuzzy.py

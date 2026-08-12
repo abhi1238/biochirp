@@ -30,7 +30,10 @@ if [[ -z "$NEW_PW" ]]; then
   exit 2
 fi
 
-OLD_PW="${OLD_PW:-biochirp_pwd}"
+if [[ -z "${OLD_PW:-}" ]]; then
+  echo "FATAL: OLD_PW must be set explicitly (no default) — export OLD_PW=<current password> before running" >&2
+  exit 2
+fi
 
 PG_HOST="${PGHOST:-127.0.0.1}"
 PG_PORT="${PGPORT:-5432}"
