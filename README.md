@@ -7,6 +7,7 @@ BioChirp answers natural-language biomedical questions by routing them to one or
 - **Live demo**: https://biochirp.iiitd.edu.in
 - **Code**: https://github.com/abhi1238/biochirp
 - **Issues**: https://github.com/abhi1238/biochirp/issues
+- **Preprint link**: https://www.biorxiv.org/content/10.64898/2026.04.25.720773v1
 
 ---
 
