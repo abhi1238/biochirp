@@ -1,0 +1,1249 @@
+{
+  "documentation_markdown": "# TTD join graph and gold-answer guide\n\n## What this file contains\n\nThis benchmark has 25 questions about records in the local Therapeutic Target Database (TTD) snapshot. Each question has a reference SQL query (`gold_sql`) and the rows returned by that query (`gold_result`). The gold answer therefore means **what this TTD snapshot records**; it is not a claim that TTD's annotation proves a biological mechanism or clinical effect.\n\nThe data are read from Parquet files under `database/ttd/`. Names such as `drug_master_table_ttd` in the benchmark identify the TTD table; the physical filenames are listed below. `target_column_key` shows the fully qualified output columns used by the planner. The canonical output column names for grading are in `target_columns` and as keys in each `gold_result` row.\n\n## Question wording revision\n\nThis v5 copy uses open-ended, gold-aligned natural-language wording while carrying over the original expert join plans, target columns, gold SQL, and gold result records. The saved planner-route observation below is historical: it was recorded for the base file named in `question_text_revision`, not rerun against this wording. Rerun planner and LLM review before reporting scores for this copy.\n\n## How to read one question\n\n- `question`: the natural-language request.\n- `target_columns`: the answer fields the query must return. Fields are included to make each answer row understandable, even if the question mainly asks for one value.\n- `target_column_key`: the table-qualified planner columns (table and column), which disambiguate repeated column names.\n- `gold_sql`: the reference query. Its `FROM` and `JOIN` clauses show the tables and keys used; its `WHERE` clause contains the entity and any meaningful narrowing filters.\n- `gold_result`: the expected rows returned from that query against the local TTD snapshot. Results are sorted in SQL for repeatable display; `DISTINCT` removes duplicate projected rows.\n- `expert_join_edges`: the canonical expert join edges, written as `table.column ↔ table.column`. The arrow means the two ID values are matched; it does not mean one biological entity causes another.\n- `expert_join_path`: the same canonical joins in short SQL aliases. For example, `DM` means `drug_master_table` and `TM` means `target_master_table`.\n- `observed_biochirp_join_edges` (present for six standard questions): the join equalities observed for that question in the recorded BioChirp run. Edge direction and list order are for display; each arrow denotes an undirected equality. These fields are diagnostic provenance, not the gold path and not an allowlist of routes. The root-level `planner_route_observation` points to a saved run report with every question input, planner route, repeat, and route-query result.\n- `difficulty`: the number of distinct TTD tables referenced by that question's `gold_sql`, including association tables. It is not the number of returned columns or the number of join edges.\n- `case_group`: `standard` is a case without a deliberately selected equal-cost path ambiguity; `ambiguous_path` is a case designed to expose competing minimum join plans. Compare routes using the key-equivalence procedure below; equal path length or matching row count alone does not establish that the intended biological relationship was used.\n- `min_expected_rows`: the minimum result size expected by the benchmark. The current questions are filtered to one gold row each, so they serve as focused examples rather than exhaustive lists.\n\n## TTD graph at a glance\n\nMaster tables hold named entities. Association tables hold links between those entities; decoration tables add details or cross-references. The planner graph uses the following ID matches:\n\n```mermaid\ngraph LR\n  BM[biomarker_master_table] -- biomarker_id --> BDA[biomarker_disease_association]\n  BDA -- disease_id --> DIS[disease_master_table]\n  DM[drug_master_table] -- drug_id --> DC[drug_crossmatching_association]\n  DM -- drug_id --> DDA[drug_disease_association]\n  DDA -- disease_id --> DIS\n  DM -- drug_id --> DS[drug_synonyms_association]\n  DM -- drug_id --> DTA[drug_target_association]\n  DTA -- target_id --> TM[target_master_table]\n  TM -- target_id --> TDA[target_disease_association]\n  TDA -- disease_id --> DIS\n  TM -- target_id --> TPA[target_pathway_association]\n  TPA -- pathway_id --> PM[pathway_master_table]\n  TM -- target_id --> TU[target_uniprot_association]\n  TM -- target_id --> TCA[target_compound_activity_association]\n  DM -. possible value match; not a planner FK and unused in this question set .-> TCA\n```\n\nThe solid links show the entity-centered relationships configured for the BioChirp planner from the TTD schema. The Parquet files do not enforce relational foreign-key constraints; these are configured join relationships. BioChirp may also join association tables directly when both carry the same entity identifier. For example, joining `drug_target_association.target_id` directly to `target_uniprot_association.target_id` can be equivalent to joining both through `target_master_table.target_id`. Such shortcuts are valid only when they preserve the same fully qualified key equalities. They do not make different relationship tables, such as drug indication and target–disease association, interchangeable.\n\n| Relationship table | Join key(s) | Connected table(s) | What the link represents |\n|---|---|---|---|\n| `biomarker_disease_association` (`P1-08-Biomarker_disease_v2.parquet`) | `biomarker_id`; `disease_id` | `biomarker_master_table`; `disease_master_table` | A biomarker record associated with a disease. |\n| `drug_crossmatching_association` (`drug_crossmatching_association_ttd_v2.parquet`) | `drug_id` | `drug_master_table` | Drug identifiers and chemical details such as formula, CAS, PubChem, and ChEBI. |\n| `drug_disease_association` (`P1-05-Drug_disease_v2.parquet`) | `drug_id`; `disease_id` | `drug_master_table`; `disease_master_table` | A drug's disease indication and recorded approval/development status. |\n| `drug_synonyms_association` (`drug_synonyms_association_ttd_v2.parquet`) | `drug_id` | `drug_master_table` | Alternate or brand names mapped to a canonical drug. |\n| `drug_target_association` (`P1-07-Drug-TargetMapping_v2.parquet`) | `drug_id`; `target_id` | `drug_master_table`; `target_master_table` | A drug–target record and its recorded mechanism category. |\n| `target_disease_association` (`P1-06-Target_disease_v2.parquet`) | `target_id`; `disease_id` | `target_master_table`; `disease_master_table` | A target associated with a disease. This is a different relationship from a drug indication. |\n| `target_pathway_association` (`P4-01-Target-KEGGpathway_all_v2.parquet`) | `target_id`; `pathway_id` | `target_master_table`; `pathway_master_table` | A target's pathway annotation. |\n| `target_uniprot_association` (`target_uniprot_association_ttd_v2.parquet`) | `target_id` | `target_master_table` | UniProt cross-reference and TTD target-development class for a target record. |\n| `target_compound_activity_association` (`target_compound_activity_association_ttd_v2.parquet`) | `target_id` (configured graph edge); `drug_compound_id` (special case below) | `target_master_table`; sometimes `drug_master_table` | Quantitative assay records such as IC50/Ki/EC50, value, and unit. |\n\n### Important interpretation notes\n\n1. **Drug–target, drug–disease, and target–disease are different links.** A question that combines a drug's target record with its disease indication follows two branches that meet at the drug. This says TTD records both facts for that drug; it does not by itself say the target-specific mechanism caused or explains the approval for that indication. The wording in the questions calls out separate records where that distinction matters.\n2. **A target gene symbol can name several target records.** For example, EGFR can have canonical protein, mutant, variant, and mRNA records. Questions asking for the canonical protein use the exact `target_name` as a filter so those records are not silently mixed.\n3. **Pathway results are annotations.** A target-to-pathway link reports that TTD associates a target record with a pathway. It does not imply that a drug acts on every component of that pathway or that the pathway causes a disease indication.\n4. **Bioactivity uses a special compound identifier.** `target_compound_activity_association.drug_compound_id` can contain TTD drug IDs and raw compound IDs. A value-based match to `drug_master_table.drug_id` is possible for TTD drug IDs, but the column names differ, so it is not an automatically generated planner FK edge. Raw compound IDs may have no matching drug-master row. No question in this 25-question set uses this special-case match.\n5. **Association tables can be many-to-many.** Multiple status, target, disease, or pathway records are legitimate. These questions use entity/status/target/pathway filters to keep each expected answer focused at one row; this is a benchmark sampling choice, not a statement that the complete TTD association has only one record.\n\n## Table names and biological roles\n\n| Planner table | Physical Parquet file | Plain-language role |\n|---|---|---|\n| `biomarker_master_table` | `biomarker_master_table_ttd_v2.parquet` | Named biomarker records. |\n| `biomarker_disease_association` | `P1-08-Biomarker_disease_v2.parquet` | Links biomarkers to diseases. |\n| `disease_master_table` | `disease_master_table_ttd_v2.parquet` | Disease and indication names. |\n| `drug_master_table` | `drug_master_table_ttd_v2.parquet` | Canonical drug names and IDs. |\n| `drug_crossmatching_association` | `drug_crossmatching_association_ttd_v2.parquet` | Chemical identifiers and properties for drugs. |\n| `drug_disease_association` | `P1-05-Drug_disease_v2.parquet` | Drug indications and approval/development status. |\n| `drug_synonyms_association` | `drug_synonyms_association_ttd_v2.parquet` | Drug aliases and trade names. |\n| `drug_target_association` | `P1-07-Drug-TargetMapping_v2.parquet` | Drug–target mappings and mechanism categories. |\n| `target_master_table` | `target_master_table_ttd_v2.parquet` | Named target records and gene symbols. |\n| `target_disease_association` | `P1-06-Target_disease_v2.parquet` | Links target records to diseases. |\n| `target_pathway_association` | `P4-01-Target-KEGGpathway_all_v2.parquet` | Links target records to KEGG pathways. |\n| `pathway_master_table` | `pathway_master_table_ttd_v2.parquet` | Pathway names. |\n| `target_uniprot_association` | `target_uniprot_association_ttd_v2.parquet` | UniProt cross-references and target classes. |\n| `target_compound_activity_association` | `target_compound_activity_association_ttd_v2.parquet` | Compound–target bioactivity measurements. |\n\n## How to compare join plans\n\nRaw edge-set equality is a strict structural score: it treats a direct association-to-association join as different from two joins through a master table, even when both enforce the same ID equalities. For a key-equivalence score, represent each join endpoint as its fully qualified name (`table.column`), treat every join edge as an undirected equality, and compute the connected components (transitive equality classes). A planner plan matches the expert plan when it uses the same required tables and produces the same partition of qualified join-key columns as the equality classes computed from `expert_join_edges`. Edge order and which valid sibling table supplies the direct equality then do not affect the score.\n\nDo not merge columns merely because their bare names match (for example, every `drug_id` in the schema); only join equalities in the plan create equivalence. The required-table check and qualified-key partition prevent a route through a different association, such as a target–disease link in place of a drug–target link, from being counted as equivalent. Report raw edge-set accuracy separately from key-equivalence accuracy. The six `observed_biochirp_join_edges` fields preserve planner shortcuts observed for six standard questions; `expert_join_edges` define the reference equality classes used to assess route equivalence. For the original wording only, the saved 2026-11-03 run report (`evaluation/schema_kg_20q_bench/ttd_biochirp_planner_route_observation_20261103.json`) recorded key-equivalence matches for 20/25 questions: 20/20 standard and 0/5 ambiguous. Each question was sent to the non-LLM `/schema_planner` endpoint 12 times. The same normalized route appeared on all 12 calls for 23 questions; `ttd_amb_min_03` and `ttd_amb_min_04` each produced two route variants. The report records the exact inputs, all observed route variants, and the SQL results for each unique route. These figures are historical and are not scores for this reworded copy.\n\n## How to evaluate the ambiguous-path cases\n\nAll five `ambiguous_path` questions have competing minimum-size join edge sets. For the original wording, the saved 2026-11-03 run report executes each unique planner route with the gold query filters: every observed route for these five questions differs from the expert relationship path and returns zero rows; each gold query returns one row. The planner routes have the same edge count as their expert routes (5, 5, 6, 4, and 5 edges, respectively). For `ttd_amb_min_01`, `ttd_amb_min_02`, `ttd_amb_min_03`, and `ttd_amb_min_05`, the planner connects the drug and target-side records through a shared disease using drug–disease and target–disease associations, bypassing the drug–target association used in the expert route. TTD disease names that look equivalent can have different IDs, so a shared name does not guarantee an ID join. For `ttd_amb_min_04`, both observed route variants use the drug-indication branch instead of the target–disease association in the expert route. The run recorded two route variants each for `ttd_amb_min_03` and `ttd_amb_min_04`; all variants returned zero rows under the gold filters. These are path-choice mismatches and answer failures in this snapshot.\n\n## How the gold rows were generated\n\nFor each question, the reference SQL selects the requested answer fields and enough named entity fields to make the row interpretable. It joins tables through the displayed ID edges, applies the question's entity filters (and status/pathway/target filters when needed), removes exact duplicate answer rows with `DISTINCT`, and sorts the output. `gold_result` is the recorded result of that query against the local Parquet snapshot. The filters intentionally select one useful record per question; they are not meant to enumerate every matching TTD annotation.\n\nFor example, a query about a drug's formula uses `drug_master_table.drug_id ↔ drug_crossmatching_association.drug_id`; a query about a drug's target mechanism uses `drug_master_table.drug_id ↔ drug_target_association.drug_id ↔ target_master_table.target_id`. The fully qualified edge list makes the same join plan inspectable without needing to infer it from SQL aliases.\n",
+  "questions": [
+    {
+      "id": "ttd_updated_01",
+      "difficulty": 2,
+      "question": "What is the molecular formula of imatinib?",
+      "target_columns": [
+        "drug_name",
+        "formula"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DC.drug_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, dc.formula FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/drug_crossmatching_association_ttd_v2.parquet') dc USING(drug_id) WHERE dm.drug_name ILIKE 'imatinib' ORDER BY 1, 2",
+      "gold_result": [
+        {
+          "drug_name": "Imatinib",
+          "formula": "C29H31N7O"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_crossmatching_association_ttd.formula",
+        "drug_master_table_ttd.drug_name"
+      ],
+      "expert_join_edges": [
+        "drug_crossmatching_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_02",
+      "difficulty": 2,
+      "question": "What UniProt entry name is assigned to the BRAF kinase protein (serine/threonine-protein kinase B-raf)?",
+      "target_columns": [
+        "gene_symbol",
+        "uniprot_xref"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "TM.target_id = TU.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT tm.gene_symbol, tu.uniprot_xref FROM read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm JOIN read_parquet('database/ttd/target_uniprot_association_ttd_v2.parquet') tu USING(target_id) WHERE tm.target_name = 'Serine/threonine-protein kinase B-raf (BRAF)' ORDER BY 1, 2",
+      "gold_result": [
+        {
+          "gene_symbol": "BRAF",
+          "uniprot_xref": "BRAF_HUMAN"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "target_master_table_ttd.gene_symbol",
+        "target_uniprot_association_ttd.uniprot_xref"
+      ],
+      "expert_join_edges": [
+        "target_master_table_ttd.target_id ↔ target_uniprot_association_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_03",
+      "difficulty": 3,
+      "question": "What is the full name of the HER2 biomarker associated with breast cancer?",
+      "target_columns": [
+        "disease_name",
+        "biomarker_name"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DisM.disease_id = BDA.disease_id",
+        "BDA.biomarker_id = BM.biomarker_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dis.disease_name, bm.biomarker_name FROM read_parquet('database/ttd/P1-08-Biomarker_disease_v2.parquet') bda JOIN read_parquet('database/ttd/biomarker_master_table_ttd_v2.parquet') bm USING(biomarker_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) WHERE dis.disease_name ILIKE 'Breast cancer' AND bm.biomarker_name ILIKE '%HER2%' ORDER BY 1, 2",
+      "gold_result": [
+        {
+          "disease_name": "Breast cancer",
+          "biomarker_name": "Erbb2 tyrosine kinase receptor (HER2)"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "biomarker_master_table_ttd.biomarker_name",
+        "disease_master_table_ttd.disease_name"
+      ],
+      "expert_join_edges": [
+        "biomarker_disease_association_ttd.biomarker_id ↔ biomarker_master_table_ttd.biomarker_id",
+        "biomarker_disease_association_ttd.disease_id ↔ disease_master_table_ttd.disease_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_04",
+      "difficulty": 3,
+      "question": "Does TTD associate the canonical BRAF kinase protein (serine/threonine-protein kinase B-raf) with the MAPK signaling pathway? If so, provide the corresponding target and pathway names.",
+      "target_columns": [
+        "target_name",
+        "pathway_name"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "TM.target_id = TPA.target_id",
+        "TPA.pathway_id = PM.pathway_id"
+      ],
+      "gold_sql": "SELECT DISTINCT tm.target_name, pm.pathway_name FROM read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm JOIN read_parquet('database/ttd/P4-01-Target-KEGGpathway_all_v2.parquet') tpa USING(target_id) JOIN read_parquet('database/ttd/pathway_master_table_ttd_v2.parquet') pm USING(pathway_id) WHERE tm.target_name = 'Serine/threonine-protein kinase B-raf (BRAF)' AND pm.pathway_name ILIKE 'MAPK signaling pathway' ORDER BY 1, 2",
+      "gold_result": [
+        {
+          "target_name": "Serine/threonine-protein kinase B-raf (BRAF)",
+          "pathway_name": "MAPK signaling pathway"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "pathway_master_table_ttd.pathway_name",
+        "target_master_table_ttd.target_name"
+      ],
+      "expert_join_edges": [
+        "target_master_table_ttd.target_id ↔ target_pathway_association_ttd.target_id",
+        "target_pathway_association_ttd.pathway_id ↔ pathway_master_table_ttd.pathway_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_05",
+      "difficulty": 2,
+      "question": "What is the CAS Registry Number for vemurafenib?",
+      "target_columns": [
+        "drug_name",
+        "cas_number"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DC.drug_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, dc.cas_number FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/drug_crossmatching_association_ttd_v2.parquet') dc USING(drug_id) WHERE dm.drug_name ILIKE 'vemurafenib' ORDER BY 1, 2",
+      "gold_result": [
+        {
+          "drug_name": "Vemurafenib",
+          "cas_number": "CAS 918504-65-1"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_crossmatching_association_ttd.cas_number",
+        "drug_master_table_ttd.drug_name"
+      ],
+      "expert_join_edges": [
+        "drug_crossmatching_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_06",
+      "difficulty": 3,
+      "question": "What mechanism of action does TTD record for gefitinib against EGFR?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "drug_mechanism_of_action_on_target"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, dta.drug_mechanism_of_action_on_target FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) WHERE dm.drug_name ILIKE 'gefitinib' AND tm.gene_symbol ILIKE 'EGFR' ORDER BY 1, 2, 3",
+      "gold_result": [
+        {
+          "drug_name": "Gefitinib",
+          "gene_symbol": "EGFR",
+          "drug_mechanism_of_action_on_target": "Inhibitor"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_master_table_ttd.drug_name",
+        "drug_target_association_ttd.drug_mechanism_of_action_on_target",
+        "target_master_table_ttd.gene_symbol"
+      ],
+      "expert_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_07",
+      "difficulty": 2,
+      "question": "Which drug is associated with the synonym CGP-57148 in TTD?",
+      "target_columns": [
+        "drug_name",
+        "synonym"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DS.drug_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, ds.synonym FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/drug_synonyms_association_ttd_v2.parquet') ds USING(drug_id) WHERE ds.synonym ILIKE 'CGP-57148' ORDER BY 1, 2",
+      "gold_result": [
+        {
+          "drug_name": "Imatinib",
+          "synonym": "CGP-57148"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_master_table_ttd.drug_name",
+        "drug_synonyms_association_ttd.synonym"
+      ],
+      "expert_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_synonyms_association_ttd.drug_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_08",
+      "difficulty": 2,
+      "question": "How is the EGFR T790M mutant classified as a therapeutic target, and what is its UniProt entry name?",
+      "target_columns": [
+        "target_name",
+        "target_type",
+        "uniprot_xref"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "TM.target_id = TU.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT tm.target_name, tu.target_type, tu.uniprot_xref FROM read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm JOIN read_parquet('database/ttd/target_uniprot_association_ttd_v2.parquet') tu USING(target_id) WHERE tm.target_name ILIKE '%EGFR T790M mutant%' ORDER BY 1, 2, 3",
+      "gold_result": [
+        {
+          "target_name": "EGFR T790M mutant (EGFR T790M)",
+          "target_type": "Successful target",
+          "uniprot_xref": "EGFR_HUMAN"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "target_master_table_ttd.target_name",
+        "target_uniprot_association_ttd.target_type",
+        "target_uniprot_association_ttd.uniprot_xref"
+      ],
+      "expert_join_edges": [
+        "target_master_table_ttd.target_id ↔ target_uniprot_association_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_09",
+      "difficulty": 2,
+      "question": "What are the molecular formula and ChEBI ID of imatinib?",
+      "target_columns": [
+        "drug_name",
+        "formula",
+        "chebi_xref"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DC.drug_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, dc.formula, dc.chebi_xref FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/drug_crossmatching_association_ttd_v2.parquet') dc USING(drug_id) WHERE dm.drug_name ILIKE 'imatinib' ORDER BY 1, 2, 3",
+      "gold_result": [
+        {
+          "drug_name": "Imatinib",
+          "formula": "C29H31N7O",
+          "chebi_xref": "CHEBI:45783"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_crossmatching_association_ttd.chebi_xref",
+        "drug_crossmatching_association_ttd.formula",
+        "drug_master_table_ttd.drug_name"
+      ],
+      "expert_join_edges": [
+        "drug_crossmatching_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_10",
+      "difficulty": 3,
+      "question": "What full target name and gene symbol does TTD record for the BRAF kinase protein (serine/threonine-protein kinase B-raf) associated with melanoma?",
+      "target_columns": [
+        "gene_symbol",
+        "target_name",
+        "disease_name"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "TM.target_id = TDA.target_id",
+        "TDA.disease_id = DisM.disease_id"
+      ],
+      "gold_sql": "SELECT DISTINCT tm.gene_symbol, tm.target_name, dis.disease_name FROM read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm JOIN read_parquet('database/ttd/P1-06-Target_disease_v2.parquet') tda USING(target_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) WHERE tm.target_name = 'Serine/threonine-protein kinase B-raf (BRAF)' AND dis.disease_name ILIKE 'Melanoma' ORDER BY 1, 2, 3",
+      "gold_result": [
+        {
+          "gene_symbol": "BRAF",
+          "target_name": "Serine/threonine-protein kinase B-raf (BRAF)",
+          "disease_name": "Melanoma"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "disease_master_table_ttd.disease_name",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name"
+      ],
+      "expert_join_edges": [
+        "target_master_table_ttd.target_id ↔ target_disease_association_ttd.target_id",
+        "target_disease_association_ttd.disease_id ↔ disease_master_table_ttd.disease_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_11",
+      "difficulty": 4,
+      "question": "How does imatinib act on the BCR-ABL1 fusion target, and which UniProt cross-reference identifies that target?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "drug_mechanism_of_action_on_target",
+        "uniprot_xref"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id",
+        "TM.target_id = TU.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, dta.drug_mechanism_of_action_on_target, tu.uniprot_xref FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) JOIN read_parquet('database/ttd/target_uniprot_association_ttd_v2.parquet') tu USING(target_id) WHERE dm.drug_name ILIKE 'imatinib' AND tm.gene_symbol ILIKE 'BCR-ABL1' ORDER BY 1, 2, 3, 4",
+      "gold_result": [
+        {
+          "drug_name": "Imatinib",
+          "gene_symbol": "BCR-ABL1",
+          "drug_mechanism_of_action_on_target": "Inhibitor",
+          "uniprot_xref": "BCR_HUMAN-ABL1_HUMAN"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_master_table_ttd.drug_name",
+        "drug_target_association_ttd.drug_mechanism_of_action_on_target",
+        "target_master_table_ttd.gene_symbol",
+        "target_uniprot_association_ttd.uniprot_xref"
+      ],
+      "expert_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id",
+        "target_master_table_ttd.target_id ↔ target_uniprot_association_ttd.target_id"
+      ],
+      "observed_biochirp_join_edges": [
+        "target_uniprot_association_ttd.target_id ↔ drug_target_association_ttd.target_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id",
+        "drug_target_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_12",
+      "difficulty": 4,
+      "question": "What is imatinib's approval status for chronic myeloid leukaemia, and what is its molecular formula?",
+      "target_columns": [
+        "drug_name",
+        "disease_name",
+        "approval_status",
+        "formula"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DDA.drug_id",
+        "DDA.disease_id = DisM.disease_id",
+        "DM.drug_id = DC.drug_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, dis.disease_name, dda.approval_status, dc.formula FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-05-Drug_disease_v2.parquet') dda USING(drug_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) JOIN read_parquet('database/ttd/drug_crossmatching_association_ttd_v2.parquet') dc USING(drug_id) WHERE dm.drug_name ILIKE 'imatinib' AND dis.disease_name ILIKE 'Chronic myeloid leukaemia' ORDER BY 1, 2, 3, 4",
+      "gold_result": [
+        {
+          "drug_name": "Imatinib",
+          "disease_name": "Chronic myeloid leukaemia",
+          "approval_status": "Approved",
+          "formula": "C29H31N7O"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "disease_master_table_ttd.disease_name",
+        "drug_crossmatching_association_ttd.formula",
+        "drug_disease_association_ttd.approval_status",
+        "drug_master_table_ttd.drug_name"
+      ],
+      "expert_join_edges": [
+        "disease_master_table_ttd.disease_id ↔ drug_disease_association_ttd.disease_id",
+        "drug_crossmatching_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ],
+      "observed_biochirp_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_crossmatching_association_ttd.drug_id",
+        "drug_crossmatching_association_ttd.drug_id ↔ drug_disease_association_ttd.drug_id",
+        "drug_disease_association_ttd.disease_id ↔ disease_master_table_ttd.disease_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_13",
+      "difficulty": 2,
+      "question": "For the EGFR exon 20 insertion mutant, what are its full target name, gene symbol, target classification, and UniProt entry name?",
+      "target_columns": [
+        "gene_symbol",
+        "target_name",
+        "target_type",
+        "uniprot_xref"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "TM.target_id = TU.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT tm.gene_symbol, tm.target_name, tu.target_type, tu.uniprot_xref FROM read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm JOIN read_parquet('database/ttd/target_uniprot_association_ttd_v2.parquet') tu USING(target_id) WHERE tm.target_name = 'EGFR Exon20ins mutant (EGFR Exon20ins)' ORDER BY 1, 2, 3, 4",
+      "gold_result": [
+        {
+          "gene_symbol": "EGFR",
+          "target_name": "EGFR Exon20ins mutant (EGFR Exon20ins)",
+          "target_type": "Successful target",
+          "uniprot_xref": "EGFR_HUMAN"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name",
+        "target_uniprot_association_ttd.target_type",
+        "target_uniprot_association_ttd.uniprot_xref"
+      ],
+      "expert_join_edges": [
+        "target_master_table_ttd.target_id ↔ target_uniprot_association_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_14",
+      "difficulty": 3,
+      "question": "For vemurafenib acting on serine/threonine-protein kinase B-raf (BRAF), what mechanism category is recorded?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "drug_mechanism_of_action_on_target",
+        "target_name"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, dta.drug_mechanism_of_action_on_target, tm.target_name FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) WHERE dm.drug_name ILIKE 'vemurafenib' AND tm.gene_symbol ILIKE 'BRAF' AND tm.target_name = 'Serine/threonine-protein kinase B-raf (BRAF)' ORDER BY 1, 2, 3, 4",
+      "gold_result": [
+        {
+          "drug_name": "Vemurafenib",
+          "gene_symbol": "BRAF",
+          "drug_mechanism_of_action_on_target": "Modulator",
+          "target_name": "Serine/threonine-protein kinase B-raf (BRAF)"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_master_table_ttd.drug_name",
+        "drug_target_association_ttd.drug_mechanism_of_action_on_target",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name"
+      ],
+      "expert_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_15",
+      "difficulty": 3,
+      "question": "What is the full name of erlotinib's EGFR target, and how is the drug's mechanism of action classified?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "drug_mechanism_of_action_on_target",
+        "target_name"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, dta.drug_mechanism_of_action_on_target, tm.target_name FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) WHERE dm.drug_name ILIKE 'erlotinib' AND tm.gene_symbol ILIKE 'EGFR' ORDER BY 1, 2, 3, 4",
+      "gold_result": [
+        {
+          "drug_name": "Erlotinib",
+          "gene_symbol": "EGFR",
+          "drug_mechanism_of_action_on_target": "Inhibitor",
+          "target_name": "Epidermal growth factor receptor (EGFR)"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_master_table_ttd.drug_name",
+        "drug_target_association_ttd.drug_mechanism_of_action_on_target",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name"
+      ],
+      "expert_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_16",
+      "difficulty": 5,
+      "question": "What mechanism of action does TTD report for erlotinib against EGFR, and what approval status does it report for erlotinib's non-small-cell lung cancer indication?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "disease_name",
+        "drug_mechanism_of_action_on_target",
+        "approval_status"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id",
+        "DM.drug_id = DDA.drug_id",
+        "DDA.disease_id = DisM.disease_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, dis.disease_name, dta.drug_mechanism_of_action_on_target, dda.approval_status FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) JOIN read_parquet('database/ttd/P1-05-Drug_disease_v2.parquet') dda USING(drug_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) WHERE dm.drug_name ILIKE 'erlotinib' AND tm.gene_symbol ILIKE 'EGFR' AND dis.disease_name ILIKE 'Non-small-cell lung cancer' ORDER BY 1, 2, 3, 4, 5",
+      "gold_result": [
+        {
+          "drug_name": "Erlotinib",
+          "gene_symbol": "EGFR",
+          "disease_name": "Non-small-cell lung cancer",
+          "drug_mechanism_of_action_on_target": "Inhibitor",
+          "approval_status": "Approved"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "disease_master_table_ttd.disease_name",
+        "drug_disease_association_ttd.approval_status",
+        "drug_master_table_ttd.drug_name",
+        "drug_target_association_ttd.drug_mechanism_of_action_on_target",
+        "target_master_table_ttd.gene_symbol"
+      ],
+      "expert_join_edges": [
+        "disease_master_table_ttd.disease_id ↔ drug_disease_association_ttd.disease_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id",
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id"
+      ],
+      "observed_biochirp_join_edges": [
+        "target_master_table_ttd.target_id ↔ drug_target_association_ttd.target_id",
+        "drug_target_association_ttd.drug_id ↔ drug_disease_association_ttd.drug_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id",
+        "drug_disease_association_ttd.disease_id ↔ disease_master_table_ttd.disease_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_17",
+      "difficulty": 5,
+      "question": "For vemurafenib acting on serine/threonine-protein kinase B-raf (BRAF), what mechanism category and MAPK pathway association are recorded?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "target_name",
+        "drug_mechanism_of_action_on_target",
+        "pathway_name"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id",
+        "TM.target_id = TPA.target_id",
+        "TPA.pathway_id = PM.pathway_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, tm.target_name, dta.drug_mechanism_of_action_on_target, pm.pathway_name FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) JOIN read_parquet('database/ttd/P4-01-Target-KEGGpathway_all_v2.parquet') tpa USING(target_id) JOIN read_parquet('database/ttd/pathway_master_table_ttd_v2.parquet') pm USING(pathway_id) WHERE dm.drug_name ILIKE 'vemurafenib' AND tm.gene_symbol ILIKE 'BRAF' AND pm.pathway_name ILIKE 'MAPK signaling pathway' AND tm.target_name = 'Serine/threonine-protein kinase B-raf (BRAF)' ORDER BY 1, 2, 3, 4, 5",
+      "gold_result": [
+        {
+          "drug_name": "Vemurafenib",
+          "gene_symbol": "BRAF",
+          "target_name": "Serine/threonine-protein kinase B-raf (BRAF)",
+          "drug_mechanism_of_action_on_target": "Modulator",
+          "pathway_name": "MAPK signaling pathway"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "drug_master_table_ttd.drug_name",
+        "drug_target_association_ttd.drug_mechanism_of_action_on_target",
+        "pathway_master_table_ttd.pathway_name",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name"
+      ],
+      "expert_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id",
+        "pathway_master_table_ttd.pathway_id ↔ target_pathway_association_ttd.pathway_id",
+        "target_master_table_ttd.target_id ↔ target_pathway_association_ttd.target_id"
+      ],
+      "observed_biochirp_join_edges": [
+        "pathway_master_table_ttd.pathway_id ↔ target_pathway_association_ttd.pathway_id",
+        "target_pathway_association_ttd.target_id ↔ drug_target_association_ttd.target_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id",
+        "drug_target_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_18",
+      "difficulty": 4,
+      "question": "For imatinib used in chronic myeloid leukaemia, what are its approval status, molecular formula, and CAS Registry Number?",
+      "target_columns": [
+        "drug_name",
+        "disease_name",
+        "approval_status",
+        "formula",
+        "cas_number"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DDA.drug_id",
+        "DDA.disease_id = DisM.disease_id",
+        "DM.drug_id = DC.drug_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, dis.disease_name, dda.approval_status, dc.formula, dc.cas_number FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-05-Drug_disease_v2.parquet') dda USING(drug_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) JOIN read_parquet('database/ttd/drug_crossmatching_association_ttd_v2.parquet') dc USING(drug_id) WHERE dm.drug_name ILIKE 'imatinib' AND dis.disease_name ILIKE 'Chronic myeloid leukaemia' ORDER BY 1, 2, 3, 4, 5",
+      "gold_result": [
+        {
+          "drug_name": "Imatinib",
+          "disease_name": "Chronic myeloid leukaemia",
+          "approval_status": "Approved",
+          "formula": "C29H31N7O",
+          "cas_number": "CAS 152459-95-5"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "disease_master_table_ttd.disease_name",
+        "drug_crossmatching_association_ttd.cas_number",
+        "drug_crossmatching_association_ttd.formula",
+        "drug_disease_association_ttd.approval_status",
+        "drug_master_table_ttd.drug_name"
+      ],
+      "expert_join_edges": [
+        "disease_master_table_ttd.disease_id ↔ drug_disease_association_ttd.disease_id",
+        "drug_crossmatching_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ],
+      "observed_biochirp_join_edges": [
+        "disease_master_table_ttd.disease_id ↔ drug_disease_association_ttd.disease_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_crossmatching_association_ttd.drug_id",
+        "drug_crossmatching_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_19",
+      "difficulty": 4,
+      "question": "For serine/threonine-protein kinase B-raf (BRAF) associated with MAPK signaling, what target classification and UniProt entry name does TTD record?",
+      "target_columns": [
+        "target_name",
+        "gene_symbol",
+        "target_type",
+        "uniprot_xref",
+        "pathway_name"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "TM.target_id = TU.target_id",
+        "TM.target_id = TPA.target_id",
+        "TPA.pathway_id = PM.pathway_id"
+      ],
+      "gold_sql": "SELECT DISTINCT tm.target_name, tm.gene_symbol, tu.target_type, tu.uniprot_xref, pm.pathway_name FROM read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm JOIN read_parquet('database/ttd/P4-01-Target-KEGGpathway_all_v2.parquet') tpa USING(target_id) JOIN read_parquet('database/ttd/pathway_master_table_ttd_v2.parquet') pm USING(pathway_id) JOIN read_parquet('database/ttd/target_uniprot_association_ttd_v2.parquet') tu USING(target_id) WHERE tm.gene_symbol ILIKE 'BRAF' AND tm.target_name = 'Serine/threonine-protein kinase B-raf (BRAF)' AND pm.pathway_name ILIKE 'MAPK signaling pathway' ORDER BY 1, 2, 3, 4, 5",
+      "gold_result": [
+        {
+          "target_name": "Serine/threonine-protein kinase B-raf (BRAF)",
+          "gene_symbol": "BRAF",
+          "target_type": "Successful target",
+          "uniprot_xref": "BRAF_HUMAN",
+          "pathway_name": "MAPK signaling pathway"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "pathway_master_table_ttd.pathway_name",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name",
+        "target_uniprot_association_ttd.target_type",
+        "target_uniprot_association_ttd.uniprot_xref"
+      ],
+      "expert_join_edges": [
+        "pathway_master_table_ttd.pathway_id ↔ target_pathway_association_ttd.pathway_id",
+        "target_master_table_ttd.target_id ↔ target_pathway_association_ttd.target_id",
+        "target_master_table_ttd.target_id ↔ target_uniprot_association_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_updated_20",
+      "difficulty": 5,
+      "question": "What mechanism does TTD record for alpelisib acting on PIK3CA, and what approval status does it report for the drug's breast cancer indication?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "disease_name",
+        "drug_mechanism_of_action_on_target",
+        "approval_status"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id",
+        "DM.drug_id = DDA.drug_id",
+        "DDA.disease_id = DisM.disease_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, dis.disease_name, dta.drug_mechanism_of_action_on_target, dda.approval_status FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) JOIN read_parquet('database/ttd/P1-05-Drug_disease_v2.parquet') dda USING(drug_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) WHERE dm.drug_name ILIKE 'alpelisib' AND tm.gene_symbol ILIKE 'PIK3CA' AND dis.disease_name ILIKE 'Breast cancer' ORDER BY 1, 2, 3, 4, 5",
+      "gold_result": [
+        {
+          "drug_name": "Alpelisib",
+          "gene_symbol": "PIK3CA",
+          "disease_name": "Breast cancer",
+          "drug_mechanism_of_action_on_target": "Inhibitor",
+          "approval_status": "Approved"
+        }
+      ],
+      "case_group": "standard",
+      "target_column_key": [
+        "disease_master_table_ttd.disease_name",
+        "drug_disease_association_ttd.approval_status",
+        "drug_master_table_ttd.drug_name",
+        "drug_target_association_ttd.drug_mechanism_of_action_on_target",
+        "target_master_table_ttd.gene_symbol"
+      ],
+      "expert_join_edges": [
+        "disease_master_table_ttd.disease_id ↔ drug_disease_association_ttd.disease_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id",
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id"
+      ],
+      "observed_biochirp_join_edges": [
+        "disease_master_table_ttd.disease_id ↔ drug_disease_association_ttd.disease_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_amb_min_01",
+      "difficulty": 6,
+      "question": "Which HER2 target associated with breast cancer does lapatinib act on, and what is its UniProt entry name?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "target_name",
+        "disease_name",
+        "uniprot_xref"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id",
+        "TM.target_id = TDA.target_id",
+        "TDA.disease_id = DisM.disease_id",
+        "TM.target_id = TU.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, tm.target_name, dis.disease_name, tu.uniprot_xref FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) JOIN read_parquet('database/ttd/P1-06-Target_disease_v2.parquet') tda USING(target_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) JOIN read_parquet('database/ttd/target_uniprot_association_ttd_v2.parquet') tu USING(target_id) WHERE dm.drug_name ILIKE 'lapatinib' AND tm.gene_symbol ILIKE 'ERBB2' AND tm.target_name = 'Erbb2 tyrosine kinase receptor (HER2)' AND dis.disease_name ILIKE 'Breast cancer' ORDER BY 1, 2, 3, 4, 5",
+      "case_group": "ambiguous_path",
+      "target_column_key": [
+        "drug_master_table_ttd.drug_name",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name",
+        "disease_master_table_ttd.disease_name",
+        "target_uniprot_association_ttd.uniprot_xref"
+      ],
+      "expert_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id",
+        "target_master_table_ttd.target_id ↔ target_disease_association_ttd.target_id",
+        "target_disease_association_ttd.disease_id ↔ disease_master_table_ttd.disease_id",
+        "target_master_table_ttd.target_id ↔ target_uniprot_association_ttd.target_id"
+      ],
+      "gold_result": [
+        {
+          "drug_name": "Lapatinib",
+          "gene_symbol": "ERBB2",
+          "target_name": "Erbb2 tyrosine kinase receptor (HER2)",
+          "disease_name": "Breast cancer",
+          "uniprot_xref": "ERBB2_HUMAN"
+        }
+      ]
+    },
+    {
+      "id": "ttd_amb_min_02",
+      "difficulty": 6,
+      "question": "For erlotinib used in non-small-cell lung cancer, what are the full name and UniProt entry name of its EGFR target?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "disease_name",
+        "target_name",
+        "uniprot_xref"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id",
+        "TM.target_id = TU.target_id",
+        "DM.drug_id = DDA.drug_id",
+        "DDA.disease_id = DisM.disease_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, dis.disease_name, tm.target_name, tu.uniprot_xref FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) JOIN read_parquet('database/ttd/target_uniprot_association_ttd_v2.parquet') tu USING(target_id) JOIN read_parquet('database/ttd/P1-05-Drug_disease_v2.parquet') dda USING(drug_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) WHERE dm.drug_name ILIKE 'erlotinib' AND tm.gene_symbol ILIKE 'EGFR' AND dis.disease_name ILIKE 'Non-small-cell lung cancer' ORDER BY 1, 2, 3, 4, 5",
+      "gold_result": [
+        {
+          "drug_name": "Erlotinib",
+          "gene_symbol": "EGFR",
+          "disease_name": "Non-small-cell lung cancer",
+          "target_name": "Epidermal growth factor receptor (EGFR)",
+          "uniprot_xref": "EGFR_HUMAN"
+        }
+      ],
+      "case_group": "ambiguous_path",
+      "target_column_key": [
+        "disease_master_table_ttd.disease_name",
+        "drug_master_table_ttd.drug_name",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name",
+        "target_uniprot_association_ttd.uniprot_xref"
+      ],
+      "expert_join_edges": [
+        "disease_master_table_ttd.disease_id ↔ drug_disease_association_ttd.disease_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id",
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id",
+        "target_master_table_ttd.target_id ↔ target_uniprot_association_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_amb_min_03",
+      "difficulty": 7,
+      "question": "For erlotinib's non-small-cell lung cancer indication, what is the full name of its EGFR drug target, and what relationship does TTD record between this target and the MAPK signaling pathway?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "disease_name",
+        "target_name",
+        "pathway_name"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id",
+        "TM.target_id = TPA.target_id",
+        "TPA.pathway_id = PM.pathway_id",
+        "DM.drug_id = DDA.drug_id",
+        "DDA.disease_id = DisM.disease_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, dis.disease_name, tm.target_name, pm.pathway_name FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) JOIN read_parquet('database/ttd/P4-01-Target-KEGGpathway_all_v2.parquet') tpa USING(target_id) JOIN read_parquet('database/ttd/pathway_master_table_ttd_v2.parquet') pm USING(pathway_id) JOIN read_parquet('database/ttd/P1-05-Drug_disease_v2.parquet') dda USING(drug_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) WHERE dm.drug_name ILIKE 'erlotinib' AND tm.gene_symbol ILIKE 'EGFR' AND dis.disease_name ILIKE 'Non-small-cell lung cancer' AND pm.pathway_name ILIKE 'MAPK signaling pathway' ORDER BY 1, 2, 3, 4, 5",
+      "gold_result": [
+        {
+          "drug_name": "Erlotinib",
+          "gene_symbol": "EGFR",
+          "disease_name": "Non-small-cell lung cancer",
+          "target_name": "Epidermal growth factor receptor (EGFR)",
+          "pathway_name": "MAPK signaling pathway"
+        }
+      ],
+      "case_group": "ambiguous_path",
+      "target_column_key": [
+        "disease_master_table_ttd.disease_name",
+        "drug_master_table_ttd.drug_name",
+        "pathway_master_table_ttd.pathway_name",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name"
+      ],
+      "expert_join_edges": [
+        "disease_master_table_ttd.disease_id ↔ drug_disease_association_ttd.disease_id",
+        "drug_disease_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id",
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id",
+        "pathway_master_table_ttd.pathway_id ↔ target_pathway_association_ttd.pathway_id",
+        "target_master_table_ttd.target_id ↔ target_pathway_association_ttd.target_id"
+      ]
+    },
+    {
+      "id": "ttd_amb_min_04",
+      "difficulty": 5,
+      "question": "Which drugs act on GRB2 mRNA associated with chronic myeloid leukaemia, and what mechanisms of action are reported?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "target_name",
+        "disease_name",
+        "drug_mechanism_of_action_on_target"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "TM.target_id = TDA.target_id",
+        "TDA.disease_id = DisM.disease_id",
+        "TM.target_id = DTA.target_id",
+        "DTA.drug_id = DM.drug_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, tm.target_name, dis.disease_name, dta.drug_mechanism_of_action_on_target FROM read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm JOIN read_parquet('database/ttd/P1-06-Target_disease_v2.parquet') tda USING(target_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(target_id) JOIN read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm USING(drug_id) WHERE tm.gene_symbol ILIKE 'GRB2' AND dis.disease_name ILIKE 'Chronic myeloid leukaemia' ORDER BY 1, 2, 3, 4, 5",
+      "gold_result": [
+        {
+          "drug_name": "BP-100-1-01",
+          "gene_symbol": "GRB2",
+          "target_name": "GRB2 messenger RNA (GRB2 mRNA)",
+          "disease_name": "Chronic myeloid leukaemia",
+          "drug_mechanism_of_action_on_target": "Modulator"
+        }
+      ],
+      "case_group": "ambiguous_path",
+      "target_column_key": [
+        "disease_master_table_ttd.disease_name",
+        "drug_master_table_ttd.drug_name",
+        "drug_target_association_ttd.drug_mechanism_of_action_on_target",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name"
+      ],
+      "expert_join_edges": [
+        "target_master_table_ttd.target_id ↔ target_disease_association_ttd.target_id",
+        "target_disease_association_ttd.disease_id ↔ disease_master_table_ttd.disease_id",
+        "target_master_table_ttd.target_id ↔ drug_target_association_ttd.target_id",
+        "drug_target_association_ttd.drug_id ↔ drug_master_table_ttd.drug_id"
+      ]
+    },
+    {
+      "id": "ttd_amb_min_05",
+      "difficulty": 6,
+      "question": "Which EGFR T790M target associated with non-small-cell lung cancer does osimertinib act on, and what is its UniProt entry name?",
+      "target_columns": [
+        "drug_name",
+        "gene_symbol",
+        "target_name",
+        "disease_name",
+        "uniprot_xref"
+      ],
+      "min_expected_rows": 1,
+      "expert_join_path": [
+        "DM.drug_id = DTA.drug_id",
+        "DTA.target_id = TM.target_id",
+        "TM.target_id = TDA.target_id",
+        "TDA.disease_id = DisM.disease_id",
+        "TM.target_id = TU.target_id"
+      ],
+      "gold_sql": "SELECT DISTINCT dm.drug_name, tm.gene_symbol, tm.target_name, dis.disease_name, tu.uniprot_xref FROM read_parquet('database/ttd/drug_master_table_ttd_v2.parquet') dm JOIN read_parquet('database/ttd/P1-07-Drug-TargetMapping_v2.parquet') dta USING(drug_id) JOIN read_parquet('database/ttd/target_master_table_ttd_v2.parquet') tm USING(target_id) JOIN read_parquet('database/ttd/P1-06-Target_disease_v2.parquet') tda USING(target_id) JOIN read_parquet('database/ttd/disease_master_table_ttd_v2.parquet') dis USING(disease_id) JOIN read_parquet('database/ttd/target_uniprot_association_ttd_v2.parquet') tu USING(target_id) WHERE dm.drug_name ILIKE 'osimertinib' AND tm.gene_symbol ILIKE 'EGFR' AND tm.target_name = 'EGFR T790M mutant (EGFR T790M)' AND dis.disease_name ILIKE 'Non-small-cell lung cancer' ORDER BY 1, 2, 3, 4, 5",
+      "case_group": "ambiguous_path",
+      "target_column_key": [
+        "drug_master_table_ttd.drug_name",
+        "target_master_table_ttd.gene_symbol",
+        "target_master_table_ttd.target_name",
+        "disease_master_table_ttd.disease_name",
+        "target_uniprot_association_ttd.uniprot_xref"
+      ],
+      "expert_join_edges": [
+        "drug_master_table_ttd.drug_id ↔ drug_target_association_ttd.drug_id",
+        "drug_target_association_ttd.target_id ↔ target_master_table_ttd.target_id",
+        "target_master_table_ttd.target_id ↔ target_disease_association_ttd.target_id",
+        "target_disease_association_ttd.disease_id ↔ disease_master_table_ttd.disease_id",
+        "target_master_table_ttd.target_id ↔ target_uniprot_association_ttd.target_id"
+      ],
+      "gold_result": [
+        {
+          "drug_name": "Osimertinib",
+          "gene_symbol": "EGFR",
+          "target_name": "EGFR T790M mutant (EGFR T790M)",
+          "disease_name": "Non-small-cell lung cancer",
+          "uniprot_xref": "EGFR_HUMAN"
+        }
+      ]
+    }
+  ],
+  "planner_route_observation": {
+    "planner": "BioChirp /schema_planner (non-LLM graph planner)",
+    "endpoint": "http://localhost:8020/schema_planner?database=ttd",
+    "source_run": "evaluation/schema_kg_20q_bench/ttd_biochirp_planner_route_observation_20261103.json",
+    "run_date": "2026-11-03",
+    "question_file": "evaluation/schema_kg_20q_bench/questions/ttd_minimal_gold_fresh_25q_biologist_checked_20261103.json",
+    "question_set_sha256": "2d1005e1b904141d33af0b4315c4e8cff3ea526694d758625caf2d07e5028bc4",
+    "inputs": {
+      "requested_columns": "Each target_column_key entry was supplied as ttd.<table.column> in kept.",
+      "filters": "Values were extracted from the gold_sql WHERE clause and passed as parsed_value; output columns not also filtered were marked requested.",
+      "mapper_or_llm_used": false
+    },
+    "repeat_count_per_question": 12,
+    "summary": {
+      "gold_sql_reproducible_count": 25,
+      "key_equivalent_match_count": 20,
+      "standard_key_equivalent_match_count": 20,
+      "standard_question_count": 20,
+      "ambiguous_key_equivalent_match_count": 0,
+      "ambiguous_question_count": 5,
+      "ambiguous_questions_all_observed_routes_zero_rows_count": 5,
+      "questions_with_identical_route_across_all_repeats": 23,
+      "questions_with_multiple_observed_routes": 2
+    },
+    "note": "The report stores each request and first response, the normalized route signature from all 12 calls per question, every distinct route variant, key-equivalence scores, and executed SQL/results for each variant. The six per-question observed_biochirp_join_edges fields are diagnostic examples, not a gold route or an allowlist. This saved observation refers to the original wording in evaluation/schema_kg_20q_bench/questions/ttd_minimal_gold_fresh_25q_biologist_checked_20261103.json; it is retained as historical context and is not a planner or LLM evaluation of this reworded copy.",
+    "status": "historical_baseline_for_original_wording"
+  },
+  "question_text_revision": {
+    "version": "v5_open_ended_gold_aligned_2026-11-03",
+    "base_file": "evaluation/schema_kg_20q_bench/questions/ttd_minimal_gold_fresh_25q_biologist_checked_20261103.json",
+    "note": "Question-text overlay only. IDs, expert join plans, target columns, gold SQL, filters, and gold result records are carried over unchanged. Planner and LLM review should be rerun for this wording. ttd_updated_07 deliberately retains the Approved restriction. Q04 was subsequently clarified to ask whether the association exists and request the recorded target and pathway names; its filters, columns, expert joins, gold SQL, and gold result are unchanged."
+  },
+  "saved_planner_inputs": {
+    "endpoint": "http://localhost:8020/schema_planner?database=ttd",
+    "parsed_value_by_question": {
+      "ttd_updated_01": {
+        "drug_name": [
+          "imatinib"
+        ],
+        "formula": "requested"
+      },
+      "ttd_updated_02": {
+        "target_name": [
+          "Serine/threonine-protein kinase B-raf (BRAF)"
+        ],
+        "gene_symbol": "requested",
+        "uniprot_xref": "requested"
+      },
+      "ttd_updated_03": {
+        "disease_name": [
+          "Breast cancer"
+        ],
+        "biomarker_name": [
+          "%HER2%"
+        ]
+      },
+      "ttd_updated_04": {
+        "target_name": [
+          "Serine/threonine-protein kinase B-raf (BRAF)"
+        ],
+        "pathway_name": [
+          "MAPK signaling pathway"
+        ]
+      },
+      "ttd_updated_05": {
+        "drug_name": [
+          "vemurafenib"
+        ],
+        "cas_number": "requested"
+      },
+      "ttd_updated_06": {
+        "drug_name": [
+          "gefitinib"
+        ],
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "drug_mechanism_of_action_on_target": "requested"
+      },
+      "ttd_updated_07": {
+        "synonym": [
+          "CGP-57148"
+        ]
+      },
+      "ttd_updated_08": {
+        "target_name": [
+          "%EGFR T790M mutant%"
+        ],
+        "target_type": "requested",
+        "uniprot_xref": "requested"
+      },
+      "ttd_updated_09": {
+        "drug_name": [
+          "imatinib"
+        ],
+        "chebi_xref": "requested",
+        "formula": "requested"
+      },
+      "ttd_updated_10": {
+        "target_name": [
+          "Serine/threonine-protein kinase B-raf (BRAF)"
+        ],
+        "disease_name": [
+          "Melanoma"
+        ],
+        "gene_symbol": "requested"
+      },
+      "ttd_updated_11": {
+        "drug_name": [
+          "imatinib"
+        ],
+        "gene_symbol": [
+          "BCR-ABL1"
+        ],
+        "drug_mechanism_of_action_on_target": "requested",
+        "uniprot_xref": "requested"
+      },
+      "ttd_updated_12": {
+        "drug_name": [
+          "imatinib"
+        ],
+        "disease_name": [
+          "Chronic myeloid leukaemia"
+        ],
+        "formula": "requested",
+        "approval_status": "requested"
+      },
+      "ttd_updated_13": {
+        "target_name": [
+          "EGFR Exon20ins mutant (EGFR Exon20ins)"
+        ],
+        "gene_symbol": "requested",
+        "target_type": "requested",
+        "uniprot_xref": "requested"
+      },
+      "ttd_updated_14": {
+        "drug_name": [
+          "vemurafenib"
+        ],
+        "gene_symbol": [
+          "BRAF"
+        ],
+        "target_name": [
+          "Serine/threonine-protein kinase B-raf (BRAF)"
+        ],
+        "drug_mechanism_of_action_on_target": "requested"
+      },
+      "ttd_updated_15": {
+        "drug_name": [
+          "erlotinib"
+        ],
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "drug_mechanism_of_action_on_target": "requested",
+        "target_name": "requested"
+      },
+      "ttd_updated_16": {
+        "drug_name": [
+          "erlotinib"
+        ],
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "disease_name": [
+          "Non-small-cell lung cancer"
+        ],
+        "approval_status": "requested",
+        "drug_mechanism_of_action_on_target": "requested"
+      },
+      "ttd_updated_17": {
+        "drug_name": [
+          "vemurafenib"
+        ],
+        "gene_symbol": [
+          "BRAF"
+        ],
+        "pathway_name": [
+          "MAPK signaling pathway"
+        ],
+        "target_name": [
+          "Serine/threonine-protein kinase B-raf (BRAF)"
+        ],
+        "drug_mechanism_of_action_on_target": "requested"
+      },
+      "ttd_updated_18": {
+        "drug_name": [
+          "imatinib"
+        ],
+        "disease_name": [
+          "Chronic myeloid leukaemia"
+        ],
+        "cas_number": "requested",
+        "formula": "requested",
+        "approval_status": "requested"
+      },
+      "ttd_updated_19": {
+        "gene_symbol": [
+          "BRAF"
+        ],
+        "target_name": [
+          "Serine/threonine-protein kinase B-raf (BRAF)"
+        ],
+        "pathway_name": [
+          "MAPK signaling pathway"
+        ],
+        "target_type": "requested",
+        "uniprot_xref": "requested"
+      },
+      "ttd_updated_20": {
+        "drug_name": [
+          "alpelisib"
+        ],
+        "gene_symbol": [
+          "PIK3CA"
+        ],
+        "disease_name": [
+          "Breast cancer"
+        ],
+        "approval_status": "requested",
+        "drug_mechanism_of_action_on_target": "requested"
+      },
+      "ttd_amb_min_01": {
+        "drug_name": [
+          "lapatinib"
+        ],
+        "gene_symbol": [
+          "ERBB2"
+        ],
+        "target_name": [
+          "Erbb2 tyrosine kinase receptor (HER2)"
+        ],
+        "disease_name": [
+          "Breast cancer"
+        ],
+        "uniprot_xref": "requested"
+      },
+      "ttd_amb_min_02": {
+        "drug_name": [
+          "erlotinib"
+        ],
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "disease_name": [
+          "Non-small-cell lung cancer"
+        ],
+        "target_name": "requested",
+        "uniprot_xref": "requested"
+      },
+      "ttd_amb_min_03": {
+        "drug_name": [
+          "erlotinib"
+        ],
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "disease_name": [
+          "Non-small-cell lung cancer"
+        ],
+        "pathway_name": [
+          "MAPK signaling pathway"
+        ],
+        "target_name": "requested"
+      },
+      "ttd_amb_min_04": {
+        "gene_symbol": [
+          "GRB2"
+        ],
+        "disease_name": [
+          "Chronic myeloid leukaemia"
+        ],
+        "drug_name": "requested",
+        "drug_mechanism_of_action_on_target": "requested",
+        "target_name": "requested"
+      },
+      "ttd_amb_min_05": {
+        "drug_name": [
+          "osimertinib"
+        ],
+        "gene_symbol": [
+          "EGFR"
+        ],
+        "target_name": [
+          "EGFR T790M mutant (EGFR T790M)"
+        ],
+        "disease_name": [
+          "Non-small-cell lung cancer"
+        ],
+        "uniprot_xref": "requested"
+      }
+    }
+  }
+}
